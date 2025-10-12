@@ -86,7 +86,7 @@ export default function Chips() {
 
       {chipStrategy.isPending && <LoadingScreen message="Analyzing chip strategy..." />}
 
-      {chipStrategy.data && (
+      {chipStrategy.data && Array.isArray(chipStrategy.data) && (
         <div className="grid gap-6">
           {chipStrategy.data.map((chip, i) => {
             const Icon = chipIcons[chip.chip_name] || Shield;
@@ -167,6 +167,13 @@ export default function Chips() {
             );
           })}
         </div>
+      )}
+
+      {chipStrategy.data && !Array.isArray(chipStrategy.data) && (
+        <ErrorState 
+          message={(chipStrategy.data as any).error || "Failed to get chip strategy"} 
+          onRetry={() => handleGetStrategy()} 
+        />
       )}
     </div>
   );

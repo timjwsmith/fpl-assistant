@@ -18,7 +18,7 @@ export function usePredictPlayerPoints() {
       player: FPLPlayer;
       fixtures: FPLFixture[];
     }): Promise<Prediction> => {
-      return apiRequest("POST", "/api/ai/predict-player", { player, fixtures });
+      return apiRequest<Prediction>("POST", "/api/ai/predict-player", { player, fixtures });
     },
   });
 }
@@ -32,7 +32,7 @@ export function useTransferRecommendations() {
       currentPlayers: FPLPlayer[];
       budget: number;
     }): Promise<TransferRecommendation[]> => {
-      return apiRequest("POST", "/api/ai/transfer-recommendations", {
+      return apiRequest<TransferRecommendation[]>("POST", "/api/ai/transfer-recommendations", {
         currentPlayers,
         budget,
       });
@@ -47,7 +47,7 @@ export function useCaptainRecommendations() {
     }: {
       playerIds: number[];
     }): Promise<CaptainRecommendation[]> => {
-      return apiRequest("POST", "/api/ai/captain-recommendations", { playerIds });
+      return apiRequest<CaptainRecommendation[]>("POST", "/api/ai/captain-recommendations", { playerIds });
     },
   });
 }
@@ -61,7 +61,7 @@ export function useChipStrategy() {
       currentGameweek: number;
       remainingChips: string[];
     }): Promise<ChipStrategy[]> => {
-      return apiRequest("POST", "/api/ai/chip-strategy", {
+      return apiRequest<ChipStrategy[]>("POST", "/api/ai/chip-strategy", {
         currentGameweek,
         remainingChips,
       });
@@ -78,7 +78,7 @@ export function useAnalyzeTeam() {
       players: FPLPlayer[];
       formation: string;
     }): Promise<{ insights: string[]; predicted_points: number; confidence: number }> => {
-      return apiRequest("POST", "/api/ai/analyze-team", { players, formation });
+      return apiRequest<{ insights: string[]; predicted_points: number; confidence: number }>("POST", "/api/ai/analyze-team", { players, formation });
     },
   });
 }

@@ -97,7 +97,7 @@ export default function Chips() {
         <div className="grid gap-6">
           {chipStrategy.data.map((chip, i) => {
             const Icon = chipIcons[chip.chip_name] || Shield;
-            const chipName = chip.chip_name === 'banchboost' ? 'Bench Boost' : 
+            const chipName = chip.chip_name === 'benchboost' ? 'Bench Boost' : 
                            chip.chip_name === 'triplecaptain' ? 'Triple Captain' :
                            chip.chip_name === 'freehit' ? 'Free Hit' : 'Wildcard';
             

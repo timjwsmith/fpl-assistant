@@ -187,7 +187,7 @@ export type CaptainRecommendation = z.infer<typeof captainRecommendationSchema>;
 
 // Chip Strategy Data
 export const chipStrategySchema = z.object({
-  chip_name: z.enum(['wildcard', 'freehit', 'banchboost', 'triplecaptain']),
+  chip_name: z.enum(['wildcard', 'freehit', 'benchboost', 'triplecaptain']),
   recommended_gameweek: z.number(),
   reasoning: z.string(),
   expected_value: z.number(),

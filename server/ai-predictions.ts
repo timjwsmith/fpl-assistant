@@ -61,7 +61,13 @@ Based on form, fixtures, and underlying stats, provide a prediction in JSON form
       max_completion_tokens: 500,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
+    let result;
+    try {
+      result = JSON.parse(response.choices[0].message.content || "{}");
+    } catch (error) {
+      console.error("Failed to parse AI response for player points prediction:", error);
+      result = {};
+    }
 
     const prediction: Prediction = {
       player_id: context.player.id,
@@ -133,7 +139,13 @@ Provide 3 transfer recommendations in JSON format:
       max_completion_tokens: 1000,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
+    let result;
+    try {
+      result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
+    } catch (error) {
+      console.error("Failed to parse AI response for transfer recommendations:", error);
+      result = { recommendations: [] };
+    }
     const recommendations = result.recommendations || [];
 
     if (userId && gameweek && recommendations.length > 0) {
@@ -212,7 +224,13 @@ Provide 3 captain recommendations in JSON format:
       max_completion_tokens: 1000,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
+    let result;
+    try {
+      result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
+    } catch (error) {
+      console.error("Failed to parse AI response for captain recommendations:", error);
+      result = { recommendations: [] };
+    }
     const recommendations = result.recommendations || [];
 
     if (userId && gameweek && recommendations.length > 0) {
@@ -261,7 +279,7 @@ Provide chip strategy in JSON format:
 {
   "strategies": [
     {
-      "chip_name": "wildcard|freehit|banchboost|triplecaptain",
+      "chip_name": "wildcard|freehit|benchboost|triplecaptain",
       "recommended_gameweek": <number>,
       "reasoning": "<explanation>",
       "expected_value": <number>,
@@ -278,7 +296,13 @@ Provide chip strategy in JSON format:
       max_completion_tokens: 1000,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{ \"strategies\": [] }");
+    let result;
+    try {
+      result = JSON.parse(response.choices[0].message.content || "{ \"strategies\": [] }");
+    } catch (error) {
+      console.error("Failed to parse AI response for chip strategy:", error);
+      result = { strategies: [] };
+    }
     return result.strategies || [];
   }
 
@@ -310,7 +334,13 @@ Provide analysis in JSON format:
       max_completion_tokens: 500,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
+    let result;
+    try {
+      result = JSON.parse(response.choices[0].message.content || "{}");
+    } catch (error) {
+      console.error("Failed to parse AI response for team composition analysis:", error);
+      result = {};
+    }
     return {
       insights: result.insights || [],
       predicted_points: result.predicted_points || 0,

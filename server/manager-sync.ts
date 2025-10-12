@@ -1,6 +1,6 @@
 import { fplApi } from "./fpl-api";
 import { storage } from "./storage";
-import type { InsertUserTeam } from "@shared/schema";
+import type { InsertUserTeam, FPLPick, FPLPlayer } from "@shared/schema";
 
 interface SyncResult {
   success: boolean;
@@ -132,7 +132,7 @@ export class ManagerSyncService {
     }
   }
 
-  private calculateFormation(picks: any[], allPlayers: any[]): string {
+  private calculateFormation(picks: FPLPick[], allPlayers: FPLPlayer[]): string {
     const startingPicks = picks.filter(p => p.position <= 11);
     
     const positionCounts = {

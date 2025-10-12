@@ -121,11 +121,7 @@ export default function TeamModeller() {
         transfersMade: 0,
       };
       
-      return apiRequest("/api/teams", {
-        method: "POST",
-        body: JSON.stringify(teamData),
-        headers: { "Content-Type": "application/json" },
-      });
+      return apiRequest<UserTeam>("POST", "/api/teams", teamData);
     },
     onSuccess: (data) => {
       setSavedTeam(data);
@@ -152,11 +148,11 @@ export default function TeamModeller() {
 
       const currentPlayerIds = slots
         .map(s => s.player?.id)
-        .filter(Boolean)
+        .filter((id): id is number => typeof id === 'number')
         .sort();
       const savedPlayerIds = savedTeamData.players
         .map((p: any) => p.player_id)
-        .filter(Boolean)
+        .filter((id): id is number => typeof id === 'number')
         .sort();
 
       const playersOut = savedPlayerIds.filter((id: number) => !currentPlayerIds.includes(id));
@@ -173,16 +169,12 @@ export default function TeamModeller() {
         
         const transferCost = idx < freeTransfers ? 0 : 4;
         
-        return apiRequest("/api/transfers", {
-          method: "POST",
-          body: JSON.stringify({
-            userId,
-            gameweek: currentGameweek,
-            playerInId,
-            playerOutId,
-            cost: transferCost,
-          }),
-          headers: { "Content-Type": "application/json" },
+        return apiRequest("POST", "/api/transfers", {
+          userId,
+          gameweek: currentGameweek,
+          playerInId,
+          playerOutId,
+          cost: transferCost,
         });
       }).filter(Boolean);
 
@@ -204,11 +196,7 @@ export default function TeamModeller() {
         transfersMade: transferCount,
       };
       
-      return apiRequest("/api/teams", {
-        method: "POST",
-        body: JSON.stringify(teamData),
-        headers: { "Content-Type": "application/json" },
-      });
+      return apiRequest<UserTeam>("POST", "/api/teams", teamData);
     },
     onSuccess: (data) => {
       setSavedTeam(data);
@@ -237,11 +225,11 @@ export default function TeamModeller() {
 
     const currentPlayerIds = slots
       .map(s => s.player?.id)
-      .filter(Boolean)
+      .filter((id): id is number => typeof id === 'number')
       .sort();
     const savedPlayerIds = savedTeamData.players
       .map((p: any) => p.player_id)
-      .filter(Boolean)
+      .filter((id): id is number => typeof id === 'number')
       .sort();
 
     const playersOut = savedPlayerIds.filter((id: number) => !currentPlayerIds.includes(id));

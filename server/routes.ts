@@ -217,12 +217,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User Settings Endpoints
   app.get("/api/settings/:userId", async (req, res) => {
     try {
-      const settings = await storage.getUserSettings(req.params.userId);
+      const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId parameter" });
+      }
+      
+      const settings = await storage.getUserSettings(userId);
       if (!settings) {
         return res.json({
           manager_id: null,
           risk_tolerance: "balanced",
+          preferred_formation: "4-4-2",
           auto_captain: false,
+          notifications_enabled: false,
         });
       }
       res.json(settings);
@@ -234,8 +241,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/settings/:userId", async (req, res) => {
     try {
+      const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId parameter" });
+      }
+      
       const validatedSettings = userSettingsSchema.parse(req.body);
-      const settings = await storage.saveUserSettings(req.params.userId, validatedSettings);
+      const settings = await storage.saveUserSettings(userId, validatedSettings);
       res.json(settings);
     } catch (error) {
       if (error instanceof z.ZodError) {

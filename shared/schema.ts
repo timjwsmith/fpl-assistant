@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { pgTable, text, integer, jsonb, timestamp, boolean, index, serial, uniqueIndex } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
+import { createInsertSchema } from "drizzle-zod";
 
 // FPL Player Data (from bootstrap-static API)
 export const fplPlayerSchema = z.object({
@@ -225,6 +228,171 @@ export const userSettingsSchema = z.object({
   preferred_formation: z.string().optional(),
   risk_tolerance: z.enum(['conservative', 'balanced', 'aggressive']).default('balanced'),
   auto_captain: z.boolean().default(false),
+  notifications_enabled: z.boolean().optional().default(false),
 });
 
 export type UserSettings = z.infer<typeof userSettingsSchema>;
+
+// ==================== DRIZZLE DATABASE TABLES ====================
+
+// Users Table
+export const users = pgTable('users', {
+  id: serial('id').primaryKey(),
+  fplManagerId: integer('fpl_manager_id').unique().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  fplManagerIdIdx: index('fpl_manager_id_idx').on(table.fplManagerId),
+}));
+
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type User = typeof users.$inferSelect;
+
+// User Settings Table
+export const userSettingsTable = pgTable('user_settings', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id).notNull(),
+  managerId: integer('manager_id'),
+  riskTolerance: text('risk_tolerance', { enum: ['conservative', 'balanced', 'aggressive'] }).default('balanced').notNull(),
+  preferredFormation: text('preferred_formation'),
+  autoCaptain: boolean('auto_captain').default(false).notNull(),
+  notificationsEnabled: boolean('notifications_enabled').default(false).notNull(),
+}, (table) => ({
+  userIdIdx: index('user_settings_user_id_idx').on(table.userId),
+}));
+
+export const insertUserSettingsTableSchema = createInsertSchema(userSettingsTable).omit({ id: true });
+export type InsertUserSettingsTable = z.infer<typeof insertUserSettingsTableSchema>;
+export type UserSettingsTable = typeof userSettingsTable.$inferSelect;
+
+// User Teams Table
+export const userTeams = pgTable('user_teams', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id).notNull(),
+  gameweek: integer('gameweek').notNull(),
+  players: jsonb('players').notNull().$type<Array<{
+    player_id: number | null;
+    position: number;
+    is_captain: boolean;
+    is_vice_captain: boolean;
+  }>>(),
+  formation: text('formation').notNull(),
+  teamValue: integer('team_value').notNull(),
+  bank: integer('bank').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index('user_teams_user_id_idx').on(table.userId),
+  gameweekIdx: index('user_teams_gameweek_idx').on(table.gameweek),
+  userGameweekIdx: index('user_teams_user_gameweek_idx').on(table.userId, table.gameweek),
+  userGameweekUnique: uniqueIndex('user_teams_user_gameweek_unique').on(table.userId, table.gameweek),
+}));
+
+export const insertUserTeamSchema = createInsertSchema(userTeams).omit({ id: true, createdAt: true });
+export type InsertUserTeam = z.infer<typeof insertUserTeamSchema>;
+export type UserTeam = typeof userTeams.$inferSelect;
+
+// Predictions Table
+export const predictions = pgTable('predictions', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id).notNull(),
+  gameweek: integer('gameweek').notNull(),
+  playerId: integer('player_id').notNull(),
+  predictedPoints: integer('predicted_points').notNull(),
+  actualPoints: integer('actual_points'),
+  confidence: integer('confidence').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index('predictions_user_id_idx').on(table.userId),
+  gameweekIdx: index('predictions_gameweek_idx').on(table.gameweek),
+  playerIdIdx: index('predictions_player_id_idx').on(table.playerId),
+  userGameweekIdx: index('predictions_user_gameweek_idx').on(table.userId, table.gameweek),
+  userGameweekPlayerIdx: uniqueIndex('predictions_user_gameweek_player_idx').on(table.userId, table.gameweek, table.playerId),
+}));
+
+export const insertPredictionSchema = createInsertSchema(predictions).omit({ id: true, createdAt: true });
+export type InsertPrediction = z.infer<typeof insertPredictionSchema>;
+export type PredictionDB = typeof predictions.$inferSelect;
+
+// Transfers Table
+export const transfers = pgTable('transfers', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id).notNull(),
+  gameweek: integer('gameweek').notNull(),
+  playerInId: integer('player_in_id').notNull(),
+  playerOutId: integer('player_out_id').notNull(),
+  cost: integer('cost').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index('transfers_user_id_idx').on(table.userId),
+  gameweekIdx: index('transfers_gameweek_idx').on(table.gameweek),
+  userGameweekIdx: index('transfers_user_gameweek_idx').on(table.userId, table.gameweek),
+}));
+
+export const insertTransferSchema = createInsertSchema(transfers).omit({ id: true, createdAt: true });
+export type InsertTransfer = z.infer<typeof insertTransferSchema>;
+export type Transfer = typeof transfers.$inferSelect;
+
+// Chips Used Table
+export const chipsUsed = pgTable('chips_used', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id).notNull(),
+  chipType: text('chip_type', { enum: ['wildcard', 'freehit', 'benchboost', 'triplecaptain'] }).notNull(),
+  gameweekUsed: integer('gameweek_used').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index('chips_used_user_id_idx').on(table.userId),
+  gameweekIdx: index('chips_used_gameweek_idx').on(table.gameweekUsed),
+  userChipGameweekUnique: uniqueIndex('chips_used_user_chip_gameweek_unique').on(table.userId, table.chipType, table.gameweekUsed),
+}));
+
+export const insertChipUsedSchema = createInsertSchema(chipsUsed).omit({ id: true, createdAt: true });
+export type InsertChipUsed = z.infer<typeof insertChipUsedSchema>;
+export type ChipUsed = typeof chipsUsed.$inferSelect;
+
+// ==================== DRIZZLE RELATIONS ====================
+
+export const usersRelations = relations(users, ({ many, one }) => ({
+  teams: many(userTeams),
+  predictions: many(predictions),
+  transfers: many(transfers),
+  chipsUsed: many(chipsUsed),
+  settings: one(userSettingsTable, {
+    fields: [users.id],
+    references: [userSettingsTable.userId],
+  }),
+}));
+
+export const userSettingsRelations = relations(userSettingsTable, ({ one }) => ({
+  user: one(users, {
+    fields: [userSettingsTable.userId],
+    references: [users.id],
+  }),
+}));
+
+export const userTeamsRelations = relations(userTeams, ({ one }) => ({
+  user: one(users, {
+    fields: [userTeams.userId],
+    references: [users.id],
+  }),
+}));
+
+export const predictionsRelations = relations(predictions, ({ one }) => ({
+  user: one(users, {
+    fields: [predictions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const transfersRelations = relations(transfers, ({ one }) => ({
+  user: one(users, {
+    fields: [transfers.userId],
+    references: [users.id],
+  }),
+}));
+
+export const chipsUsedRelations = relations(chipsUsed, ({ one }) => ({
+  user: one(users, {
+    fields: [chipsUsed.userId],
+    references: [users.id],
+  }),
+}));

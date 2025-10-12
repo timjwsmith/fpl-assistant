@@ -67,6 +67,7 @@ export default function Settings() {
       risk_tolerance: riskTolerance,
       preferred_formation: formation,
       auto_captain: false,
+      notifications_enabled: false,
     };
     saveSettings.mutate(newSettings);
   };

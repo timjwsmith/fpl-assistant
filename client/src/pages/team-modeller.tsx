@@ -4,7 +4,7 @@ import { PitchVisualization } from "@/components/pitch-visualization";
 import { PlayerSearchPanel } from "@/components/player-search-panel";
 import { PredictionPanel } from "@/components/prediction-panel";
 import { Badge } from "@/components/ui/badge";
-import { Save, Undo, Shield } from "lucide-react";
+import { Save, Undo, Shield, ArrowRightLeft } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -12,12 +12,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useFPLPlayers, useFPLTeams, useFPLPositions } from "@/hooks/use-fpl-data";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useFPLPlayers, useFPLTeams, useFPLPositions, useFPLGameweeks } from "@/hooks/use-fpl-data";
 import { useAnalyzeTeam } from "@/hooks/use-ai-predictions";
 import { LoadingScreen } from "@/components/loading-screen";
 import { ErrorState } from "@/components/error-state";
-import type { FPLPlayer } from "@shared/schema";
+import type { FPLPlayer, UserSettings, UserTeam, Transfer } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface TeamSlot {
   player: FPLPlayer | null;
@@ -28,6 +40,7 @@ interface TeamSlot {
 
 export default function TeamModeller() {
   const { toast } = useToast();
+  const userId = 1; // Hardcoded for now
   const [formation, setFormation] = useState("4-4-2");
   const [slots, setSlots] = useState<TeamSlot[]>(
     Array.from({ length: 15 }, (_, i) => ({
@@ -38,10 +51,46 @@ export default function TeamModeller() {
     }))
   );
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const [savedTeam, setSavedTeam] = useState<UserTeam | null>(null);
 
   const { data: players, isLoading: loadingPlayers, error: playersError, refetch: refetchPlayers } = useFPLPlayers();
   const { data: teams, isLoading: loadingTeams, error: teamsError, refetch: refetchTeams } = useFPLTeams();
   const { data: positions, isLoading: loadingPositions, error: positionsError, refetch: refetchPositions } = useFPLPositions();
+  const { data: gameweeks, isLoading: loadingGameweeks } = useFPLGameweeks();
+  
+  const { data: settings } = useQuery<UserSettings>({
+    queryKey: ["/api/settings", userId],
+    staleTime: 60 * 1000,
+  });
+
+  const { data: managerStatus } = useQuery<{
+    success: boolean;
+    teamValue: number;
+    freeTransfers: number;
+    playerCount: number;
+    captainId: number | null;
+    viceCaptainId: number | null;
+    gameweek: number;
+    formation: string;
+    lastSyncTime: string;
+  }>({
+    queryKey: ["/api/manager", settings?.manager_id, "status"],
+    enabled: !!settings?.manager_id,
+    retry: false,
+  });
+
+  const currentGameweek = gameweeks?.find((gw: any) => gw.is_current)?.id || 1;
+  
+  const { data: savedTeamData } = useQuery<UserTeam>({
+    queryKey: ["/api/teams", userId, { gameweek: currentGameweek }],
+    enabled: !!currentGameweek,
+  });
+
+  const { data: transfers } = useQuery<Transfer[]>({
+    queryKey: ["/api/transfers", userId, { gameweek: currentGameweek }],
+    enabled: !!currentGameweek,
+  });
   
   const analyzeTeam = useAnalyzeTeam();
 
@@ -54,6 +103,158 @@ export default function TeamModeller() {
   const teamValue = selectedPlayers.reduce((sum, p) => sum + p.now_cost / 10, 0);
   const budgetRemaining = 100.0 - teamValue;
   const playingCount = slots.slice(0, 11).filter(s => s.player !== null).length;
+
+  const saveTeamMutation = useMutation({
+    mutationFn: async () => {
+      const teamData = {
+        userId,
+        gameweek: currentGameweek,
+        players: slots.map(s => ({
+          player_id: s.player?.id || null,
+          position: s.position,
+          is_captain: s.isCaptain,
+          is_vice_captain: s.isViceCaptain,
+        })),
+        formation,
+        teamValue: Math.round(teamValue * 10),
+        bank: Math.round(budgetRemaining * 10),
+        transfersMade: 0,
+      };
+      
+      return apiRequest("/api/teams", {
+        method: "POST",
+        body: JSON.stringify(teamData),
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    onSuccess: (data) => {
+      setSavedTeam(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/teams", userId] });
+      toast({
+        title: "Team saved successfully",
+        description: "Your team has been saved for gameweek " + currentGameweek,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to save team",
+        description: error.message || "An error occurred while saving your team",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const applyTransfersMutation = useMutation({
+    mutationFn: async () => {
+      if (!savedTeamData) {
+        throw new Error("No saved team found. Please save your team first.");
+      }
+
+      const currentPlayerIds = slots
+        .map(s => s.player?.id)
+        .filter(Boolean)
+        .sort();
+      const savedPlayerIds = savedTeamData.players
+        .map((p: any) => p.player_id)
+        .filter(Boolean)
+        .sort();
+
+      const playersOut = savedPlayerIds.filter((id: number) => !currentPlayerIds.includes(id));
+      const playersIn = currentPlayerIds.filter((id: number) => !savedPlayerIds.includes(id));
+
+      const transferCount = Math.max(playersIn.length, playersOut.length);
+      const freeTransfers = managerStatus?.freeTransfers || 1;
+
+      // Save each transfer with correct individual cost
+      // First freeTransfers transfers are free (cost=0), remaining cost 4 points each
+      const transferPromises = playersIn.map((playerInId, idx) => {
+        const playerOutId = playersOut[idx];
+        if (!playerInId || !playerOutId) return null;
+        
+        const transferCost = idx < freeTransfers ? 0 : 4;
+        
+        return apiRequest("/api/transfers", {
+          method: "POST",
+          body: JSON.stringify({
+            userId,
+            gameweek: currentGameweek,
+            playerInId,
+            playerOutId,
+            cost: transferCost,
+          }),
+          headers: { "Content-Type": "application/json" },
+        });
+      }).filter(Boolean);
+
+      await Promise.all(transferPromises);
+
+      // Update the team with new transfersMade count
+      const teamData = {
+        userId,
+        gameweek: currentGameweek,
+        players: slots.map(s => ({
+          player_id: s.player?.id || null,
+          position: s.position,
+          is_captain: s.isCaptain,
+          is_vice_captain: s.isViceCaptain,
+        })),
+        formation,
+        teamValue: Math.round(teamValue * 10),
+        bank: Math.round(budgetRemaining * 10),
+        transfersMade: transferCount,
+      };
+      
+      return apiRequest("/api/teams", {
+        method: "POST",
+        body: JSON.stringify(teamData),
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    onSuccess: (data) => {
+      setSavedTeam(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/teams", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/transfers", userId] });
+      setShowTransferDialog(false);
+      toast({
+        title: "Transfers applied successfully",
+        description: "Your transfers have been saved",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to apply transfers",
+        description: error.message || "An error occurred while applying transfers",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Calculate transfer information
+  const calculateTransferInfo = () => {
+    if (!savedTeamData) {
+      return { transferCount: 0, transferCost: 0, freeTransfers: 1 };
+    }
+
+    const currentPlayerIds = slots
+      .map(s => s.player?.id)
+      .filter(Boolean)
+      .sort();
+    const savedPlayerIds = savedTeamData.players
+      .map((p: any) => p.player_id)
+      .filter(Boolean)
+      .sort();
+
+    const playersOut = savedPlayerIds.filter((id: number) => !currentPlayerIds.includes(id));
+    const playersIn = currentPlayerIds.filter((id: number) => !savedPlayerIds.includes(id));
+
+    const transferCount = Math.max(playersIn.length, playersOut.length);
+    const freeTransfers = managerStatus?.freeTransfers || 1;
+    const transferCost = Math.max(0, transferCount - freeTransfers) * 4;
+
+    return { transferCount, transferCost, freeTransfers };
+  };
+
+  const transferInfo = calculateTransferInfo();
 
   useEffect(() => {
     if (timeoutRef.current) {
@@ -74,6 +275,25 @@ export default function TeamModeller() {
       }
     };
   }, [slots, formation, analyzeTeam]);
+
+  // Load saved team when data is available
+  useEffect(() => {
+    if (savedTeamData && players) {
+      const playerMap = new Map((players as FPLPlayer[]).map(p => [p.id, p]));
+      
+      const loadedSlots = savedTeamData.players.map((slotData: any) => ({
+        player: slotData.player_id ? playerMap.get(slotData.player_id) || null : null,
+        position: slotData.position,
+        isCaptain: slotData.is_captain,
+        isViceCaptain: slotData.is_vice_captain,
+      }));
+
+      if (loadedSlots.length === 15) {
+        setSlots(loadedSlots);
+        setSavedTeam(savedTeamData);
+      }
+    }
+  }, [savedTeamData, players]);
 
   const handlePlayerSwap = (fromPosition: number, toPosition: number) => {
     setSlots(prev => {
@@ -325,9 +545,25 @@ export default function TeamModeller() {
             <Undo className="h-4 w-4 mr-2" />
             Reset
           </Button>
-          <Button size="sm" data-testid="button-save-team" disabled>
+          {savedTeamData && transferInfo.transferCount > 0 && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setShowTransferDialog(true)} 
+              data-testid="button-apply-transfers"
+            >
+              <ArrowRightLeft className="h-4 w-4 mr-2" />
+              Apply Transfers ({transferInfo.transferCount})
+            </Button>
+          )}
+          <Button 
+            size="sm" 
+            onClick={() => saveTeamMutation.mutate()} 
+            disabled={playingCount < 11 || saveTeamMutation.isPending}
+            data-testid="button-save-team"
+          >
             <Save className="h-4 w-4 mr-2" />
-            Save Team
+            {saveTeamMutation.isPending ? "Saving..." : "Save Team"}
           </Button>
         </div>
       </div>
@@ -371,6 +607,33 @@ export default function TeamModeller() {
               </p>
             </div>
           </div>
+
+          {savedTeamData && transferInfo.transferCount > 0 && (
+            <div className="p-4 rounded-lg border bg-card">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold">Transfer Summary</h3>
+                <Badge variant={transferInfo.transferCost > 0 ? "destructive" : "secondary"}>
+                  {transferInfo.transferCost > 0 ? `-${transferInfo.transferCost} pts` : 'Free'}
+                </Badge>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Transfers made:</span>
+                  <span className="font-medium">{transferInfo.transferCount}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Free transfers:</span>
+                  <span className="font-medium">{transferInfo.freeTransfers}</span>
+                </div>
+                {transferInfo.transferCost > 0 && (
+                  <div className="flex justify-between pt-2 border-t">
+                    <span className="text-muted-foreground">Extra transfers:</span>
+                    <span className="font-medium">{transferInfo.transferCount - transferInfo.freeTransfers}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -397,6 +660,52 @@ export default function TeamModeller() {
           />
         </div>
       </div>
+
+      <AlertDialog open={showTransferDialog} onOpenChange={setShowTransferDialog}>
+        <AlertDialogContent data-testid="dialog-transfer-confirmation">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apply Transfers</AlertDialogTitle>
+            <AlertDialogDescription>
+              <div className="space-y-3 mt-2">
+                <p>You are about to apply {transferInfo.transferCount} transfer{transferInfo.transferCount > 1 ? 's' : ''}.</p>
+                <div className="p-3 rounded-lg border bg-muted/50">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Free transfers available:</span>
+                      <span className="font-semibold">{transferInfo.freeTransfers}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Transfers made:</span>
+                      <span className="font-semibold">{transferInfo.transferCount}</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-2">
+                      <span>Point deduction:</span>
+                      <span className="font-semibold text-destructive">
+                        {transferInfo.transferCost > 0 ? `-${transferInfo.transferCost}` : '0'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {transferInfo.transferCost > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    You will lose {transferInfo.transferCost} points for making {transferInfo.transferCount - transferInfo.freeTransfers} extra transfer{transferInfo.transferCount - transferInfo.freeTransfers > 1 ? 's' : ''}.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-transfers">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => applyTransfersMutation.mutate()} 
+              disabled={applyTransfersMutation.isPending}
+              data-testid="button-confirm-transfers"
+            >
+              {applyTransfersMutation.isPending ? "Applying..." : "Confirm Transfers"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

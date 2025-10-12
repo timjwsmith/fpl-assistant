@@ -7,6 +7,17 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 **Current Phase:** MVP Complete - Integration & Testing
 **Last Updated:** October 12, 2025
 
+## Recent Changes
+**October 12, 2025** - Team Save & Transfer Application Functionality
+- Added POST /api/teams and GET /api/teams/:userId endpoints for team persistence
+- Added POST /api/transfers and GET /api/transfers/:userId endpoints for transfer tracking
+- Implemented Save Team button in Team Modeller with database persistence
+- Implemented Apply Transfer button with cost calculation and confirmation dialog
+- Added transfer summary UI showing transfer count, free transfers, and point deductions
+- Integrated transfer cost calculation: max(0, transfers_made - free_transfers) * 4
+- Added automatic team loading from saved data when navigating to Team Modeller
+- Query invalidation after team save and transfer application for real-time updates
+
 ## Architecture
 
 ### Technology Stack
@@ -41,6 +52,9 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 - Real-time budget tracking
 - Live AI predictions for team composition
 - Player search with filters (position, team, price, form)
+- **Save Team**: Persist team to database for gameweek tracking
+- **Apply Transfers**: Track transfers with cost calculation and point deductions
+- Transfer summary showing free transfers and cost preview
 
 ### 3. Transfer Analyzer
 - AI-recommended transfers based on:
@@ -174,6 +188,10 @@ shared/
 ### User Data
 - `GET /api/settings/:userId` - User preferences
 - `POST /api/settings/:userId` - Save preferences
+- `POST /api/teams` - Save team for gameweek
+- `GET /api/teams/:userId?gameweek={n}` - Get team(s) for user
+- `POST /api/transfers` - Record transfer
+- `GET /api/transfers/:userId?gameweek={n}` - Get transfers for user
 
 ## Development
 

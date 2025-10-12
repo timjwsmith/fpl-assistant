@@ -311,6 +311,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Team Management Endpoints
+  app.post("/api/teams", async (req, res) => {
+    try {
+      const { userId, gameweek, players, formation, teamValue, bank, transfersMade } = req.body;
+      
+      if (!userId || !gameweek || !players || !formation || teamValue === undefined || bank === undefined) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const team = await storage.saveTeam({
+        userId,
+        gameweek,
+        players,
+        formation,
+        teamValue,
+        bank,
+        transfersMade: transfersMade || 0,
+        lastDeadlineBank: bank,
+      });
+
+      res.json(team);
+    } catch (error) {
+      console.error("Error saving team:", error);
+      res.status(500).json({ error: "Failed to save team" });
+    }
+  });
+
+  app.get("/api/teams/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+
+      const gameweek = req.query.gameweek ? parseInt(req.query.gameweek as string) : undefined;
+      
+      if (gameweek) {
+        const team = await storage.getTeam(userId, gameweek);
+        res.json(team || null);
+      } else {
+        const teams = await storage.getTeamsByUser(userId);
+        res.json(teams);
+      }
+    } catch (error) {
+      console.error("Error fetching teams:", error);
+      res.status(500).json({ error: "Failed to fetch teams" });
+    }
+  });
+
+  // Transfer Endpoints
+  app.post("/api/transfers", async (req, res) => {
+    try {
+      const { userId, gameweek, playerInId, playerOutId, cost } = req.body;
+      
+      if (!userId || !gameweek || !playerInId || !playerOutId || cost === undefined) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const transfer = await storage.saveTransfer({
+        userId,
+        gameweek,
+        playerInId,
+        playerOutId,
+        cost,
+      });
+
+      res.json(transfer);
+    } catch (error) {
+      console.error("Error saving transfer:", error);
+      res.status(500).json({ error: "Failed to save transfer" });
+    }
+  });
+
+  app.get("/api/transfers/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+
+      const gameweek = req.query.gameweek ? parseInt(req.query.gameweek as string) : undefined;
+      
+      if (gameweek) {
+        const transfers = await storage.getTransfers(userId, gameweek);
+        res.json(transfers);
+      } else {
+        const transfers = await storage.getTransfersByUser(userId);
+        res.json(transfers);
+      }
+    } catch (error) {
+      console.error("Error fetching transfers:", error);
+      res.status(500).json({ error: "Failed to fetch transfers" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { storage } from "./storage";
 import type {
   FPLPlayer,
   FPLFixture,
@@ -17,6 +18,8 @@ const openai = new OpenAI({
 interface PredictionContext {
   player: FPLPlayer;
   upcomingFixtures: FPLFixture[];
+  userId?: number;
+  gameweek?: number;
   teamStrength?: {
     attack_home: number;
     attack_away: number;
@@ -60,20 +63,39 @@ Based on form, fixtures, and underlying stats, provide a prediction in JSON form
 
     const result = JSON.parse(response.choices[0].message.content || "{}");
 
-    return {
+    const prediction: Prediction = {
       player_id: context.player.id,
       predicted_points: result.predicted_points || 0,
       confidence: result.confidence || 50,
       reasoning: result.reasoning || "Analysis based on current form and fixtures",
       fixtures_considered: result.fixtures_considered || context.upcomingFixtures.slice(0, 3).map(f => f.id),
     };
+
+    if (context.userId && context.gameweek) {
+      try {
+        await storage.upsertPrediction({
+          userId: context.userId,
+          gameweek: context.gameweek,
+          playerId: context.player.id,
+          predictedPoints: prediction.predicted_points,
+          actualPoints: null,
+          confidence: prediction.confidence,
+        });
+      } catch (error) {
+        console.error('Error saving prediction to database:', error);
+      }
+    }
+
+    return prediction;
   }
 
   async getTransferRecommendations(
     currentPlayers: FPLPlayer[],
     allPlayers: FPLPlayer[],
     fixtures: FPLFixture[],
-    budget: number
+    budget: number,
+    userId?: number,
+    gameweek?: number
   ): Promise<TransferRecommendation[]> {
     const prompt = `
 You are a Fantasy Premier League transfer expert. Analyze the current squad and suggest the top 3 transfer recommendations.
@@ -112,12 +134,44 @@ Provide 3 transfer recommendations in JSON format:
     });
 
     const result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
-    return result.recommendations || [];
+    const recommendations = result.recommendations || [];
+
+    if (userId && gameweek && recommendations.length > 0) {
+      for (const rec of recommendations) {
+        try {
+          const playerIn = allPlayers.find(p => p.id === rec.player_in_id);
+          if (playerIn) {
+            const upcomingFixtures = fixtures.filter(f => f.event && f.event >= gameweek).slice(0, 3);
+            const prediction = await this.predictPlayerPoints({
+              player: playerIn,
+              upcomingFixtures,
+              userId,
+              gameweek,
+            });
+            
+            await storage.upsertPrediction({
+              userId,
+              gameweek,
+              playerId: rec.player_in_id,
+              predictedPoints: prediction.predicted_points,
+              actualPoints: null,
+              confidence: rec.priority === 'high' ? 80 : rec.priority === 'medium' ? 60 : 40,
+            });
+          }
+        } catch (error) {
+          console.error(`Error saving transfer recommendation prediction for player ${rec.player_in_id}:`, error);
+        }
+      }
+    }
+
+    return recommendations;
   }
 
   async getCaptainRecommendations(
     players: FPLPlayer[],
-    fixtures: FPLFixture[]
+    fixtures: FPLFixture[],
+    userId?: number,
+    gameweek?: number
   ): Promise<CaptainRecommendation[]> {
     const topPlayers = players
       .filter(p => parseFloat(p.form) > 4 && p.total_points > 30)
@@ -159,7 +213,26 @@ Provide 3 captain recommendations in JSON format:
     });
 
     const result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
-    return result.recommendations || [];
+    const recommendations = result.recommendations || [];
+
+    if (userId && gameweek && recommendations.length > 0) {
+      for (const rec of recommendations) {
+        try {
+          await storage.upsertPrediction({
+            userId,
+            gameweek,
+            playerId: rec.player_id,
+            predictedPoints: Math.round(rec.expected_points),
+            actualPoints: null,
+            confidence: rec.confidence,
+          });
+        } catch (error) {
+          console.error(`Error saving captain recommendation prediction for player ${rec.player_id}:`, error);
+        }
+      }
+    }
+
+    return recommendations;
   }
 
   async getChipStrategy(

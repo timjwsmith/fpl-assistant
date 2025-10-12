@@ -41,9 +41,12 @@ export interface IStorage {
   getTeamsByUser(userId: number): Promise<UserTeam[]>;
   
   savePrediction(prediction: InsertPrediction): Promise<PredictionDB>;
+  upsertPrediction(prediction: InsertPrediction): Promise<void>;
   getPredictions(userId: number, gameweek: number): Promise<PredictionDB[]>;
   getPredictionsByUser(userId: number): Promise<PredictionDB[]>;
+  getPredictionsWithoutActuals(userId: number, gameweek: number): Promise<PredictionDB[]>;
   updatePredictionActualPoints(predictionId: number, actualPoints: number): Promise<void>;
+  updateActualPointsByPlayer(userId: number, gameweek: number, playerId: number, actualPoints: number): Promise<void>;
   
   saveTransfer(transfer: InsertTransfer): Promise<Transfer>;
   getTransfers(userId: number, gameweek: number): Promise<Transfer[]>;
@@ -226,6 +229,19 @@ export class PostgresStorage implements IStorage {
     return inserted[0];
   }
 
+  async upsertPrediction(prediction: InsertPrediction): Promise<void> {
+    await db
+      .insert(predictions)
+      .values(prediction)
+      .onConflictDoUpdate({
+        target: [predictions.userId, predictions.gameweek, predictions.playerId],
+        set: {
+          predictedPoints: prediction.predictedPoints,
+          confidence: prediction.confidence,
+        },
+      });
+  }
+
   async getPredictions(userId: number, gameweek: number): Promise<PredictionDB[]> {
     return db
       .select()
@@ -307,6 +323,29 @@ export class PostgresStorage implements IStorage {
       .limit(1);
 
     return chips[0];
+  }
+
+  async getPredictionsWithoutActuals(userId: number, gameweek: number): Promise<PredictionDB[]> {
+    const { isNull } = await import("drizzle-orm");
+    return db
+      .select()
+      .from(predictions)
+      .where(and(
+        eq(predictions.userId, userId),
+        eq(predictions.gameweek, gameweek),
+        isNull(predictions.actualPoints)
+      ));
+  }
+
+  async updateActualPointsByPlayer(userId: number, gameweek: number, playerId: number, actualPoints: number): Promise<void> {
+    await db
+      .update(predictions)
+      .set({ actualPoints })
+      .where(and(
+        eq(predictions.userId, userId),
+        eq(predictions.gameweek, gameweek),
+        eq(predictions.playerId, playerId)
+      ));
   }
 }
 

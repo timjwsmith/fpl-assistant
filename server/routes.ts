@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { fplApi } from "./fpl-api";
 import { aiPredictions } from "./ai-predictions";
 import { managerSync } from "./manager-sync";
+import { actualPointsService } from "./actual-points";
 import { z } from "zod";
 import { userSettingsSchema } from "@shared/schema";
 
@@ -403,6 +404,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching transfers:", error);
       res.status(500).json({ error: "Failed to fetch transfers" });
+    }
+  });
+
+  // Performance Tracking Endpoints
+  app.get("/api/performance/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+
+      const gameweek = req.query.gameweek ? parseInt(req.query.gameweek as string) : undefined;
+      
+      if (!gameweek) {
+        return res.status(400).json({ error: "Gameweek parameter is required" });
+      }
+
+      const performance = await actualPointsService.getPerformanceComparison(userId, gameweek);
+      res.json(performance);
+    } catch (error) {
+      console.error("Error fetching performance data:", error);
+      res.status(500).json({ error: "Failed to fetch performance data" });
+    }
+  });
+
+  app.post("/api/performance/update-actual", async (req, res) => {
+    try {
+      const { userId, gameweek } = req.body;
+      
+      if (!userId || !gameweek) {
+        return res.status(400).json({ error: "Missing userId or gameweek" });
+      }
+
+      const result = await actualPointsService.updateActualPoints(userId, gameweek);
+      res.json(result);
+    } catch (error) {
+      console.error("Error updating actual points:", error);
+      res.status(500).json({ error: "Failed to update actual points" });
     }
   });
 

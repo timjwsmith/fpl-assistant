@@ -48,18 +48,14 @@ export default function TeamModeller() {
   const isLoading = loadingPlayers || loadingTeams || loadingPositions;
   const error = playersError || teamsError || positionsError;
 
-  // Ref to store debounce timeout
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Calculate budget and team stats
   const selectedPlayers = slots.filter(s => s.player !== null).map(s => s.player!);
   const teamValue = selectedPlayers.reduce((sum, p) => sum + p.now_cost / 10, 0);
   const budgetRemaining = 100.0 - teamValue;
   const playingCount = slots.slice(0, 11).filter(s => s.player !== null).length;
 
-  // Analyze team when squad composition or formation changes (with debouncing)
   useEffect(() => {
-    // Clear any pending timeout to implement debouncing
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
@@ -67,19 +63,102 @@ export default function TeamModeller() {
     const playingPlayers = slots.slice(0, 11).map(s => s.player).filter(Boolean) as FPLPlayer[];
     
     if (playingPlayers.length >= 11) {
-      // Debounce the API call by 400ms to avoid excessive requests during rapid changes
       timeoutRef.current = setTimeout(() => {
         analyzeTeam.mutate({ players: playingPlayers, formation });
       }, 400);
     }
 
-    // Cleanup function to clear timeout on unmount or when dependencies change
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
     };
   }, [slots, formation, analyzeTeam]);
+
+  const handlePlayerSwap = (fromPosition: number, toPosition: number) => {
+    setSlots(prev => {
+      const newSlots = [...prev];
+      const fromSlot = newSlots.find(s => s.position === fromPosition);
+      const toSlot = newSlots.find(s => s.position === toPosition);
+      
+      if (!fromSlot || !toSlot) return prev;
+
+      // Validate GK constraint
+      const fromPlayer = fromSlot.player;
+      const toPlayer = toSlot.player;
+
+      if (!fromPlayer) return prev;
+
+      // Check if we're moving the only GK to bench
+      if (fromPlayer.element_type === 1 && toPosition > 11) {
+        const gkCount = slots.slice(0, 11).filter(s => s.player?.element_type === 1).length;
+        if (gkCount === 1) {
+          toast({
+            title: "Invalid move",
+            description: "You must have at least 1 goalkeeper in your starting XI",
+            variant: "destructive",
+          });
+          return prev;
+        }
+      }
+
+      // Swap players
+      const tempPlayer = fromSlot.player;
+      const tempCaptain = fromSlot.isCaptain;
+      const tempVice = fromSlot.isViceCaptain;
+
+      fromSlot.player = toSlot.player;
+      fromSlot.isCaptain = toSlot.isCaptain;
+      fromSlot.isViceCaptain = toSlot.isViceCaptain;
+
+      toSlot.player = tempPlayer;
+      toSlot.isCaptain = tempCaptain;
+      toSlot.isViceCaptain = tempVice;
+
+      // Clear captain/vice-captain if moved to bench
+      if (fromPosition <= 11 && toPosition > 11) {
+        toSlot.isCaptain = false;
+        toSlot.isViceCaptain = false;
+      }
+      if (toPosition <= 11 && fromPosition > 11) {
+        fromSlot.isCaptain = false;
+        fromSlot.isViceCaptain = false;
+      }
+
+      return newSlots;
+    });
+
+    toast({
+      title: "Players swapped",
+      description: `Position ${fromPosition} and ${toPosition} swapped successfully`,
+    });
+  };
+
+  const handleCaptainAssign = (position: number, isCaptain: boolean) => {
+    setSlots(prev => {
+      const newSlots = prev.map(s => {
+        if (isCaptain) {
+          // Remove captain from all other slots, assign to this one
+          if (s.position === position) {
+            return { ...s, isCaptain: true, isViceCaptain: false };
+          }
+          return { ...s, isCaptain: false };
+        } else {
+          // Remove vice-captain from all other slots, assign to this one
+          if (s.position === position) {
+            return { ...s, isViceCaptain: true, isCaptain: false };
+          }
+          return { ...s, isViceCaptain: false };
+        }
+      });
+      return newSlots;
+    });
+
+    toast({
+      title: isCaptain ? "Captain assigned" : "Vice-captain assigned",
+      description: `Position ${position} is now your ${isCaptain ? 'captain' : 'vice-captain'}`,
+    });
+  };
 
   const handlePlayerSelect = (player: FPLPlayer) => {
     if (selectedSlot === null) {
@@ -91,7 +170,6 @@ export default function TeamModeller() {
       return;
     }
 
-    // Check if player already selected
     if (slots.some(s => s.player?.id === player.id)) {
       toast({
         title: "Player already selected",
@@ -101,7 +179,6 @@ export default function TeamModeller() {
       return;
     }
 
-    // Check budget
     if (player.now_cost / 10 > budgetRemaining) {
       toast({
         title: "Insufficient budget",
@@ -111,7 +188,30 @@ export default function TeamModeller() {
       return;
     }
 
-    // Add player to slot
+    // Validate position compatibility
+    const targetSlot = slots.find(s => s.position === selectedSlot);
+    if (targetSlot) {
+      // Position 1 must be GK
+      if (selectedSlot === 1 && player.element_type !== 1) {
+        toast({
+          title: "Invalid position",
+          description: "Position 1 must be a goalkeeper",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // GK can only go to position 1
+      if (player.element_type === 1 && selectedSlot !== 1) {
+        toast({
+          title: "Invalid position",
+          description: "Goalkeepers can only be placed in position 1",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setSlots(prev => prev.map(s => 
       s.position === selectedSlot ? { ...s, player } : s
     ));
@@ -127,7 +227,6 @@ export default function TeamModeller() {
     const slot = slots.find(s => s.position === position);
     
     if (slot?.player) {
-      // Remove player
       setSlots(prev => prev.map(s => 
         s.position === position ? { ...s, player: null, isCaptain: false, isViceCaptain: false } : s
       ));
@@ -136,9 +235,22 @@ export default function TeamModeller() {
         description: `${slot.player.web_name} removed from your team`,
       });
     } else {
-      // Select slot for adding player
       setSelectedSlot(position);
     }
+  };
+
+  const handlePlayerRemove = (position: number) => {
+    const slot = slots.find(s => s.position === position);
+    if (!slot?.player) return;
+
+    setSlots(prev => prev.map(s => 
+      s.position === position ? { ...s, player: null, isCaptain: false, isViceCaptain: false } : s
+    ));
+    
+    toast({
+      title: "Player removed",
+      description: `${slot.player.web_name} removed from your team`,
+    });
   };
 
   const handleReset = () => {
@@ -170,12 +282,15 @@ export default function TeamModeller() {
     />;
   }
 
+  const startingXI = slots.slice(0, 11);
+  const bench = slots.slice(11, 15);
+
   return (
     <div className="space-y-6" data-testid="page-team-modeller">
       <div>
         <h1 className="text-4xl font-bold tracking-tight">Team Modeller</h1>
         <p className="text-muted-foreground mt-2">
-          Build and optimize your squad with real-time AI predictions.
+          Build and optimize your squad with drag-and-drop and real-time AI predictions.
         </p>
       </div>
 
@@ -221,8 +336,19 @@ export default function TeamModeller() {
         <div className="lg:col-span-2 space-y-6">
           <PitchVisualization
             formation={formation}
-            slots={slots}
+            slots={startingXI}
+            benchSlots={bench}
+            onPlayerSwap={handlePlayerSwap}
+            onCaptainAssign={handleCaptainAssign}
             onPlayerClick={handleSlotClick}
+            onPlayerRemove={handlePlayerRemove}
+            onError={(title, description) => {
+              toast({
+                title,
+                description,
+                variant: "destructive",
+              });
+            }}
           />
 
           <div className="grid grid-cols-3 gap-4">
@@ -263,9 +389,9 @@ export default function TeamModeller() {
           />
 
           <PlayerSearchPanel
-            players={players || []}
-            teams={teams || []}
-            positions={positions || []}
+            players={(players as FPLPlayer[]) || []}
+            teams={(teams as { id: number; name: string; short_name: string }[]) || []}
+            positions={(positions as { id: number; singular_name: string }[]) || []}
             onPlayerSelect={handlePlayerSelect}
             budgetRemaining={budgetRemaining}
           />

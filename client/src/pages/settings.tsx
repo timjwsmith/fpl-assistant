@@ -16,7 +16,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { LoadingScreen } from "@/components/loading-screen";
 import { ErrorState } from "@/components/error-state";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { UserSettings } from "@shared/schema";
 
 export default function Settings() {
@@ -33,13 +33,13 @@ export default function Settings() {
   const [formation, setFormation] = useState("4-4-2");
 
   // Update local state when settings load
-  useState(() => {
+  useEffect(() => {
     if (settings) {
       setManagerId(settings.manager_id?.toString() || "");
       setRiskTolerance(settings.risk_tolerance || "balanced");
       setFormation(settings.preferred_formation || "4-4-2");
     }
-  });
+  }, [settings]);
 
   const saveSettings = useMutation({
     mutationFn: async (newSettings: UserSettings) => {

@@ -16,15 +16,18 @@ export default function Performance() {
   ];
 
   const accuracy = 92;
-  const hasData = false; // Set to true when manager is connected
+  const hasData = false; // Placeholder feature - not yet implemented
 
   return (
     <div className="space-y-8" data-testid="page-performance">
-      <div>
-        <h1 className="text-4xl font-bold tracking-tight">Performance Analysis</h1>
-        <p className="text-muted-foreground mt-2">
-          Track how AI predictions compare to actual performance.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-4xl font-bold tracking-tight">Performance Analysis</h1>
+          <p className="text-muted-foreground mt-2">
+            Track how AI predictions compare to actual performance.
+          </p>
+        </div>
+        <Badge variant="outline" className="text-xs">Coming Soon</Badge>
       </div>
 
       {!hasData ? (

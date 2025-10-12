@@ -86,6 +86,13 @@ export default function Chips() {
 
       {chipStrategy.isPending && <LoadingScreen message="Analyzing chip strategy..." />}
 
+      {chipStrategy.error && (
+        <ErrorState 
+          message="Failed to get chip strategy. Please try again." 
+          onRetry={handleGetStrategy} 
+        />
+      )}
+
       {chipStrategy.data && Array.isArray(chipStrategy.data) && (
         <div className="grid gap-6">
           {chipStrategy.data.map((chip, i) => {

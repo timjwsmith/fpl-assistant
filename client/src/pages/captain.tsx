@@ -76,7 +76,7 @@ export default function Captain() {
               <div>
                 <p className="text-sm text-muted-foreground">Expected Pts</p>
                 <p className="font-semibold font-mono" data-testid="text-expected">
-                  {topRec?.expected_points.toFixed(1) || '-'}
+                  {topRec?.expected_points?.toFixed(1) || '-'}
                 </p>
               </div>
             </div>
@@ -91,7 +91,7 @@ export default function Captain() {
               <div>
                 <p className="text-sm text-muted-foreground">Ownership</p>
                 <p className="font-semibold font-mono" data-testid="text-ownership">
-                  {topRec?.ownership_percent.toFixed(1) || '-'}%
+                  {topRec?.ownership_percent?.toFixed(1) || '-'}%
                 </p>
               </div>
             </div>
@@ -126,7 +126,14 @@ export default function Captain() {
 
         {captainRecs.isPending && <LoadingScreen message="Analyzing captain options..." />}
 
-        {captainRecs.data?.map((rec, i) => {
+        {captainRecs.error && (
+          <ErrorState 
+            message="Failed to get captain recommendations. Please try again." 
+            onRetry={handleGetRecommendations} 
+          />
+        )}
+
+        {captainRecs.data && !captainRecs.error && captainRecs.data?.map((rec, i) => {
           const player = players?.find(p => p.id === rec.player_id);
           const team = teams?.find(t => t.id === player?.team);
           const positionNames = ['', 'GK', 'DEF', 'MID', 'FWD'];

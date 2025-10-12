@@ -23,7 +23,7 @@ export default function Dashboard() {
     staleTime: 60 * 1000,
   });
 
-  const { data: managerStatus } = useQuery<{
+  const { data: managerStatus, error: managerStatusError } = useQuery<{
     success: boolean;
     teamValue: number;
     freeTransfers: number;
@@ -103,6 +103,31 @@ export default function Dashboard() {
           description={managerStatus ? "Players in squad" : "Sync team to view"}
         />
       </div>
+
+      {settings?.manager_id && managerStatusError && (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-destructive" />
+                Team Not Synced
+              </CardTitle>
+              <Badge variant="outline" className="border-destructive/50 text-destructive">Not Synced</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Your manager data needs to be synced. Go to Settings to sync your FPL team.
+            </p>
+            <Link href="/settings">
+              <Button size="sm" variant="outline" data-testid="button-sync-manager">
+                <Repeat className="h-4 w-4 mr-2" />
+                Sync Manager Data
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       {managerStatus && (
         <Card>

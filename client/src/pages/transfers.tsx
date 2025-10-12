@@ -106,7 +106,14 @@ export default function Transfers() {
 
           {transferRecs.isPending && <LoadingScreen message="Analyzing transfers..." />}
 
-          {transferRecs.data && (
+          {transferRecs.error && (
+            <ErrorState 
+              message="Failed to get transfer recommendations. Please try again." 
+              onRetry={handleGetRecommendations} 
+            />
+          )}
+
+          {transferRecs.data && !transferRecs.error && (
             <div className="space-y-4">
               {transferRecs.data.map((rec, i) => {
                 const playerOut = players?.find(p => p.id === rec.player_out_id);

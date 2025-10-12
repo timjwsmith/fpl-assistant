@@ -8,15 +8,20 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 **Last Updated:** October 12, 2025
 
 ## Recent Changes
-**October 12, 2025** - Team Save & Transfer Application Functionality
-- Added POST /api/teams and GET /api/teams/:userId endpoints for team persistence
-- Added POST /api/transfers and GET /api/transfers/:userId endpoints for transfer tracking
-- Implemented Save Team button in Team Modeller with database persistence
-- Implemented Apply Transfer button with cost calculation and confirmation dialog
-- Added transfer summary UI showing transfer count, free transfers, and point deductions
-- Integrated transfer cost calculation: max(0, transfers_made - free_transfers) * 4
-- Added automatic team loading from saved data when navigating to Team Modeller
-- Query invalidation after team save and transfer application for real-time updates
+**October 12, 2025** - Drag-and-Drop Team Builder & Transfer System Complete
+- Implemented full drag-and-drop functionality using @dnd-kit for Team Modeller
+- Player swapping between positions with position validation (GK restrictions)
+- Bench management with drag-and-drop between starting XI and bench
+- Captain/Vice-Captain badge assignment via drag gestures (starting XI only)
+- Visual feedback: highlighted drop zones, drag overlay, smooth animations
+- Save Team button persists 15-player squad to database via POST /api/teams
+- Apply Transfer with accurate cost calculation: first N transfers free, remaining 4 pts each
+- Transfer confirmation dialog showing count, free transfers, point deduction preview
+- Transfer history tracking with individual costs (0 for free, 4 for paid)
+- Transfer summary UI with count badge and cost preview
+- Auto-load saved team data when navigating to Team Modeller
+- Query invalidation for real-time updates after save/transfer mutations
+- Fixed userId handling to use numeric ID throughout (dashboard, settings)
 
 ## Architecture
 
@@ -25,7 +30,7 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 - **Backend:** Express.js, Node.js
 - **AI:** OpenAI GPT-5 (via Replit AI Integrations)
 - **Data Source:** Official FPL API (https://fantasy.premierleague.com/api/)
-- **Storage:** In-memory storage (MemStorage)
+- **Storage:** PostgreSQL with Drizzle ORM
 - **Styling:** Tailwind CSS, Shadcn UI components
 
 ### Design System
@@ -158,7 +163,8 @@ client/
 server/
 ├── fpl-api.ts          # FPL API client with caching
 ├── ai-predictions.ts   # OpenAI GPT-5 prediction service
-├── storage.ts          # In-memory user settings storage
+├── manager-sync.ts     # FPL manager team sync service
+├── storage.ts          # PostgreSQL storage layer (Drizzle ORM)
 └── routes.ts           # Express API routes
 
 shared/
@@ -225,7 +231,6 @@ npm run dev  # Starts Express backend + Vite frontend
 
 ## Known Limitations
 - FPL API has CORS restrictions (backend proxy required)
-- In-memory storage (data lost on server restart)
 - AI predictions dependent on Replit credits
 - 5-minute cache on FPL data (not real-time during matches)
 

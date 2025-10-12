@@ -240,9 +240,7 @@ export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   fplManagerId: integer('fpl_manager_id').unique().notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-}, (table) => ({
-  fplManagerIdIdx: index('fpl_manager_id_idx').on(table.fplManagerId),
-}));
+});
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -251,7 +249,7 @@ export type User = typeof users.$inferSelect;
 // User Settings Table
 export const userSettingsTable = pgTable('user_settings', {
   id: serial('id').primaryKey(),
-  userId: integer('user_id').references(() => users.id).notNull(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   managerId: integer('manager_id'),
   riskTolerance: text('risk_tolerance', { enum: ['conservative', 'balanced', 'aggressive'] }).default('balanced').notNull(),
   preferredFormation: text('preferred_formation'),
@@ -268,7 +266,7 @@ export type UserSettingsTable = typeof userSettingsTable.$inferSelect;
 // User Teams Table
 export const userTeams = pgTable('user_teams', {
   id: serial('id').primaryKey(),
-  userId: integer('user_id').references(() => users.id).notNull(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   gameweek: integer('gameweek').notNull(),
   players: jsonb('players').notNull().$type<Array<{
     player_id: number | null;
@@ -296,7 +294,7 @@ export type UserTeam = typeof userTeams.$inferSelect;
 // Predictions Table
 export const predictions = pgTable('predictions', {
   id: serial('id').primaryKey(),
-  userId: integer('user_id').references(() => users.id).notNull(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   gameweek: integer('gameweek').notNull(),
   playerId: integer('player_id').notNull(),
   predictedPoints: integer('predicted_points').notNull(),
@@ -318,7 +316,7 @@ export type PredictionDB = typeof predictions.$inferSelect;
 // Transfers Table
 export const transfers = pgTable('transfers', {
   id: serial('id').primaryKey(),
-  userId: integer('user_id').references(() => users.id).notNull(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   gameweek: integer('gameweek').notNull(),
   playerInId: integer('player_in_id').notNull(),
   playerOutId: integer('player_out_id').notNull(),
@@ -337,7 +335,7 @@ export type Transfer = typeof transfers.$inferSelect;
 // Chips Used Table
 export const chipsUsed = pgTable('chips_used', {
   id: serial('id').primaryKey(),
-  userId: integer('user_id').references(() => users.id).notNull(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   chipType: text('chip_type', { enum: ['wildcard', 'freehit', 'benchboost', 'triplecaptain'] }).notNull(),
   gameweekUsed: integer('gameweek_used').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),

@@ -279,6 +279,8 @@ export const userTeams = pgTable('user_teams', {
   formation: text('formation').notNull(),
   teamValue: integer('team_value').notNull(),
   bank: integer('bank').notNull(),
+  transfersMade: integer('transfers_made').notNull().default(0),
+  lastDeadlineBank: integer('last_deadline_bank').notNull().default(0),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
   userIdIdx: index('user_teams_user_id_idx').on(table.userId),

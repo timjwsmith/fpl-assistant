@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Settings as SettingsIcon, Save } from "lucide-react";
+import { Settings as SettingsIcon, Save, RefreshCw } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -21,7 +21,7 @@ import type { UserSettings } from "@shared/schema";
 
 export default function Settings() {
   const { toast } = useToast();
-  const userId = "demo-user"; // In a real app, this would come from auth
+  const userId = 1; // In a real app, this would come from auth
 
   const { data: settings, isLoading, error, refetch } = useQuery<UserSettings>({
     queryKey: ["/api/settings", userId],
@@ -61,6 +61,26 @@ export default function Settings() {
     },
   });
 
+  const syncTeam = useMutation({
+    mutationFn: async (manId: string) => {
+      return apiRequest("POST", `/api/manager/sync/${manId}`, {});
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Team synced successfully",
+        description: `Synced ${data.playerCount} players, Team Value: £${(data.teamValue / 10).toFixed(1)}m, Free Transfers: ${data.freeTransfers}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings", userId] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Sync failed",
+        description: error.message || "Failed to sync team. Please check your Manager ID and try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSave = () => {
     const newSettings: UserSettings = {
       manager_id: managerId ? parseInt(managerId) : null,
@@ -70,6 +90,18 @@ export default function Settings() {
       notifications_enabled: false,
     };
     saveSettings.mutate(newSettings);
+  };
+
+  const handleSyncTeam = () => {
+    if (!managerId) {
+      toast({
+        title: "Manager ID required",
+        description: "Please enter your Manager ID before syncing.",
+        variant: "destructive",
+      });
+      return;
+    }
+    syncTeam.mutate(managerId);
   };
 
   if (isLoading) {
@@ -102,13 +134,25 @@ export default function Settings() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="manager-id">Manager ID</Label>
-              <Input
-                id="manager-id"
-                placeholder="Enter your FPL Manager ID"
-                value={managerId}
-                onChange={(e) => setManagerId(e.target.value)}
-                data-testid="input-manager-id"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="manager-id"
+                  placeholder="Enter your FPL Manager ID"
+                  value={managerId}
+                  onChange={(e) => setManagerId(e.target.value)}
+                  data-testid="input-manager-id"
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleSyncTeam}
+                  disabled={!managerId || syncTeam.isPending}
+                  data-testid="button-sync-team"
+                  variant="outline"
+                >
+                  <RefreshCw className={`h-4 w-4 ${syncTeam.isPending ? 'animate-spin' : ''}`} />
+                  {syncTeam.isPending ? 'Syncing...' : 'Sync Team'}
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">
                 Find your Manager ID in the FPL website URL when viewing your team
               </p>

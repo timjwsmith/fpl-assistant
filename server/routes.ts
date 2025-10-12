@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { fplApi } from "./fpl-api";
 import { aiPredictions } from "./ai-predictions";
+import { managerSync } from "./manager-sync";
 import { z } from "zod";
 import { userSettingsSchema } from "@shared/schema";
 
@@ -122,6 +123,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching manager history:", error);
       res.status(500).json({ error: "Failed to fetch manager history" });
+    }
+  });
+
+  // Manager Sync Endpoints
+  app.post("/api/manager/sync/:managerId", async (req, res) => {
+    try {
+      const managerId = parseInt(req.params.managerId);
+      
+      if (isNaN(managerId)) {
+        return res.status(400).json({ error: "Invalid manager ID" });
+      }
+
+      const managerDetails = await fplApi.getManagerDetails(managerId);
+      
+      if (!managerDetails) {
+        return res.status(404).json({ error: "Manager not found" });
+      }
+
+      const user = await storage.getOrCreateUser(managerId);
+      
+      const syncResult = await managerSync.syncManagerTeam(managerId, user.id);
+      
+      if (!syncResult.success) {
+        return res.status(500).json({ error: syncResult.error || "Failed to sync team" });
+      }
+
+      res.json(syncResult);
+    } catch (error) {
+      console.error("Error syncing manager:", error);
+      res.status(500).json({ error: "Failed to sync manager team" });
+    }
+  });
+
+  app.get("/api/manager/:managerId/status", async (req, res) => {
+    try {
+      const managerId = parseInt(req.params.managerId);
+      
+      if (isNaN(managerId)) {
+        return res.status(400).json({ error: "Invalid manager ID" });
+      }
+
+      const user = await storage.getOrCreateUser(managerId);
+      const status = await managerSync.getManagerStatus(managerId, user.id);
+      
+      if (!status) {
+        return res.status(404).json({ error: "No team data found. Please sync first." });
+      }
+
+      res.json(status);
+    } catch (error) {
+      console.error("Error fetching manager status:", error);
+      res.status(500).json({ error: "Failed to fetch manager status" });
     }
   });
 

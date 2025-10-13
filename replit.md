@@ -4,10 +4,18 @@
 An intelligent Fantasy Premier League assistant that helps users optimize their team selection, transfers, captain choices, and chip strategy using AI-powered predictions and real-time FPL data analysis.
 
 ## Project Status
-**Current Phase:** MVP Complete - Integration & Testing
-**Last Updated:** October 12, 2025
+**Current Phase:** MVP Complete - Running on Replit
+**Last Updated:** October 13, 2025
 
 ## Recent Changes
+**October 13, 2025** - Replit Environment Setup Complete
+- PostgreSQL database provisioned and schema migrated successfully
+- OpenAI integration configured via Replit AI Integrations
+- Development workflow configured (npm run dev on port 5000)
+- Deployment configuration set up for autoscale deployment
+- All dependencies installed and verified working
+- App verified running with proper host configuration for Replit proxy
+
 **October 12, 2025** - Drag-and-Drop Team Builder & Transfer System Complete
 - Implemented full drag-and-drop functionality using @dnd-kit for Team Modeller
 - Player swapping between positions with position validation (GK restrictions)
@@ -201,15 +209,28 @@ shared/
 
 ## Development
 
+### Running on Replit
+The app is configured to run seamlessly on Replit:
+- **Workflow**: Configured to run `npm run dev` on port 5000
+- **Database**: PostgreSQL provisioned via Replit (auto-configured)
+- **AI Integration**: OpenAI via Replit AI Integrations (uses Replit credits, no API key needed)
+- **Host Configuration**: Vite dev server allows all hosts for Replit proxy compatibility
+
 ### Running Locally
 ```bash
-npm run dev  # Starts Express backend + Vite frontend
+npm install              # Install dependencies
+npm run db:push          # Push database schema (first time only)
+npm run dev              # Starts Express backend + Vite frontend
 ```
 
 ### Environment Variables
-- `AI_INTEGRATIONS_OPENAI_BASE_URL` - Replit AI gateway (auto-configured)
-- `AI_INTEGRATIONS_OPENAI_API_KEY` - Replit AI key (auto-configured)
-- `SESSION_SECRET` - Express session secret
+**Auto-configured on Replit:**
+- `DATABASE_URL` - PostgreSQL connection string
+- `AI_INTEGRATIONS_OPENAI_BASE_URL` - Replit AI gateway
+- `AI_INTEGRATIONS_OPENAI_API_KEY` - Replit AI key
+
+**Optional:**
+- `SESSION_SECRET` - Express session secret (auto-generated if not provided)
 
 ### Key Dependencies
 - `openai` - GPT-5 AI predictions

@@ -8,6 +8,14 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 **Last Updated:** October 13, 2025
 
 ## Recent Changes
+**October 13, 2025** - Player Images Added Throughout App
+- Player photos now display on all pages where players are referenced
+- Dashboard Top Players section shows player avatars
+- Transfer Analyzer displays player images in recommendation cards
+- Captain Selector shows player photos with recommendations
+- Team Modeller pitch visualization includes player images
+- All player cards and search results include player avatars
+
 **October 13, 2025** - FPL Manager Auto-Sync Feature Added
 - Team Modeller now automatically syncs from FPL Manager ID on first load
 - Added "Sync from FPL" button for manual team refresh from FPL account

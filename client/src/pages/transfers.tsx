@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowRight, AlertTriangle, Sparkles, TrendingUp } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useFPLPlayers, useFPLTeams } from "@/hooks/use-fpl-data";
@@ -140,21 +141,41 @@ export default function Transfers() {
 
                       <div className="flex items-center gap-4 mb-4">
                         <div className="flex-1 p-3 rounded-md bg-destructive/10 border border-destructive/30">
-                          <p className="text-xs text-muted-foreground mb-1">Out</p>
-                          <p className="font-semibold">{playerOut?.web_name || 'Unknown'}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {teamOut?.short_name} • {positionNames[playerOut?.element_type || 0]}
-                          </p>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-12 w-12 border-2 border-destructive/30">
+                              <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${playerOut?.id}.png`} />
+                              <AvatarFallback className="text-xs font-semibold">
+                                {playerOut?.web_name.substring(0, 2).toUpperCase() || '??'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-muted-foreground mb-1">Out</p>
+                              <p className="font-semibold truncate">{playerOut?.web_name || 'Unknown'}</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {teamOut?.short_name} • {positionNames[playerOut?.element_type || 0]}
+                              </p>
+                            </div>
+                          </div>
                         </div>
 
                         <ArrowRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
 
                         <div className="flex-1 p-3 rounded-md bg-chart-2/10 border border-chart-2/30">
-                          <p className="text-xs text-muted-foreground mb-1">In</p>
-                          <p className="font-semibold">{playerIn?.web_name || 'Unknown'}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {teamIn?.short_name} • {positionNames[playerIn?.element_type || 0]}
-                          </p>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-12 w-12 border-2 border-chart-2/30">
+                              <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${playerIn?.id}.png`} />
+                              <AvatarFallback className="text-xs font-semibold">
+                                {playerIn?.web_name.substring(0, 2).toUpperCase() || '??'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-muted-foreground mb-1">In</p>
+                              <p className="font-semibold truncate">{playerIn?.web_name || 'Unknown'}</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {teamIn?.short_name} • {positionNames[playerIn?.element_type || 0]}
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       </div>
 

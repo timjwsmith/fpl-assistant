@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Trophy, Sparkles, TrendingUp, Users } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useFPLPlayers, useFPLTeams } from "@/hooks/use-fpl-data";
 import { useCaptainRecommendations } from "@/hooks/use-ai-predictions";
 import { LoadingScreen } from "@/components/loading-screen";
@@ -147,6 +147,7 @@ export default function Captain() {
               <CardContent className="p-6">
                 <div className="flex items-start gap-4">
                   <Avatar className="h-16 w-16 border-2 border-border">
+                    <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player?.id}.png`} />
                     <AvatarFallback className="text-lg font-semibold">
                       {player?.web_name.split(' ').map(n => n[0]).join('') || '??'}
                     </AvatarFallback>

@@ -3,6 +3,7 @@ import { StatCard } from "@/components/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Link } from "wouter";
 import { useFPLGameweeks, useFPLPlayers, useFPLTeams, useFPLFixtures } from "@/hooks/use-fpl-data";
@@ -205,8 +206,13 @@ export default function Dashboard() {
               return (
                 <Card key={player.id} className="w-[200px] flex-shrink-0 hover-elevate" data-testid={`card-squad-${player.id}`}>
                   <CardContent className="p-4">
-                    <div className="aspect-square bg-muted rounded-md mb-3 flex items-center justify-center">
-                      <Trophy className="h-8 w-8 text-muted-foreground" />
+                    <div className="mb-3 flex justify-center">
+                      <Avatar className="h-20 w-20 border-2 border-border">
+                        <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player.id}.png`} />
+                        <AvatarFallback className="text-sm font-semibold">
+                          {player.web_name.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
                     </div>
                     <h4 className="font-semibold text-sm truncate">{player.web_name}</h4>
                     <p className="text-xs text-muted-foreground truncate">

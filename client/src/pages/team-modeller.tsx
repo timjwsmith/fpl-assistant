@@ -4,7 +4,7 @@ import { PitchVisualization } from "@/components/pitch-visualization";
 import { PlayerSearchPanel } from "@/components/player-search-panel";
 import { PredictionPanel } from "@/components/prediction-panel";
 import { Badge } from "@/components/ui/badge";
-import { Save, Undo, Shield, ArrowRightLeft } from "lucide-react";
+import { Save, Undo, Shield, ArrowRightLeft, RefreshCw } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -83,12 +83,33 @@ export default function TeamModeller() {
   const currentGameweek = gameweeks?.find((gw: any) => gw.is_current)?.id || 1;
   
   const { data: savedTeamData } = useQuery<UserTeam>({
-    queryKey: ["/api/teams", userId, { gameweek: currentGameweek }],
+    queryKey: [`/api/teams/${userId}?gameweek=${currentGameweek}`],
     enabled: !!currentGameweek,
   });
 
+  const syncManagerTeamMutation = useMutation({
+    mutationFn: async (managerId: number) => {
+      return apiRequest("POST", `/api/manager/sync/${managerId}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/teams/${userId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/manager/${settings?.manager_id}/status`] });
+      toast({
+        title: "Team synced successfully",
+        description: "Your FPL team has been loaded from your manager account",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to sync team",
+        description: error.message || "Could not load your FPL team",
+        variant: "destructive",
+      });
+    },
+  });
+
   const { data: transfers } = useQuery<Transfer[]>({
-    queryKey: ["/api/transfers", userId, { gameweek: currentGameweek }],
+    queryKey: [`/api/transfers/${userId}?gameweek=${currentGameweek}`],
     enabled: !!currentGameweek,
   });
   
@@ -263,6 +284,19 @@ export default function TeamModeller() {
       }
     };
   }, [slots, formation, analyzeTeam]);
+
+  // Auto-sync team from FPL Manager ID when manager is set but no team data exists
+  useEffect(() => {
+    if (
+      settings?.manager_id &&
+      !savedTeamData &&
+      currentGameweek &&
+      !syncManagerTeamMutation.isPending &&
+      !managerStatus
+    ) {
+      syncManagerTeamMutation.mutate(settings.manager_id);
+    }
+  }, [settings?.manager_id, savedTeamData, currentGameweek, managerStatus]);
 
   // Load saved team when data is available
   useEffect(() => {
@@ -529,6 +563,18 @@ export default function TeamModeller() {
         )}
 
         <div className="flex items-center gap-2 ml-auto">
+          {settings?.manager_id && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => syncManagerTeamMutation.mutate(settings.manager_id!)} 
+              disabled={syncManagerTeamMutation.isPending}
+              data-testid="button-sync-fpl"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${syncManagerTeamMutation.isPending ? 'animate-spin' : ''}`} />
+              {syncManagerTeamMutation.isPending ? "Syncing..." : "Sync from FPL"}
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={handleReset} data-testid="button-reset">
             <Undo className="h-4 w-4 mr-2" />
             Reset

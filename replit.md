@@ -8,6 +8,12 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 **Last Updated:** October 13, 2025
 
 ## Recent Changes
+**October 13, 2025** - FPL Manager Auto-Sync Feature Added
+- Team Modeller now automatically syncs from FPL Manager ID on first load
+- Added "Sync from FPL" button for manual team refresh from FPL account
+- Team data (players, formation, captain/vice-captain) auto-populates when manager ID is set
+- Sync respects FPL team structure including bench players and badges
+
 **October 13, 2025** - Replit Environment Setup Complete
 - PostgreSQL database provisioned and schema migrated successfully
 - OpenAI integration configured via Replit AI Integrations
@@ -61,6 +67,8 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 
 ### 2. Interactive Team Modeller
 - Visual football pitch layout with drag-and-drop functionality
+- **Auto-sync from FPL**: Automatically loads your current FPL team when Manager ID is set
+- **Manual sync button**: Refresh team from FPL account at any time
 - Formation selector (3-4-3, 3-5-2, 4-3-3, 4-4-2, 4-5-1, 5-3-2, 5-4-1)
 - Real-time budget tracking
 - Live AI predictions for team composition

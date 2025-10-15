@@ -267,7 +267,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
 
+      // Send initial ping to establish connection
+      res.write(`data: ${JSON.stringify({ status: 'started' })}\n\n`);
+      
       let buffer = '';
 
       await aiPredictions.analyzeTeamCompositionStream(
@@ -276,6 +280,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         (chunk: string) => {
           buffer += chunk;
           res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+          res.flush?.(); // Flush if available
         }
       );
 

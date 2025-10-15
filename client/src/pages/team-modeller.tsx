@@ -53,6 +53,7 @@ export default function TeamModeller() {
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const [savedTeam, setSavedTeam] = useState<UserTeam | null>(null);
+  const [aiPrediction, setAiPrediction] = useState<{ insights: string[]; predicted_points: number; confidence: number } | null>(null);
 
   const { data: players, isLoading: loadingPlayers, error: playersError, refetch: refetchPlayers } = useFPLPlayers();
   const { data: teams, isLoading: loadingTeams, error: teamsError, refetch: refetchTeams } = useFPLTeams();
@@ -114,6 +115,21 @@ export default function TeamModeller() {
   });
   
   const analyzeTeam = useAnalyzeTeam();
+  
+  // Save AI prediction result to local state when mutation completes
+  useEffect(() => {
+    console.log('[FRONTEND] Analyze team status:', {
+      isPending: analyzeTeam.isPending,
+      isSuccess: analyzeTeam.isSuccess,
+      isError: analyzeTeam.isError,
+      data: analyzeTeam.data,
+      error: analyzeTeam.error
+    });
+    if (analyzeTeam.data) {
+      console.log('[FRONTEND] Setting AI prediction:', analyzeTeam.data);
+      setAiPrediction(analyzeTeam.data);
+    }
+  }, [analyzeTeam.data, analyzeTeam.isPending, analyzeTeam.isSuccess, analyzeTeam.isError]);
 
   const isLoading = loadingPlayers || loadingTeams || loadingPositions;
   const error = playersError || teamsError || positionsError;
@@ -272,7 +288,7 @@ export default function TeamModeller() {
     
     const playingPlayers = slots.slice(0, 11).map(s => s.player).filter(Boolean) as FPLPlayer[];
     
-    if (playingPlayers.length >= 11) {
+    if (playingPlayers.length >= 11 && !analyzeTeam.isPending) {
       timeoutRef.current = setTimeout(() => {
         analyzeTeam.mutate({ players: playingPlayers, formation });
       }, 400);
@@ -283,7 +299,7 @@ export default function TeamModeller() {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [slots, formation, analyzeTeam]);
+  }, [slots, formation, analyzeTeam.isPending]);
 
   // Auto-sync team from FPL Manager ID when manager is set but no team data exists
   useEffect(() => {
@@ -673,10 +689,10 @@ export default function TeamModeller() {
         <div className="space-y-6">
           <PredictionPanel
             currentPoints={selectedPlayers.reduce((sum, p) => sum + p.total_points, 0)}
-            predictedPoints={analyzeTeam.data?.predicted_points || 0}
-            confidence={analyzeTeam.data?.confidence || 0}
+            predictedPoints={aiPrediction?.predicted_points || 0}
+            confidence={aiPrediction?.confidence || 0}
             insights={
-              analyzeTeam.data?.insights || 
+              aiPrediction?.insights || 
               (selectedPlayers.length === 0 
                 ? ["Select players to see AI predictions", "Build your team to get insights"]
                 : analyzeTeam.isPending

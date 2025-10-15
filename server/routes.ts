@@ -254,13 +254,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/ai/analyze-team", async (req, res) => {
+    console.log('[ROUTE] Analyze team endpoint called');
     try {
       const { players, formation } = req.body;
+      console.log('[ROUTE] Players count:', players?.length, 'Formation:', formation);
       if (!players || !formation) {
+        console.log('[ROUTE] Missing required data!');
         return res.status(400).json({ error: "Missing required data" });
       }
 
       const analysis = await aiPredictions.analyzeTeamComposition(players, formation);
+      console.log('[ROUTE] Analysis complete, sending response');
       res.json(analysis);
     } catch (error) {
       console.error("Error analyzing team:", error);

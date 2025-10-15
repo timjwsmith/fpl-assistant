@@ -489,7 +489,9 @@ Provide your analysis in this exact JSON format:
       });
 
       const rawContent = response.choices[0].message.content || "{}";
+      console.log('[AI] Raw response content:', rawContent);
       const result = JSON.parse(rawContent);
+      console.log('[AI] Parsed result:', JSON.stringify(result));
       console.log('[AI] Team analysis complete:', result.predicted_points, 'pts,', result.confidence, '% confidence');
       
       return {

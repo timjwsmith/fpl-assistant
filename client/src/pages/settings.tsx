@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Settings as SettingsIcon, Save, RefreshCw } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Settings as SettingsIcon, Save, RefreshCw, Lock, Unlock, Loader2, Zap } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -17,22 +18,51 @@ import { LoadingScreen } from "@/components/loading-screen";
 import { ErrorState } from "@/components/error-state";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import type { UserSettings } from "@shared/schema";
+
+interface FPLAuthStatus {
+  authenticated: boolean;
+}
+
+interface AutomationSettings {
+  autoSyncEnabled: boolean;
+  autoApplyTransfers: boolean;
+  autoApplyCaptain: boolean;
+  autoApplyChips: boolean;
+  maxTransferHit: number;
+  notificationEnabled: boolean;
+}
+
+interface GameweekPlan {
+  id: number;
+  gameweek: number;
+}
 
 export default function Settings() {
   const { toast } = useToast();
-  const userId = 1; // In a real app, this would come from auth
+  const [, setLocation] = useLocation();
+  const userId = 1;
 
   const { data: settings, isLoading, error, refetch } = useQuery<UserSettings>({
     queryKey: ["/api/settings", userId],
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: 60 * 1000,
   });
 
   const [managerId, setManagerId] = useState("");
   const [riskTolerance, setRiskTolerance] = useState<"conservative" | "balanced" | "aggressive">("balanced");
   const [formation, setFormation] = useState("4-4-2");
 
-  // Update local state when settings load
+  const [fplEmail, setFplEmail] = useState("");
+  const [fplPassword, setFplPassword] = useState("");
+
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
+  const [autoApplyTransfers, setAutoApplyTransfers] = useState(false);
+  const [autoApplyCaptain, setAutoApplyCaptain] = useState(false);
+  const [autoApplyChips, setAutoApplyChips] = useState(false);
+  const [maxTransferHit, setMaxTransferHit] = useState(8);
+  const [notificationEnabled, setNotificationEnabled] = useState(true);
+
   useEffect(() => {
     if (settings) {
       setManagerId(settings.manager_id?.toString() || "");
@@ -40,6 +70,86 @@ export default function Settings() {
       setFormation(settings.preferred_formation || "4-4-2");
     }
   }, [settings]);
+
+  const { data: authStatus, refetch: refetchAuthStatus } = useQuery<FPLAuthStatus>({
+    queryKey: ["/api/fpl-auth/status", userId],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/fpl-auth/status/${userId}`) as FPLAuthStatus;
+      return response;
+    },
+    staleTime: 30 * 1000,
+  });
+
+  const { data: automationSettings, refetch: refetchAutomationSettings } = useQuery<AutomationSettings>({
+    queryKey: ["/api/automation/settings", userId],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/automation/settings/${userId}`) as AutomationSettings;
+      return response;
+    },
+    enabled: authStatus?.authenticated === true,
+    staleTime: 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (automationSettings) {
+      setAutoSyncEnabled(automationSettings.autoSyncEnabled || false);
+      setAutoApplyTransfers(automationSettings.autoApplyTransfers || false);
+      setAutoApplyCaptain(automationSettings.autoApplyCaptain || false);
+      setAutoApplyChips(automationSettings.autoApplyChips || false);
+      setMaxTransferHit(automationSettings.maxTransferHit || 8);
+      setNotificationEnabled(automationSettings.notificationEnabled ?? true);
+    }
+  }, [automationSettings]);
+
+  const loginMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/fpl-auth/login", {
+        userId,
+        email: fplEmail,
+        password: fplPassword,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fpl-auth/status", userId] });
+      refetchAuthStatus();
+      setFplPassword("");
+      toast({
+        title: "Login successful",
+        description: "You are now authenticated with FPL.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Login failed",
+        description: error.message || "Failed to authenticate with FPL. Please check your credentials.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/fpl-auth/logout/${userId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fpl-auth/status", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/automation/settings", userId] });
+      refetchAuthStatus();
+      setFplEmail("");
+      setFplPassword("");
+      toast({
+        title: "Logged out",
+        description: "Your FPL credentials have been removed.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Logout failed",
+        description: error.message || "Failed to logout.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const saveSettings = useMutation({
     mutationFn: async (newSettings: UserSettings) => {
@@ -56,6 +166,46 @@ export default function Settings() {
       toast({
         title: "Error",
         description: "Failed to save settings. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const saveAutomationSettings = useMutation({
+    mutationFn: async (settings: Partial<AutomationSettings>) => {
+      return apiRequest("POST", `/api/automation/settings/${userId}`, settings);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/automation/settings", userId] });
+      toast({
+        title: "Automation settings saved",
+        description: "Your automation preferences have been updated.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save automation settings.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const analyzeGameweek = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/automation/analyze/${userId}`) as Promise<GameweekPlan>;
+    },
+    onSuccess: (data: GameweekPlan) => {
+      toast({
+        title: "Gameweek plan generated",
+        description: "Your AI-powered gameweek plan is ready to view.",
+      });
+      setLocation("/gameweek-planner");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Analysis failed",
+        description: error.message || "Failed to generate gameweek plan. Please try again.",
         variant: "destructive",
       });
     },
@@ -104,6 +254,30 @@ export default function Settings() {
     syncTeam.mutate(managerId);
   };
 
+  const handleFPLLogin = () => {
+    if (!fplEmail || !fplPassword) {
+      toast({
+        title: "Missing credentials",
+        description: "Please enter both email and password.",
+        variant: "destructive",
+      });
+      return;
+    }
+    loginMutation.mutate();
+  };
+
+  const handleSaveAutomationSettings = () => {
+    const settings: Partial<AutomationSettings> = {
+      autoSyncEnabled,
+      autoApplyTransfers,
+      autoApplyCaptain,
+      autoApplyChips,
+      maxTransferHit,
+      notificationEnabled,
+    };
+    saveAutomationSettings.mutate(settings);
+  };
+
   if (isLoading) {
     return <LoadingScreen message="Loading settings..." />;
   }
@@ -113,6 +287,7 @@ export default function Settings() {
   }
 
   const isConnected = settings?.manager_id !== null && settings?.manager_id !== undefined;
+  const isFPLAuthenticated = authStatus?.authenticated === true;
 
   return (
     <div className="space-y-8" data-testid="page-settings">
@@ -168,6 +343,233 @@ export default function Settings() {
                   {isConnected ? `Connected (ID: ${settings?.manager_id})` : "Not Connected"}
                 </Badge>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {isFPLAuthenticated ? <Unlock className="h-5 w-5" /> : <Lock className="h-5 w-5" />}
+              Automation
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-medium mb-3">FPL Login</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Required for automation features
+                </p>
+              </div>
+
+              {!isFPLAuthenticated ? (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="fpl-email">Email</Label>
+                    <Input
+                      id="fpl-email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={fplEmail}
+                      onChange={(e) => setFplEmail(e.target.value)}
+                      data-testid="input-fpl-email"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="fpl-password">Password</Label>
+                    <Input
+                      id="fpl-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={fplPassword}
+                      onChange={(e) => setFplPassword(e.target.value)}
+                      data-testid="input-fpl-password"
+                    />
+                  </div>
+
+                  <Button
+                    onClick={handleFPLLogin}
+                    disabled={loginMutation.isPending}
+                    className="w-full"
+                    data-testid="button-fpl-login"
+                  >
+                    {loginMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Logging in...
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="h-4 w-4 mr-2" />
+                        Login to FPL
+                      </>
+                    )}
+                  </Button>
+
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Lock className="h-3 w-3" />
+                    Your FPL credentials are encrypted and stored securely
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label>Authentication Status</Label>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="default" className="flex items-center gap-1">
+                          <Unlock className="h-3 w-3" />
+                          Connected
+                        </Badge>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => logoutMutation.mutate()}
+                      disabled={logoutMutation.isPending}
+                      variant="outline"
+                      size="sm"
+                      data-testid="button-fpl-logout"
+                    >
+                      {logoutMutation.isPending ? "Logging out..." : "Logout"}
+                    </Button>
+                  </div>
+
+                  <div className="border-t pt-4 space-y-4">
+                    <div>
+                      <h3 className="font-medium mb-3">Automation Settings</h3>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="auto-sync">Enable Auto-Sync</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Automatically sync your team data
+                        </p>
+                      </div>
+                      <Switch
+                        id="auto-sync"
+                        checked={autoSyncEnabled}
+                        onCheckedChange={setAutoSyncEnabled}
+                        data-testid="switch-auto-sync"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="auto-transfers">Auto-Apply Transfers</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Automatically apply recommended transfers
+                        </p>
+                      </div>
+                      <Switch
+                        id="auto-transfers"
+                        checked={autoApplyTransfers}
+                        onCheckedChange={setAutoApplyTransfers}
+                        data-testid="switch-auto-transfers"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="auto-captain">Auto-Apply Captain Selection</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Automatically select captain based on AI
+                        </p>
+                      </div>
+                      <Switch
+                        id="auto-captain"
+                        checked={autoApplyCaptain}
+                        onCheckedChange={setAutoApplyCaptain}
+                        data-testid="switch-auto-captain"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="auto-chips">Auto-Apply Chips</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Automatically play chips when optimal
+                        </p>
+                      </div>
+                      <Switch
+                        id="auto-chips"
+                        checked={autoApplyChips}
+                        onCheckedChange={setAutoApplyChips}
+                        data-testid="switch-auto-chips"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="max-transfer-hit">Max Transfer Hit (points)</Label>
+                      <Input
+                        id="max-transfer-hit"
+                        type="number"
+                        min="0"
+                        max="16"
+                        value={maxTransferHit}
+                        onChange={(e) => setMaxTransferHit(parseInt(e.target.value) || 8)}
+                        data-testid="input-max-transfer-hit"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Maximum points hit allowed for transfers (default: 8)
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="notifications">Enable Notifications</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Get notified about automation actions
+                        </p>
+                      </div>
+                      <Switch
+                        id="notifications"
+                        checked={notificationEnabled}
+                        onCheckedChange={setNotificationEnabled}
+                        data-testid="switch-notifications"
+                      />
+                    </div>
+
+                    <Button
+                      onClick={handleSaveAutomationSettings}
+                      disabled={saveAutomationSettings.isPending}
+                      className="w-full"
+                      data-testid="button-save-automation"
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      {saveAutomationSettings.isPending ? "Saving..." : "Save Automation Settings"}
+                    </Button>
+                  </div>
+
+                  <div className="border-t pt-4 space-y-4">
+                    <div>
+                      <h3 className="font-medium mb-3">Quick Actions</h3>
+                    </div>
+
+                    <Button
+                      onClick={() => analyzeGameweek.mutate()}
+                      disabled={analyzeGameweek.isPending}
+                      className="w-full"
+                      variant="default"
+                      data-testid="button-generate-plan"
+                    >
+                      {analyzeGameweek.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Analyzing...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="h-4 w-4 mr-2" />
+                          Generate Gameweek Plan
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

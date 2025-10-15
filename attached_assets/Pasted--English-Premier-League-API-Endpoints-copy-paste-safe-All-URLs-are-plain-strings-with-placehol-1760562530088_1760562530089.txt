@@ -1,0 +1,46 @@
+"""
+English Premier League API Endpoints (copy-paste safe)
+All URLs are plain strings with {placeholders} you can .format() later.
+"""
+
+# --- Fantasy Premier League (FPL) — free, no auth
+FPL_BOOTSTRAP = "https://fantasy.premierleague.com/api/bootstrap-static/"
+FPL_PLAYER_SUMMARY = "https://fantasy.premierleague.com/api/element-summary/{player_id}/"
+FPL_FIXTURES = "https://fantasy.premierleague.com/api/fixtures/"
+FPL_EVENT_LIVE = "https://fantasy.premierleague.com/api/event/{gw}/live/"
+FPL_TEAM = "https://fantasy.premierleague.com/api/team/{team_id}/"
+
+# --- API-FOOTBALL (API-Sports) — key required, EPL league=39, season example=2024
+API_FOOTBALL_BASE = "https://v3.football.api-sports.io"
+API_FOOTBALL_PLAYERS = API_FOOTBALL_BASE + "/players?league=39&season=2024"
+API_FOOTBALL_TEAMS = API_FOOTBALL_BASE + "/teams?league=39&season=2024"
+API_FOOTBALL_FIXTURES = API_FOOTBALL_BASE + "/fixtures?league=39&season=2024"
+API_FOOTBALL_PLAYER_STATS = API_FOOTBALL_BASE + "/players?id={player_id}&season=2024"
+API_FOOTBALL_INJURIES = API_FOOTBALL_BASE + "/injuries?league=39&season=2024"
+
+# --- Football-Data.org — free tier, key required, EPL code=PL
+FOOTBALL_DATA_BASE = "https://api.football-data.org/v4"
+FOOTBALL_DATA_COMP = FOOTBALL_DATA_BASE + "/competitions/PL"
+FOOTBALL_DATA_TEAMS = FOOTBALL_DATA_BASE + "/competitions/PL/teams"
+FOOTBALL_DATA_TEAM_SQUAD = FOOTBALL_DATA_BASE + "/teams/{team_id}"
+FOOTBALL_DATA_STANDINGS = FOOTBALL_DATA_BASE + "/competitions/PL/standings"
+
+# --- Sportmonks Football — paid (trial), EPL league_id=8
+SPORTMONKS_BASE = "https://api.sportmonks.com/v3/football"
+SPORTMONKS_PLAYERS = SPORTMONKS_BASE + "/players?filters[league_id]=8&api_token={YOUR_TOKEN}"
+SPORTMONKS_EXPECTED = SPORTMONKS_BASE + "/expected/players?filters[league_id]=8&api_token={YOUR_TOKEN}"
+SPORTMONKS_FIXTURES = SPORTMONKS_BASE + "/fixtures?filters[league_id]=8&api_token={YOUR_TOKEN}"
+
+# --- TheSportsDB — free community, EPL league_id=4328
+SPORTSDB_BASE = "https://www.thesportsdb.com/api/v1/json/1"
+SPORTSDB_SEARCH_TEAM = SPORTSDB_BASE + "/searchteams.php?t={team_name}"
+SPORTSDB_SEARCH_PLAYER = SPORTSDB_BASE + "/searchplayers.php?p={player_name}"
+SPORTSDB_PLAYERS_BY_TEAM = SPORTSDB_BASE + "/lookup_all_players.php?id={team_id}"
+SPORTSDB_EPL_TABLE = SPORTSDB_BASE + "/lookuptable.php?l=4328&s=2024-2025"
+
+# --- Premier Injuries — no public JSON; web page only (scrape or license)
+PREMIER_INJURIES_TABLE = "https://www.premierinjuries.com/injury-table.php"
+
+# ---- Minimal self-test (safe to run, optional)
+if __name__ == "__main__":
+    print("EPL endpoints loaded OK.")

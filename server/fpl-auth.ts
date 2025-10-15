@@ -13,13 +13,16 @@ function getEncryptionKey(): Buffer {
   
   if (!secretKey) {
     const generatedKey = crypto.randomBytes(32).toString('hex');
-    console.warn('⚠️  FPL_ENCRYPTION_KEY not found in environment. Generated temporary key (not persistent across restarts).');
-    console.warn(`   To persist credentials, add this to your environment: FPL_ENCRYPTION_KEY=${generatedKey}`);
-    return Buffer.from(generatedKey, 'hex');
+    throw new Error(
+      `FPL_ENCRYPTION_KEY environment variable is required but not set.\n\n` +
+      `To fix this, add the following to your Secrets:\n` +
+      `FPL_ENCRYPTION_KEY=${generatedKey}\n\n` +
+      `Without this key, encrypted credentials cannot be persisted across restarts.`
+    );
   }
   
   if (secretKey.length !== 64) {
-    throw new Error('FPL_ENCRYPTION_KEY must be 64 hex characters (32 bytes)');
+    throw new Error('FPL_ENCRYPTION_KEY must be exactly 64 hex characters (32 bytes)');
   }
   
   return Buffer.from(secretKey, 'hex');
@@ -73,18 +76,22 @@ class FPLAuthService {
     console.log(`[FPL Auth] Attempting login for user ${userId}`);
     
     try {
+      const formData = new URLSearchParams({
+        login: email,
+        password: password,
+        redirect_uri: 'https://fantasy.premierleague.com/a/login',
+        app: 'plfpl-web',
+      });
+
       const response = await fetch(FPL_LOGIN_URL, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Referer': 'https://fantasy.premierleague.com/',
+          'Origin': 'https://fantasy.premierleague.com',
         },
-        body: JSON.stringify({
-          login: email,
-          password: password,
-          redirect_uri: 'https://fantasy.premierleague.com/a/login',
-          app: 'plfpl-web',
-        }),
+        body: formData.toString(),
       });
 
       if (!response.ok) {
@@ -191,18 +198,22 @@ class FPLAuthService {
       const email = decrypt(credentials.emailEncrypted);
       const password = decrypt(credentials.passwordEncrypted);
 
+      const formData = new URLSearchParams({
+        login: email,
+        password: password,
+        redirect_uri: 'https://fantasy.premierleague.com/a/login',
+        app: 'plfpl-web',
+      });
+
       const response = await fetch(FPL_LOGIN_URL, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Referer': 'https://fantasy.premierleague.com/',
+          'Origin': 'https://fantasy.premierleague.com',
         },
-        body: JSON.stringify({
-          login: email,
-          password: password,
-          redirect_uri: 'https://fantasy.premierleague.com/a/login',
-          app: 'plfpl-web',
-        }),
+        body: formData.toString(),
       });
 
       if (!response.ok) {

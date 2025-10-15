@@ -31,22 +31,50 @@ interface PredictionContext {
 
 export class AIPredictionService {
   async predictPlayerPoints(context: PredictionContext): Promise<Prediction> {
+    const position = context.player.element_type === 1 ? 'GK' : context.player.element_type === 2 ? 'DEF' : context.player.element_type === 3 ? 'MID' : 'FWD';
+    const isDefensive = position === 'GK' || position === 'DEF';
+    
     const prompt = `
 You are an expert Fantasy Premier League analyst. Predict the expected points for the following player:
 
 Player: ${context.player.web_name}
-Position: ${context.player.element_type === 1 ? 'GK' : context.player.element_type === 2 ? 'DEF' : context.player.element_type === 3 ? 'MID' : 'FWD'}
+Position: ${position}
 Current Form: ${context.player.form}
+Points Per Game: ${context.player.points_per_game}
 Total Points: ${context.player.total_points}
-Expected Goals (xG): ${context.player.expected_goals}
-Expected Assists (xA): ${context.player.expected_assists}
-Minutes Played: ${context.player.minutes}
-Status: ${context.player.status}
+
+ATTACKING METRICS:
+- Expected Goals (xG): ${context.player.expected_goals}
+- Expected Assists (xA): ${context.player.expected_assists}
+- Actual Goals: ${context.player.goals_scored} | Actual Assists: ${context.player.assists}
+- Expected Goal Involvements: ${context.player.expected_goal_involvements}
+
+${isDefensive ? `DEFENSIVE METRICS:
+- Clean Sheets: ${context.player.clean_sheets}
+- Expected Goals Conceded: ${context.player.expected_goals_conceded}
+${position === 'GK' ? `- Saves: ${context.player.saves}` : ''}` : ''}
+
+ICT INDEX (Influence/Creativity/Threat):
+- Overall ICT: ${context.player.ict_index}
+- Influence: ${context.player.influence}
+- Creativity: ${context.player.creativity}
+- Threat: ${context.player.threat}
+
+BONUS POINTS SYSTEM:
+- Total Bonus: ${context.player.bonus}
+- BPS Score: ${context.player.bps}
+
+AVAILABILITY:
+- Minutes Played: ${context.player.minutes}
+- Status: ${context.player.status}
+- Chance of Playing: ${context.player.chance_of_playing_this_round !== null ? context.player.chance_of_playing_this_round + '%' : 'Unknown'}
+- News: ${context.player.news || 'None'}
+- Yellow Cards: ${context.player.yellow_cards} | Red Cards: ${context.player.red_cards}
 
 Upcoming Fixtures (next 3):
 ${context.upcomingFixtures.slice(0, 3).map((f, i) => `${i + 1}. Difficulty: ${f.team_h_difficulty || f.team_a_difficulty}`).join('\n')}
 
-Based on form, fixtures, and underlying stats, provide a prediction in JSON format:
+Based on form, fixtures, underlying stats, ICT metrics, and bonus potential, provide a prediction in JSON format:
 {
   "predicted_points": <number>,
   "confidence": <0-100>,
@@ -127,9 +155,15 @@ Based on form, fixtures, and underlying stats, provide a prediction in JSON form
         team: team?.short_name || 'Unknown',
         position: p.element_type === 1 ? 'GK' : p.element_type === 2 ? 'DEF' : p.element_type === 3 ? 'MID' : 'FWD',
         form: parseFloat(p.form),
+        ppg: parseFloat(p.points_per_game),
         price: p.now_cost / 10,
         fixtures: upcomingFixtures.join(', ') || 'No upcoming fixtures',
         status: p.status,
+        chanceOfPlaying: p.chance_of_playing_this_round,
+        news: p.news || 'None',
+        yellowCards: p.yellow_cards,
+        ict: parseFloat(p.ict_index || '0'),
+        bps: p.bps,
       };
     });
 
@@ -155,8 +189,12 @@ Based on form, fixtures, and underlying stats, provide a prediction in JSON form
           team: team?.short_name || 'Unknown',
           position: p.element_type === 1 ? 'GK' : p.element_type === 2 ? 'DEF' : p.element_type === 3 ? 'MID' : 'FWD',
           form: parseFloat(p.form),
+          ppg: parseFloat(p.points_per_game),
           price: p.now_cost / 10,
           fixtures: upcomingFixtures.join(', ') || 'No upcoming fixtures',
+          ict: parseFloat(p.ict_index || '0'),
+          xGI: parseFloat(p.expected_goal_involvements || '0'),
+          status: p.status,
         };
       });
 
@@ -165,7 +203,11 @@ Based on form, fixtures, and underlying stats, provide a prediction in JSON form
 CURRENT SQUAD:
 ${squadAnalysis.map(p => `
 ${p.name} (${p.position}) - ${p.team}
-- Form: ${p.form.toFixed(1)} | Price: £${p.price}m | Status: ${p.status}
+- Form: ${p.form.toFixed(1)} | PPG: ${p.ppg} | Price: £${p.price}m
+- ICT Index: ${p.ict.toFixed(1)} | BPS: ${p.bps}
+- Status: ${p.status}${p.chanceOfPlaying !== null ? ` (${p.chanceOfPlaying}% chance)` : ''}
+- News: ${p.news}
+- Cards: ${p.yellowCards} yellow
 - Fixtures: ${p.fixtures}
 `).join('\n')}
 
@@ -174,15 +216,18 @@ BUDGET AVAILABLE: £${budget.toFixed(1)}m
 TOP TARGETS IN FORM:
 ${potentialTargets.slice(0, 10).map(p => `
 ${p.name} (${p.position}) - ${p.team}
-- Form: ${p.form.toFixed(1)} | Price: £${p.price}m
+- Form: ${p.form.toFixed(1)} | PPG: ${p.ppg} | Price: £${p.price}m
+- ICT Index: ${p.ict.toFixed(1)} | xGI: ${p.xGI.toFixed(2)}
+- Status: ${p.status}
 - Fixtures: ${p.fixtures}
 `).join('\n')}
 
 TRANSFER STRATEGY:
-1. Identify underperforming players or those with difficult fixtures
-2. Find in-form replacements with favorable upcoming fixtures
-3. Ensure affordability within the budget
-4. Prioritize high expected points gain
+1. Identify underperforming players (low PPG/form), injury concerns, or difficult fixtures
+2. Consider suspension risk (players on 4 yellows)
+3. Find in-form replacements with high ICT index and favorable upcoming fixtures
+4. Ensure affordability within the budget
+5. Prioritize consistency (PPG) and expected goal involvements (xGI)
 
 Provide exactly 3 transfer recommendations in this JSON format:
 {
@@ -191,7 +236,7 @@ Provide exactly 3 transfer recommendations in this JSON format:
       "player_out_id": <id to transfer out>,
       "player_in_id": <id to bring in>,
       "expected_points_gain": <expected additional points over next 3 GWs>,
-      "reasoning": "<brief explanation focusing on form and fixtures>",
+      "reasoning": "<brief explanation focusing on consistency, fixtures, injuries, and ICT metrics>",
       "priority": "high|medium|low",
       "cost_impact": <price difference (positive = money saved, negative = money spent)>
     }
@@ -279,10 +324,17 @@ Provide exactly 3 transfer recommendations in this JSON format:
           name: p.web_name,
           team: team?.short_name || 'Unknown',
           form: parseFloat(p.form),
+          ppg: parseFloat(p.points_per_game),
           totalPoints: p.total_points,
           ownership: parseFloat(p.selected_by_percent),
           expectedGoals: parseFloat(p.expected_goals || '0'),
           expectedAssists: parseFloat(p.expected_assists || '0'),
+          ict: parseFloat(p.ict_index || '0'),
+          influence: parseFloat(p.influence || '0'),
+          creativity: parseFloat(p.creativity || '0'),
+          threat: parseFloat(p.threat || '0'),
+          bps: p.bps,
+          bonus: p.bonus,
           fixture: fixtureInfo,
         };
       });
@@ -292,18 +344,22 @@ Provide exactly 3 transfer recommendations in this JSON format:
 CANDIDATES:
 ${topPlayers.map(p => `
 ${p.name} (${p.team})
-- Form: ${p.form.toFixed(1)} | Total Points: ${p.totalPoints}
+- Form: ${p.form.toFixed(1)} | PPG: ${p.ppg} | Total Points: ${p.totalPoints}
 - Fixture: ${p.fixture}
-- Ownership: ${p.ownership.toFixed(1)}%
+- Ownership: ${p.ownership.toFixed(1)}% ${p.ownership < 20 ? '(DIFFERENTIAL)' : '(TEMPLATE)'}
 - xG: ${p.expectedGoals.toFixed(2)} | xA: ${p.expectedAssists.toFixed(2)}
+- ICT Index: ${p.ict.toFixed(1)} (I: ${p.influence.toFixed(1)}, C: ${p.creativity.toFixed(1)}, T: ${p.threat.toFixed(1)})
+- BPS: ${p.bps} | Total Bonus: ${p.bonus}
 `).join('\n')}
 
 ANALYSIS CRITERIA:
 1. Fixture difficulty and home/away advantage
-2. Current form and recent performances
-3. Expected goals/assists (xG/xA) data
-4. Ownership % (consider differentials vs safe picks)
-5. Historical performance in similar fixtures
+2. Current form (PPG) and recent performances
+3. Expected goals/assists (xG/xA) and goal involvement potential
+4. ICT Index - high Threat/Creativity = higher ceiling
+5. BPS potential - high BPS players often get bonus points (3/2/1 pts)
+6. Ownership % - consider differentials (<20%) vs safe picks for rank climbing
+7. Consistency vs ceiling - PPG shows consistency, ICT shows upside
 
 Provide exactly 3 captain recommendations in this JSON format:
 {
@@ -312,7 +368,7 @@ Provide exactly 3 captain recommendations in this JSON format:
       "player_id": <id>,
       "expected_points": <realistic points estimate>,
       "confidence": <0-100>,
-      "reasoning": "<concise explanation focusing on fixtures and form>",
+      "reasoning": "<concise explanation focusing on fixtures, form, BPS potential, and ownership strategy>",
       "differential": <true if ownership < 20%, false otherwise>,
       "ownership_percent": <ownership %>
     }
@@ -420,6 +476,8 @@ Provide chip strategy in JSON format:
     
     const playerDetails = players.map(p => {
       const team = teams.find((t: FPLTeam) => t.id === p.team);
+      const position = p.element_type === 1 ? 'GK' : p.element_type === 2 ? 'DEF' : p.element_type === 3 ? 'MID' : 'FWD';
+      const isDefensive = position === 'GK' || position === 'DEF';
       const upcomingFixtures = fixtures
         .filter((f: FPLFixture) => !f.finished && f.event && (f.team_h === p.team || f.team_a === p.team))
         .slice(0, 3)
@@ -432,15 +490,20 @@ Provide chip strategy in JSON format:
       
       return {
         name: p.web_name,
-        position: p.element_type === 1 ? 'GK' : p.element_type === 2 ? 'DEF' : p.element_type === 3 ? 'MID' : 'FWD',
+        position,
         team: team?.short_name || 'Unknown',
         form: parseFloat(p.form),
+        ppg: parseFloat(p.points_per_game),
         totalPoints: p.total_points,
         price: p.now_cost / 10,
         upcomingFixtures,
         selectedBy: parseFloat(p.selected_by_percent),
         expectedGoals: parseFloat(p.expected_goals || '0'),
         expectedAssists: parseFloat(p.expected_assists || '0'),
+        ict: parseFloat(p.ict_index || '0'),
+        bps: p.bps,
+        cleanSheets: isDefensive ? p.clean_sheets : undefined,
+        expectedGoalsConceded: isDefensive ? parseFloat(p.expected_goals_conceded || '0') : undefined,
       };
     });
 
@@ -450,12 +513,18 @@ TEAM:
 Formation: ${formation} | Value: £${(players.reduce((sum, p) => sum + p.now_cost, 0) / 10).toFixed(1)}m
 
 PLAYERS:
-${playerDetails.map(p => `${p.name} (${p.position}) ${p.team}: Form ${p.form.toFixed(1)}, ${p.upcomingFixtures[0] || 'No fixtures'}, xG ${p.expectedGoals.toFixed(1)}`).join('\n')}
+${playerDetails.map(p => {
+  const baseInfo = `${p.name} (${p.position}) ${p.team}: Form ${p.form.toFixed(1)} | PPG ${p.ppg} | ICT ${p.ict.toFixed(1)}`;
+  const attackInfo = `xG ${p.expectedGoals.toFixed(1)} xA ${p.expectedAssists.toFixed(1)}`;
+  const defenseInfo = p.cleanSheets !== undefined ? `CS ${p.cleanSheets} xGC ${p.expectedGoalsConceded?.toFixed(1)}` : '';
+  const fixtureInfo = p.upcomingFixtures[0] || 'No fixtures';
+  return `${baseInfo} | ${defenseInfo || attackInfo} | ${fixtureInfo}`;
+}).join('\n')}
 
 Provide 3 BRIEF insights (max 2 sentences each):
-1. Team balance & formation
-2. Best fixtures & top picks  
-3. Transfer priority
+1. Team balance, formation fit, and defensive coverage
+2. Best fixtures, attack threat, and top differential picks
+3. Transfer priority based on PPG, ICT index, and fixture difficulty
 
 JSON format (be concise):
 {
@@ -513,6 +582,8 @@ JSON format (be concise):
     // Build detailed player analysis
     const playerDetails = players.map(p => {
       const team = teams.find((t: FPLTeam) => t.id === p.team);
+      const position = p.element_type === 1 ? 'GK' : p.element_type === 2 ? 'DEF' : p.element_type === 3 ? 'MID' : 'FWD';
+      const isDefensive = position === 'GK' || position === 'DEF';
       const upcomingFixtures = fixtures
         .filter((f: FPLFixture) => !f.finished && f.event && (f.team_h === p.team || f.team_a === p.team))
         .slice(0, 3)
@@ -525,15 +596,20 @@ JSON format (be concise):
       
       return {
         name: p.web_name,
-        position: p.element_type === 1 ? 'GK' : p.element_type === 2 ? 'DEF' : p.element_type === 3 ? 'MID' : 'FWD',
+        position,
         team: team?.short_name || 'Unknown',
         form: parseFloat(p.form),
+        ppg: parseFloat(p.points_per_game),
         totalPoints: p.total_points,
         price: p.now_cost / 10,
         upcomingFixtures,
         selectedBy: parseFloat(p.selected_by_percent),
         expectedGoals: parseFloat(p.expected_goals || '0'),
         expectedAssists: parseFloat(p.expected_assists || '0'),
+        ict: parseFloat(p.ict_index || '0'),
+        bps: p.bps,
+        cleanSheets: isDefensive ? p.clean_sheets : undefined,
+        expectedGoalsConceded: isDefensive ? parseFloat(p.expected_goals_conceded || '0') : undefined,
       };
     });
 
@@ -543,12 +619,18 @@ TEAM:
 Formation: ${formation} | Value: £${(players.reduce((sum, p) => sum + p.now_cost, 0) / 10).toFixed(1)}m
 
 PLAYERS:
-${playerDetails.map(p => `${p.name} (${p.position}) ${p.team}: Form ${p.form.toFixed(1)}, ${p.upcomingFixtures[0] || 'No fixtures'}, xG ${p.expectedGoals.toFixed(1)}`).join('\n')}
+${playerDetails.map(p => {
+  const baseInfo = `${p.name} (${p.position}) ${p.team}: Form ${p.form.toFixed(1)} | PPG ${p.ppg} | ICT ${p.ict.toFixed(1)}`;
+  const attackInfo = `xG ${p.expectedGoals.toFixed(1)} xA ${p.expectedAssists.toFixed(1)}`;
+  const defenseInfo = p.cleanSheets !== undefined ? `CS ${p.cleanSheets} xGC ${p.expectedGoalsConceded?.toFixed(1)}` : '';
+  const fixtureInfo = p.upcomingFixtures[0] || 'No fixtures';
+  return `${baseInfo} | ${defenseInfo || attackInfo} | ${fixtureInfo}`;
+}).join('\n')}
 
 Provide 3 BRIEF insights (max 2 sentences each):
-1. Team balance & formation
-2. Best fixtures & top picks  
-3. Transfer priority
+1. Team balance, formation fit, and defensive coverage
+2. Best fixtures, attack threat, and top differential picks
+3. Transfer priority based on PPG, ICT index, and fixture difficulty
 
 JSON format (be concise):
 {

@@ -313,6 +313,25 @@ export const insertPredictionSchema = createInsertSchema(predictions).omit({ id:
 export type InsertPrediction = z.infer<typeof insertPredictionSchema>;
 export type PredictionDB = typeof predictions.$inferSelect;
 
+// AI Team Analysis Predictions (for async polling)
+export const aiTeamPredictions = pgTable('ai_team_predictions', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  requestData: jsonb('request_data').notNull(), // {players, formation}
+  status: text('status', { enum: ['pending', 'processing', 'complete', 'error'] }).notNull().default('pending'),
+  result: jsonb('result'), // {insights, predicted_points, confidence}
+  error: text('error'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  completedAt: timestamp('completed_at'),
+}, (table) => ({
+  userIdIdx: index('ai_team_predictions_user_id_idx').on(table.userId),
+  statusIdx: index('ai_team_predictions_status_idx').on(table.status),
+}));
+
+export const insertAiTeamPredictionSchema = createInsertSchema(aiTeamPredictions).omit({ id: true, createdAt: true, completedAt: true });
+export type InsertAiTeamPrediction = z.infer<typeof insertAiTeamPredictionSchema>;
+export type AiTeamPrediction = typeof aiTeamPredictions.$inferSelect;
+
 // Transfers Table
 export const transfers = pgTable('transfers', {
   id: serial('id').primaryKey(),

@@ -316,6 +316,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Async polling-based team analysis (workaround for proxy issues)
+  app.post("/api/ai/analyze-team-async", async (req, res) => {
+    console.log('[ROUTE ASYNC] Analyze team async endpoint called');
+    try {
+      const { players, formation, userId = 1 } = req.body;
+      if (!players || !formation) {
+        return res.status(400).json({ error: "Missing required data" });
+      }
+
+      // Create prediction record with pending status
+      const predictionId = await storage.createTeamPrediction(userId, { players, formation });
+      console.log('[ROUTE ASYNC] Created prediction ID:', predictionId);
+
+      // Start async processing (don't await - let it run in background)
+      (async () => {
+        try {
+          await storage.updateTeamPredictionStatus(predictionId, 'processing');
+          const analysis = await aiPredictions.analyzeTeamComposition(players, formation);
+          await storage.completeTeamPrediction(predictionId, analysis);
+          console.log('[ROUTE ASYNC] Background processing complete for ID:', predictionId);
+        } catch (error) {
+          console.error('[ROUTE ASYNC] Background processing error:', error);
+          await storage.failTeamPrediction(predictionId, error instanceof Error ? error.message : 'Unknown error');
+        }
+      })();
+
+      // Immediately return the prediction ID for polling
+      res.json({ predictionId });
+    } catch (error) {
+      console.error('[ROUTE ASYNC] Error creating prediction:', error);
+      res.status(500).json({ error: "Failed to create prediction" });
+    }
+  });
+
+  // Poll for prediction status
+  app.get("/api/ai/prediction/:id", async (req, res) => {
+    try {
+      const predictionId = parseInt(req.params.id);
+      if (isNaN(predictionId)) {
+        return res.status(400).json({ error: "Invalid prediction ID" });
+      }
+
+      const prediction = await storage.getTeamPrediction(predictionId);
+      if (!prediction) {
+        return res.status(404).json({ error: "Prediction not found" });
+      }
+
+      res.json({
+        id: prediction.id,
+        status: prediction.status,
+        result: prediction.result,
+        error: prediction.error,
+      });
+    } catch (error) {
+      console.error('[ROUTE] Error fetching prediction:', error);
+      res.status(500).json({ error: "Failed to fetch prediction" });
+    }
+  });
+
   // User Settings Endpoints
   app.get("/api/settings/:userId", async (req, res) => {
     try {

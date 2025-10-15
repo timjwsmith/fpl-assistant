@@ -74,17 +74,54 @@ export function useAnalyzeTeam() {
     mutationFn: async ({
       players,
       formation,
+      userId = 1,
     }: {
       players: FPLPlayer[];
       formation: string;
+      userId?: number;
     }): Promise<{ insights: string[]; predicted_points: number; confidence: number }> => {
-      console.log('[MUTATION] Analyzing team...', players.length, 'players');
-      const result = await apiRequest<{ insights: string[]; predicted_points: number; confidence: number }>("POST", "/api/ai/analyze-team", { players, formation });
-      console.log('[MUTATION] Got result:', result);
-      return result;
+      console.log('[MUTATION] Analyzing team... (async polling)', players.length, 'players');
+      
+      // Step 1: Create prediction request
+      const { predictionId } = await apiRequest<{ predictionId: number }>(
+        "POST", 
+        "/api/ai/analyze-team-async", 
+        { players, formation, userId }
+      );
+      console.log('[MUTATION] Created prediction ID:', predictionId);
+      
+      // Step 2: Poll for result
+      let attempts = 0;
+      const maxAttempts = 60; // 60 seconds max
+      
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+        
+        const prediction = await apiRequest<{
+          id: number;
+          status: string;
+          result: { insights: string[]; predicted_points: number; confidence: number } | null;
+          error: string | null;
+        }>("GET", `/api/ai/prediction/${predictionId}`);
+        
+        console.log('[MUTATION] Poll attempt', attempts + 1, 'Status:', prediction.status);
+        
+        if (prediction.status === 'complete' && prediction.result) {
+          console.log('[MUTATION] Success!', prediction.result);
+          return prediction.result;
+        }
+        
+        if (prediction.status === 'error') {
+          throw new Error(prediction.error || 'Prediction failed');
+        }
+        
+        attempts++;
+      }
+      
+      throw new Error('Prediction timeout - please try again');
     },
     onSuccess: (data) => {
-      console.log('[MUTATION] Success!', data);
+      console.log('[MUTATION] Final success!', data);
     },
     onError: (error) => {
       console.error('[MUTATION] Error!', error);

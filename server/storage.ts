@@ -8,6 +8,7 @@ import {
   predictions,
   transfers,
   chipsUsed,
+  aiTeamPredictions,
   type User,
   type InsertUser,
   type UserTeam,
@@ -21,6 +22,8 @@ import {
   type UserSettingsTable,
   type InsertUserSettingsTable,
   type UserSettings,
+  type AiTeamPrediction,
+  type InsertAiTeamPrediction,
 } from "@shared/schema";
 
 if (!process.env.DATABASE_URL) {
@@ -53,6 +56,13 @@ export interface IStorage {
   getTransfersByUser(userId: number): Promise<Transfer[]>;
   
   saveChipUsage(chipUsage: InsertChipUsed): Promise<ChipUsed>;
+
+  // AI Team Predictions (for async polling)
+  createTeamPrediction(userId: number, requestData: any): Promise<number>;
+  getTeamPrediction(predictionId: number): Promise<AiTeamPrediction | undefined>;
+  updateTeamPredictionStatus(predictionId: number, status: string): Promise<void>;
+  completeTeamPrediction(predictionId: number, result: any): Promise<void>;
+  failTeamPrediction(predictionId: number, error: string): Promise<void>;
   getChipsUsed(userId: number): Promise<ChipUsed[]>;
   getChipUsedInGameweek(userId: number, gameweek: number): Promise<ChipUsed | undefined>;
 }
@@ -346,6 +356,59 @@ export class PostgresStorage implements IStorage {
         eq(predictions.gameweek, gameweek),
         eq(predictions.playerId, playerId)
       ));
+  }
+
+  // AI Team Predictions methods
+  async createTeamPrediction(userId: number, requestData: any): Promise<number> {
+    const inserted = await db
+      .insert(aiTeamPredictions)
+      .values({
+        userId,
+        requestData,
+        status: 'pending',
+      })
+      .returning({ id: aiTeamPredictions.id });
+
+    return inserted[0].id;
+  }
+
+  async getTeamPrediction(predictionId: number): Promise<AiTeamPrediction | undefined> {
+    const results = await db
+      .select()
+      .from(aiTeamPredictions)
+      .where(eq(aiTeamPredictions.id, predictionId))
+      .limit(1);
+
+    return results[0];
+  }
+
+  async updateTeamPredictionStatus(predictionId: number, status: string): Promise<void> {
+    await db
+      .update(aiTeamPredictions)
+      .set({ status: status as 'pending' | 'processing' | 'complete' | 'error' })
+      .where(eq(aiTeamPredictions.id, predictionId));
+  }
+
+  async completeTeamPrediction(predictionId: number, result: any): Promise<void> {
+    await db
+      .update(aiTeamPredictions)
+      .set({ 
+        status: 'complete',
+        result,
+        completedAt: new Date(),
+      })
+      .where(eq(aiTeamPredictions.id, predictionId));
+  }
+
+  async failTeamPrediction(predictionId: number, error: string): Promise<void> {
+    await db
+      .update(aiTeamPredictions)
+      .set({ 
+        status: 'error',
+        error,
+        completedAt: new Date(),
+      })
+      .where(eq(aiTeamPredictions.id, predictionId));
   }
 }
 

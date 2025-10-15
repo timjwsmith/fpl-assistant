@@ -5,6 +5,9 @@ import { fplApi } from "./fpl-api";
 import { aiPredictions } from "./ai-predictions";
 import { managerSync } from "./manager-sync";
 import { actualPointsService } from "./actual-points";
+import { fplAuth } from "./fpl-auth";
+import { gameweekAnalyzer } from "./gameweek-analyzer";
+import { transferApplication } from "./transfer-application";
 import { z } from "zod";
 import { userSettingsSchema } from "@shared/schema";
 
@@ -372,6 +375,316 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('[ROUTE] Error fetching prediction:', error);
       res.status(500).json({ error: "Failed to fetch prediction" });
+    }
+  });
+
+  // FPL Authentication Routes
+  app.post("/api/fpl-auth/login", async (req, res) => {
+    try {
+      const { userId, email, password } = req.body;
+      
+      if (!userId || !email || !password) {
+        return res.status(400).json({ error: "Missing required fields: userId, email, password" });
+      }
+
+      const userIdNum = parseInt(userId);
+      if (isNaN(userIdNum)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+
+      console.log(`[FPL Auth Route] Login attempt for user ${userIdNum}`);
+      
+      await fplAuth.login(email, password, userIdNum);
+      
+      console.log(`[FPL Auth Route] Login successful for user ${userIdNum}`);
+      res.json({ success: true, message: "Successfully authenticated with FPL" });
+    } catch (error) {
+      console.error("[FPL Auth Route] Login error:", error);
+      res.status(401).json({ 
+        error: "Failed to authenticate with FPL", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
+  app.get("/api/fpl-auth/status/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+
+      const authenticated = await fplAuth.isAuthenticated(userId);
+      
+      res.json({ authenticated });
+    } catch (error) {
+      console.error("[FPL Auth Route] Status check error:", error);
+      res.status(500).json({ 
+        error: "Failed to check authentication status",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.post("/api/fpl-auth/logout/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+
+      console.log(`[FPL Auth Route] Logout request for user ${userId}`);
+      
+      await fplAuth.logout(userId);
+      
+      console.log(`[FPL Auth Route] Logout successful for user ${userId}`);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[FPL Auth Route] Logout error:", error);
+      res.status(500).json({ 
+        error: "Failed to logout",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Automation Settings Routes
+  app.get("/api/automation/settings/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+
+      const settings = await storage.getAutomationSettings(userId);
+      
+      res.json(settings || null);
+    } catch (error) {
+      console.error("[Automation Settings Route] Error fetching settings:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch automation settings",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.post("/api/automation/settings/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+
+      console.log(`[Automation Settings Route] Saving settings for user ${userId}:`, req.body);
+
+      const settings = await storage.saveAutomationSettings(userId, req.body);
+      
+      console.log(`[Automation Settings Route] Settings saved successfully for user ${userId}`);
+      res.json(settings);
+    } catch (error) {
+      console.error("[Automation Settings Route] Error saving settings:", error);
+      res.status(500).json({ 
+        error: "Failed to save automation settings",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Gameweek Analysis Routes
+  app.post("/api/automation/analyze/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+
+      const gameweek = req.query.gameweek 
+        ? parseInt(req.query.gameweek as string) 
+        : (await fplApi.getGameweeks()).find(gw => gw.is_current)?.id || 1;
+
+      console.log(`[Automation Analyze Route] Starting analysis for user ${userId}, gameweek ${gameweek}`);
+
+      const plan = await gameweekAnalyzer.analyzeGameweek(userId, gameweek);
+      
+      console.log(`[Automation Analyze Route] Analysis complete for user ${userId}, plan ID: ${plan.id}`);
+      res.json(plan);
+    } catch (error) {
+      console.error("[Automation Analyze Route] Error analyzing gameweek:", error);
+      res.status(500).json({ 
+        error: "Failed to analyze gameweek",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.get("/api/automation/plan/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+
+      const gameweek = req.query.gameweek 
+        ? parseInt(req.query.gameweek as string) 
+        : undefined;
+
+      let plan;
+      if (gameweek) {
+        plan = await storage.getGameweekPlan(userId, gameweek);
+      } else {
+        plan = await storage.getLatestGameweekPlan(userId);
+      }
+      
+      res.json(plan || null);
+    } catch (error) {
+      console.error("[Automation Plan Route] Error fetching plan:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch gameweek plan",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.get("/api/automation/plans/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+
+      const plans = await storage.getGameweekPlansByUser(userId);
+      
+      res.json(plans);
+    } catch (error) {
+      console.error("[Automation Plans Route] Error fetching plans:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch gameweek plans",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Transfer Application Routes
+  app.post("/api/automation/apply/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+
+      const { gameweekPlanId } = req.body;
+      
+      if (!gameweekPlanId) {
+        return res.status(400).json({ error: "Missing gameweekPlanId in request body" });
+      }
+
+      const planId = parseInt(gameweekPlanId);
+      if (isNaN(planId)) {
+        return res.status(400).json({ error: "Invalid gameweekPlanId" });
+      }
+
+      console.log(`[Automation Apply Route] Applying plan ${planId} for user ${userId}`);
+
+      const result = await transferApplication.applyGameweekPlan(userId, planId);
+      
+      console.log(`[Automation Apply Route] Application result for user ${userId}:`, result);
+      
+      if (!result.success) {
+        return res.status(400).json({
+          error: "Failed to apply gameweek plan",
+          details: result.errors.join(", "),
+          result
+        });
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("[Automation Apply Route] Error applying plan:", error);
+      res.status(500).json({ 
+        error: "Failed to apply gameweek plan",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.put("/api/automation/plan/:planId/status", async (req, res) => {
+    try {
+      const planId = parseInt(req.params.planId);
+      
+      if (isNaN(planId)) {
+        return res.status(400).json({ error: "Invalid planId" });
+      }
+
+      const { status } = req.body;
+      
+      if (!status) {
+        return res.status(400).json({ error: "Missing status in request body" });
+      }
+
+      const validStatuses = ['pending', 'previewed', 'applied', 'rejected'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ 
+          error: "Invalid status", 
+          details: `Status must be one of: ${validStatuses.join(', ')}` 
+        });
+      }
+
+      console.log(`[Automation Plan Status Route] Updating plan ${planId} to status: ${status}`);
+
+      await storage.updateGameweekPlanStatus(planId, status);
+      
+      const updatedPlan = await storage.getGameweekPlanById(planId);
+      
+      if (!updatedPlan) {
+        return res.status(404).json({ error: "Gameweek plan not found" });
+      }
+
+      console.log(`[Automation Plan Status Route] Plan ${planId} status updated to: ${status}`);
+      res.json(updatedPlan);
+    } catch (error) {
+      console.error("[Automation Plan Status Route] Error updating plan status:", error);
+      res.status(500).json({ 
+        error: "Failed to update plan status",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Change History Routes
+  app.get("/api/automation/history/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+
+      const gameweek = req.query.gameweek 
+        ? parseInt(req.query.gameweek as string) 
+        : undefined;
+
+      let history;
+      if (gameweek) {
+        history = await storage.getChangeHistory(userId, gameweek);
+      } else {
+        history = await storage.getChangeHistoryByUser(userId);
+      }
+      
+      res.json(history);
+    } catch (error) {
+      console.error("[Automation History Route] Error fetching change history:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch change history",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 

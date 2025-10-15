@@ -87,6 +87,7 @@ export interface IStorage {
   // Automation Settings
   getAutomationSettings(userId: number): Promise<AutomationSettings | undefined>;
   saveAutomationSettings(userId: number, settings: Partial<InsertAutomationSettings>): Promise<AutomationSettings>;
+  getUsersWithAutoSyncEnabled(): Promise<AutomationSettings[]>;
 
   // Gameweek Plans
   saveGameweekPlan(plan: InsertGameweekPlan): Promise<GameweekPlan>;
@@ -543,6 +544,13 @@ export class PostgresStorage implements IStorage {
 
       return inserted[0];
     }
+  }
+
+  async getUsersWithAutoSyncEnabled(): Promise<AutomationSettings[]> {
+    return db
+      .select()
+      .from(automationSettings)
+      .where(eq(automationSettings.autoSyncEnabled, true));
   }
 
   // Gameweek Plans methods

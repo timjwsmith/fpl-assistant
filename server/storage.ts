@@ -10,6 +10,8 @@ import {
   chipsUsed,
   aiTeamPredictions,
   fplCredentials,
+  automationSettings,
+  gameweekPlans,
   type User,
   type InsertUser,
   type UserTeam,
@@ -27,6 +29,10 @@ import {
   type InsertAiTeamPrediction,
   type FplCredentials,
   type InsertFplCredentials,
+  type AutomationSettings,
+  type InsertAutomationSettings,
+  type GameweekPlan,
+  type InsertGameweekPlan,
 } from "@shared/schema";
 
 if (!process.env.DATABASE_URL) {
@@ -74,6 +80,17 @@ export interface IStorage {
   getFplCredentials(userId: number): Promise<FplCredentials | undefined>;
   updateFplCredentials(userId: number, credentials: Partial<InsertFplCredentials>): Promise<FplCredentials>;
   deleteFplCredentials(userId: number): Promise<boolean>;
+
+  // Automation Settings
+  getAutomationSettings(userId: number): Promise<AutomationSettings | undefined>;
+  saveAutomationSettings(userId: number, settings: Partial<InsertAutomationSettings>): Promise<AutomationSettings>;
+
+  // Gameweek Plans
+  saveGameweekPlan(plan: InsertGameweekPlan): Promise<GameweekPlan>;
+  getGameweekPlan(userId: number, gameweek: number): Promise<GameweekPlan | undefined>;
+  getLatestGameweekPlan(userId: number): Promise<GameweekPlan | undefined>;
+  getGameweekPlansByUser(userId: number): Promise<GameweekPlan[]>;
+  updateGameweekPlanStatus(planId: number, status: 'pending' | 'previewed' | 'applied' | 'rejected'): Promise<void>;
 }
 
 export class PostgresStorage implements IStorage {
@@ -479,6 +496,96 @@ export class PostgresStorage implements IStorage {
       .returning();
 
     return result.length > 0;
+  }
+
+  // Automation Settings methods
+  async getAutomationSettings(userId: number): Promise<AutomationSettings | undefined> {
+    const results = await db
+      .select()
+      .from(automationSettings)
+      .where(eq(automationSettings.userId, userId))
+      .limit(1);
+
+    return results[0];
+  }
+
+  async saveAutomationSettings(userId: number, settings: Partial<InsertAutomationSettings>): Promise<AutomationSettings> {
+    const existingSettings = await this.getAutomationSettings(userId);
+
+    if (existingSettings) {
+      const updated = await db
+        .update(automationSettings)
+        .set({
+          ...settings,
+          updatedAt: new Date(),
+        })
+        .where(eq(automationSettings.userId, userId))
+        .returning();
+
+      return updated[0];
+    } else {
+      const inserted = await db
+        .insert(automationSettings)
+        .values({
+          userId,
+          ...settings,
+        })
+        .returning();
+
+      return inserted[0];
+    }
+  }
+
+  // Gameweek Plans methods
+  async saveGameweekPlan(plan: InsertGameweekPlan): Promise<GameweekPlan> {
+    const inserted = await db
+      .insert(gameweekPlans)
+      .values(plan)
+      .returning();
+
+    return inserted[0];
+  }
+
+  async getGameweekPlan(userId: number, gameweek: number): Promise<GameweekPlan | undefined> {
+    const results = await db
+      .select()
+      .from(gameweekPlans)
+      .where(and(
+        eq(gameweekPlans.userId, userId),
+        eq(gameweekPlans.gameweek, gameweek)
+      ))
+      .limit(1);
+
+    return results[0];
+  }
+
+  async getLatestGameweekPlan(userId: number): Promise<GameweekPlan | undefined> {
+    const results = await db
+      .select()
+      .from(gameweekPlans)
+      .where(eq(gameweekPlans.userId, userId))
+      .orderBy(gameweekPlans.gameweek)
+      .limit(1);
+
+    return results[0];
+  }
+
+  async getGameweekPlansByUser(userId: number): Promise<GameweekPlan[]> {
+    return db
+      .select()
+      .from(gameweekPlans)
+      .where(eq(gameweekPlans.userId, userId))
+      .orderBy(gameweekPlans.gameweek);
+  }
+
+  async updateGameweekPlanStatus(planId: number, status: 'pending' | 'previewed' | 'applied' | 'rejected'): Promise<void> {
+    await db
+      .update(gameweekPlans)
+      .set({ 
+        status,
+        appliedAt: status === 'applied' ? new Date() : undefined,
+      })
+      .where(eq(gameweekPlans.id, planId));
   }
 }
 

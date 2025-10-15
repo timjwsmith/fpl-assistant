@@ -3,6 +3,7 @@ import { storage } from "./storage";
 import type {
   FPLPlayer,
   FPLFixture,
+  FPLTeam,
   TransferRecommendation,
   CaptainRecommendation,
   Prediction,
@@ -103,80 +104,146 @@ Based on form, fixtures, and underlying stats, provide a prediction in JSON form
     userId?: number,
     gameweek?: number
   ): Promise<TransferRecommendation[]> {
-    const prompt = `
-You are a Fantasy Premier League transfer expert. Analyze the current squad and suggest the top 3 transfer recommendations.
+    // Get team data for fixture context
+    const { fplApi } = await import("./fpl-api");
+    const teams = await fplApi.getTeams();
+    
+    // Analyze current squad weaknesses
+    const squadAnalysis = currentPlayers.map(p => {
+      const team = teams.find((t: FPLTeam) => t.id === p.team);
+      const upcomingFixtures = fixtures
+        .filter((f: FPLFixture) => !f.finished && f.event && f.event >= (gameweek || 1) && (f.team_h === p.team || f.team_a === p.team))
+        .slice(0, 3)
+        .map((f: FPLFixture) => {
+          const isHome = f.team_h === p.team;
+          const opponent = teams.find((t: FPLTeam) => t.id === (isHome ? f.team_a : f.team_h));
+          const difficulty = isHome ? f.team_h_difficulty : f.team_a_difficulty;
+          return `${isHome ? 'H' : 'A'} vs ${opponent?.short_name} (Diff: ${difficulty})`;
+        });
+      
+      return {
+        id: p.id,
+        name: p.web_name,
+        team: team?.short_name || 'Unknown',
+        position: p.element_type === 1 ? 'GK' : p.element_type === 2 ? 'DEF' : p.element_type === 3 ? 'MID' : 'FWD',
+        form: parseFloat(p.form),
+        price: p.now_cost / 10,
+        fixtures: upcomingFixtures.join(', ') || 'No upcoming fixtures',
+        status: p.status,
+      };
+    });
 
-Current Squad (summarized):
-${currentPlayers.slice(0, 5).map(p => `- ${p.web_name}: ${p.form} form, ${p.total_points} pts`).join('\n')}
+    // Find potential replacements in good form with favorable fixtures
+    const potentialTargets = allPlayers
+      .filter(p => !currentPlayers.some(cp => cp.id === p.id) && parseFloat(p.form) > 4)
+      .slice(0, 20)
+      .map(p => {
+        const team = teams.find((t: FPLTeam) => t.id === p.team);
+        const upcomingFixtures = fixtures
+          .filter((f: FPLFixture) => !f.finished && f.event && f.event >= (gameweek || 1) && (f.team_h === p.team || f.team_a === p.team))
+          .slice(0, 3)
+          .map((f: FPLFixture) => {
+            const isHome = f.team_h === p.team;
+            const opponent = teams.find((t: FPLTeam) => t.id === (isHome ? f.team_a : f.team_h));
+            const difficulty = isHome ? f.team_h_difficulty : f.team_a_difficulty;
+            return `${isHome ? 'H' : 'A'} vs ${opponent?.short_name} (Diff: ${difficulty})`;
+          });
+        
+        return {
+          id: p.id,
+          name: p.web_name,
+          team: team?.short_name || 'Unknown',
+          position: p.element_type === 1 ? 'GK' : p.element_type === 2 ? 'DEF' : p.element_type === 3 ? 'MID' : 'FWD',
+          form: parseFloat(p.form),
+          price: p.now_cost / 10,
+          fixtures: upcomingFixtures.join(', ') || 'No upcoming fixtures',
+        };
+      });
 
-Budget Available: £${budget}m
+    const prompt = `You are an expert FPL transfer analyst. Analyze the current squad and recommend the top 3 transfer moves.
 
-Consider:
-1. Players in poor form or with tough fixtures ahead
-2. In-form players with good upcoming fixtures
-3. Price changes and value
-4. Injury concerns
+CURRENT SQUAD:
+${squadAnalysis.map(p => `
+${p.name} (${p.position}) - ${p.team}
+- Form: ${p.form.toFixed(1)} | Price: £${p.price}m | Status: ${p.status}
+- Fixtures: ${p.fixtures}
+`).join('\n')}
 
-Provide 3 transfer recommendations in JSON format:
+BUDGET AVAILABLE: £${budget.toFixed(1)}m
+
+TOP TARGETS IN FORM:
+${potentialTargets.slice(0, 10).map(p => `
+${p.name} (${p.position}) - ${p.team}
+- Form: ${p.form.toFixed(1)} | Price: £${p.price}m
+- Fixtures: ${p.fixtures}
+`).join('\n')}
+
+TRANSFER STRATEGY:
+1. Identify underperforming players or those with difficult fixtures
+2. Find in-form replacements with favorable upcoming fixtures
+3. Ensure affordability within the budget
+4. Prioritize high expected points gain
+
+Provide exactly 3 transfer recommendations in this JSON format:
 {
   "recommendations": [
     {
-      "player_out_id": <id>,
-      "player_in_id": <id>,
-      "expected_points_gain": <number>,
-      "reasoning": "<explanation>",
+      "player_out_id": <id to transfer out>,
+      "player_in_id": <id to bring in>,
+      "expected_points_gain": <expected additional points over next 3 GWs>,
+      "reasoning": "<brief explanation focusing on form and fixtures>",
       "priority": "high|medium|low",
-      "cost_impact": <number>
+      "cost_impact": <price difference (positive = money saved, negative = money spent)>
     }
   ]
-}
-`;
+}`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 1000,
-    });
-
-    let result;
     try {
-      result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
-    } catch (error) {
-      console.error("Failed to parse AI response for transfer recommendations:", error);
-      result = { recommendations: [] };
-    }
-    const recommendations = result.recommendations || [];
+      const response = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 1200,
+      });
 
-    if (userId && gameweek && recommendations.length > 0) {
-      for (const rec of recommendations) {
-        try {
-          const playerIn = allPlayers.find(p => p.id === rec.player_in_id);
-          if (playerIn) {
-            const upcomingFixtures = fixtures.filter(f => f.event && f.event >= gameweek).slice(0, 3);
-            const prediction = await this.predictPlayerPoints({
-              player: playerIn,
-              upcomingFixtures,
-              userId,
-              gameweek,
-            });
-            
-            await storage.upsertPrediction({
-              userId,
-              gameweek,
-              playerId: rec.player_in_id,
-              predictedPoints: prediction.predicted_points,
-              actualPoints: null,
-              confidence: rec.priority === 'high' ? 80 : rec.priority === 'medium' ? 60 : 40,
-            });
+      const result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
+      console.log('[AI] Transfer recommendations result:', JSON.stringify(result, null, 2));
+      
+      const recommendations = Array.isArray(result.recommendations) ? result.recommendations : [];
+
+      if (userId && gameweek && recommendations.length > 0) {
+        for (const rec of recommendations) {
+          try {
+            const playerIn = allPlayers.find(p => p.id === rec.player_in_id);
+            if (playerIn) {
+              const upcomingFixtures = fixtures.filter(f => f.event && f.event >= gameweek).slice(0, 3);
+              const prediction = await this.predictPlayerPoints({
+                player: playerIn,
+                upcomingFixtures,
+                userId,
+                gameweek,
+              });
+              
+              await storage.upsertPrediction({
+                userId,
+                gameweek,
+                playerId: rec.player_in_id,
+                predictedPoints: prediction.predicted_points,
+                actualPoints: null,
+                confidence: rec.priority === 'high' ? 80 : rec.priority === 'medium' ? 60 : 40,
+              });
+            }
+          } catch (error) {
+            console.error(`Error saving transfer recommendation prediction for player ${rec.player_in_id}:`, error);
           }
-        } catch (error) {
-          console.error(`Error saving transfer recommendation prediction for player ${rec.player_in_id}:`, error);
         }
       }
-    }
 
-    return recommendations;
+      return recommendations;
+    } catch (error) {
+      console.error("Error in transfer recommendations:", error);
+      return [];
+    }
   }
 
   async getCaptainRecommendations(
@@ -185,72 +252,108 @@ Provide 3 transfer recommendations in JSON format:
     userId?: number,
     gameweek?: number
   ): Promise<CaptainRecommendation[]> {
+    // Get team data for fixture context
+    const { fplApi } = await import("./fpl-api");
+    const teams = await fplApi.getTeams();
+    
+    // Filter and enrich top players with fixture data
     const topPlayers = players
-      .filter(p => parseFloat(p.form) > 4 && p.total_points > 30)
-      .slice(0, 10);
+      .filter(p => parseFloat(p.form) > 3 && p.total_points > 20)
+      .slice(0, 15)
+      .map(p => {
+        const team = teams.find((t: FPLTeam) => t.id === p.team);
+        const nextFixture = fixtures.find((f: FPLFixture) => 
+          !f.finished && f.event === gameweek && (f.team_h === p.team || f.team_a === p.team)
+        );
+        
+        let fixtureInfo = 'No fixture';
+        if (nextFixture) {
+          const isHome = nextFixture.team_h === p.team;
+          const opponent = teams.find((t: FPLTeam) => t.id === (isHome ? nextFixture.team_a : nextFixture.team_h));
+          const difficulty = isHome ? nextFixture.team_h_difficulty : nextFixture.team_a_difficulty;
+          fixtureInfo = `${isHome ? 'H' : 'A'} vs ${opponent?.short_name} (Diff: ${difficulty})`;
+        }
+        
+        return {
+          id: p.id,
+          name: p.web_name,
+          team: team?.short_name || 'Unknown',
+          form: parseFloat(p.form),
+          totalPoints: p.total_points,
+          ownership: parseFloat(p.selected_by_percent),
+          expectedGoals: parseFloat(p.expected_goals || '0'),
+          expectedAssists: parseFloat(p.expected_assists || '0'),
+          fixture: fixtureInfo,
+        };
+      });
 
-    const prompt = `
-You are a Fantasy Premier League captain selection expert. Recommend the top 3 captain choices for the upcoming gameweek.
+    const prompt = `You are an expert Fantasy Premier League captain analyst. Analyze these players and recommend the top 3 captain choices for gameweek ${gameweek || 'upcoming'}.
 
-Top Candidates:
-${topPlayers.map(p => `- ${p.web_name}: ${p.form} form, ${p.total_points} pts, ${parseFloat(p.selected_by_percent).toFixed(1)}% owned`).join('\n')}
+CANDIDATES:
+${topPlayers.map(p => `
+${p.name} (${p.team})
+- Form: ${p.form.toFixed(1)} | Total Points: ${p.totalPoints}
+- Fixture: ${p.fixture}
+- Ownership: ${p.ownership.toFixed(1)}%
+- xG: ${p.expectedGoals.toFixed(2)} | xA: ${p.expectedAssists.toFixed(2)}
+`).join('\n')}
 
-Analyze based on:
-1. Current form and momentum
-2. Fixture difficulty
-3. Expected goals/assists
-4. Ownership (for differential picks)
-5. Historical performance
+ANALYSIS CRITERIA:
+1. Fixture difficulty and home/away advantage
+2. Current form and recent performances
+3. Expected goals/assists (xG/xA) data
+4. Ownership % (consider differentials vs safe picks)
+5. Historical performance in similar fixtures
 
-Provide 3 captain recommendations in JSON format:
+Provide exactly 3 captain recommendations in this JSON format:
 {
   "recommendations": [
     {
       "player_id": <id>,
-      "expected_points": <number>,
+      "expected_points": <realistic points estimate>,
       "confidence": <0-100>,
-      "reasoning": "<explanation>",
-      "differential": <boolean>,
-      "ownership_percent": <number>
+      "reasoning": "<concise explanation focusing on fixtures and form>",
+      "differential": <true if ownership < 20%, false otherwise>,
+      "ownership_percent": <ownership %>
     }
   ]
-}
-`;
+}`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 1000,
-    });
-
-    let result;
     try {
-      result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
-    } catch (error) {
-      console.error("Failed to parse AI response for captain recommendations:", error);
-      result = { recommendations: [] };
-    }
-    const recommendations = result.recommendations || [];
+      const response = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 1000,
+      });
 
-    if (userId && gameweek && recommendations.length > 0) {
-      for (const rec of recommendations) {
-        try {
-          await storage.upsertPrediction({
-            userId,
-            gameweek,
-            playerId: rec.player_id,
-            predictedPoints: Math.round(rec.expected_points),
-            actualPoints: null,
-            confidence: rec.confidence,
-          });
-        } catch (error) {
-          console.error(`Error saving captain recommendation prediction for player ${rec.player_id}:`, error);
+      const result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
+      console.log('[AI] Captain recommendations result:', JSON.stringify(result, null, 2));
+      
+      const recommendations = Array.isArray(result.recommendations) ? result.recommendations : [];
+
+      if (userId && gameweek && recommendations.length > 0) {
+        for (const rec of recommendations) {
+          try {
+            await storage.upsertPrediction({
+              userId,
+              gameweek,
+              playerId: rec.player_id,
+              predictedPoints: Math.round(rec.expected_points),
+              actualPoints: null,
+              confidence: rec.confidence,
+            });
+          } catch (error) {
+            console.error(`Error saving captain recommendation prediction for player ${rec.player_id}:`, error);
+          }
         }
       }
-    }
 
-    return recommendations;
+      return recommendations;
+    } catch (error) {
+      console.error("Error in captain recommendations:", error);
+      return [];
+    }
   }
 
   async getChipStrategy(
@@ -310,42 +413,96 @@ Provide chip strategy in JSON format:
     players: FPLPlayer[],
     formation: string
   ): Promise<{ insights: string[]; predicted_points: number; confidence: number }> {
-    const prompt = `
-You are a Fantasy Premier League team analyst. Analyze this team composition:
-
-Formation: ${formation}
-Players: ${players.map(p => `${p.web_name} (${p.element_type === 1 ? 'GK' : p.element_type === 2 ? 'DEF' : p.element_type === 3 ? 'MID' : 'FWD'})`).join(', ')}
-
-Total Team Value: £${players.reduce((sum, p) => sum + p.now_cost, 0) / 10}m
-Average Form: ${(players.reduce((sum, p) => sum + parseFloat(p.form), 0) / players.length).toFixed(2)}
-
-Provide analysis in JSON format:
-{
-  "insights": ["<insight1>", "<insight2>", "<insight3>"],
-  "predicted_points": <number>,
-  "confidence": <0-100>
-}
-`;
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-5",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 500,
+    // Get upcoming fixtures and team data for comprehensive analysis
+    const { fplApi } = await import("./fpl-api");
+    const fixtures = await fplApi.getFixtures();
+    const teams = await fplApi.getTeams();
+    
+    // Build detailed player analysis
+    const playerDetails = players.map(p => {
+      const team = teams.find((t: FPLTeam) => t.id === p.team);
+      const upcomingFixtures = fixtures
+        .filter((f: FPLFixture) => !f.finished && f.event && (f.team_h === p.team || f.team_a === p.team))
+        .slice(0, 3)
+        .map((f: FPLFixture) => {
+          const isHome = f.team_h === p.team;
+          const opponent = teams.find((t: FPLTeam) => t.id === (isHome ? f.team_a : f.team_h));
+          const difficulty = isHome ? f.team_h_difficulty : f.team_a_difficulty;
+          return `${isHome ? 'H' : 'A'} vs ${opponent?.short_name} (Diff: ${difficulty})`;
+        });
+      
+      return {
+        name: p.web_name,
+        position: p.element_type === 1 ? 'GK' : p.element_type === 2 ? 'DEF' : p.element_type === 3 ? 'MID' : 'FWD',
+        team: team?.short_name || 'Unknown',
+        form: parseFloat(p.form),
+        totalPoints: p.total_points,
+        price: p.now_cost / 10,
+        upcomingFixtures,
+        selectedBy: parseFloat(p.selected_by_percent),
+        expectedGoals: parseFloat(p.expected_goals || '0'),
+        expectedAssists: parseFloat(p.expected_assists || '0'),
+      };
     });
 
-    let result;
+    const prompt = `You are an expert Fantasy Premier League analyst. Analyze this team and provide detailed insights and predictions.
+
+TEAM DETAILS:
+Formation: ${formation}
+Total Value: £${(players.reduce((sum, p) => sum + p.now_cost, 0) / 10).toFixed(1)}m
+
+PLAYERS:
+${playerDetails.map(p => `
+${p.name} (${p.position}) - ${p.team}
+- Form: ${p.form.toFixed(1)} | Points: ${p.totalPoints} | Price: £${p.price}m
+- Fixtures: ${p.upcomingFixtures.join(', ') || 'No upcoming fixtures'}
+- xG: ${p.expectedGoals.toFixed(2)} | xA: ${p.expectedAssists.toFixed(2)}
+`).join('\n')}
+
+ANALYSIS REQUIREMENTS:
+1. Evaluate team balance (def/mid/fwd distribution)
+2. Assess fixture difficulty for next 3 gameweeks
+3. Identify form players vs underperformers
+4. Flag injury concerns or rotation risks
+5. Suggest transfer priorities if applicable
+6. Predict total team points for next gameweek
+
+Provide your analysis in this exact JSON format:
+{
+  "insights": [
+    "Insight about team balance and formation",
+    "Insight about upcoming fixtures and difficulty",
+    "Insight about standout players or concerns",
+    "Transfer recommendation or tactical advice"
+  ],
+  "predicted_points": <realistic total points for next gameweek>,
+  "confidence": <confidence level 0-100>
+}`;
+
     try {
-      result = JSON.parse(response.choices[0].message.content || "{}");
+      const response = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 800,
+      });
+
+      const result = JSON.parse(response.choices[0].message.content || "{}");
+      console.log('[AI] Team analysis result:', JSON.stringify(result, null, 2));
+      
+      return {
+        insights: Array.isArray(result.insights) ? result.insights : [],
+        predicted_points: typeof result.predicted_points === 'number' ? result.predicted_points : 0,
+        confidence: typeof result.confidence === 'number' ? result.confidence : 50,
+      };
     } catch (error) {
-      console.error("Failed to parse AI response for team composition analysis:", error);
-      result = {};
+      console.error("Error in team composition analysis:", error);
+      return {
+        insights: ["Unable to generate AI insights at this time"],
+        predicted_points: 0,
+        confidence: 0,
+      };
     }
-    return {
-      insights: result.insights || [],
-      predicted_points: result.predicted_points || 0,
-      confidence: result.confidence || 50,
-    };
   }
 }
 

@@ -32,7 +32,7 @@
 
   --sidebar-border: 0 0% 90%;
 
-  --sidebar-primary: 280 65% 55%;
+  --sidebar-primary: 280 100% 24%;
 
   --sidebar-primary-foreground: 0 0% 98%;
 
@@ -40,7 +40,7 @@
 
   --sidebar-accent-foreground: 280 10% 15%;
 
-  --sidebar-ring: 280 65% 55%;
+  --sidebar-ring: 280 100% 24%;
 
   --popover: 0 0% 100%;
 
@@ -48,7 +48,7 @@
 
   --popover-border: 0 0% 88%;
 
-  --primary: 280 65% 55%;
+  --primary: 280 100% 24%;
 
   --primary-foreground: 0 0% 98%;
 
@@ -69,12 +69,19 @@
   --destructive-foreground: 0 0% 98%;
 
   --input: 0 0% 70%;
-  --ring: 280 65% 55%;
-  --chart-1: 280 65% 55%;
-  --chart-2: 142 76% 40%;
-  --chart-3: 220 70% 50%;
-  --chart-4: 24 80% 50%;
-  --chart-5: 340 75% 50%;
+  --ring: 280 100% 24%;
+  
+  /* FPL Official Color Palette */
+  --fpl-magenta: 338 94% 47%;
+  --fpl-cyan: 182 100% 51%;
+  --fpl-green: 152 100% 50%;
+  --fpl-yellow: 60 100% 50%;
+  
+  --chart-1: 338 94% 47%; /* Magenta */
+  --chart-2: 152 100% 50%; /* Neon Green */
+  --chart-3: 182 100% 51%; /* Cyan */
+  --chart-4: 280 100% 24%; /* Deep Purple */
+  --chart-5: 60 100% 50%; /* Yellow */
 
   --font-sans: Inter, system-ui, sans-serif;
   --font-serif: Georgia, serif;
@@ -122,6 +129,7 @@
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
+/* FPL OFFICIAL DARK MODE THEME */
 .dark {
   --button-outline: rgba(255,255,255, .10);
   --badge-outline: rgba(255,255,255, .05);
@@ -132,67 +140,80 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  --background: 15 8% 12%;
+  /* FPL Deep Purple Background (#38003c) */
+  --background: 280 100% 12%;
 
   --foreground: 0 0% 95%;
 
-  --border: 15 8% 22%;
+  --border: 280 20% 22%;
 
-  --card: 15 6% 16%;
+  /* Slightly lighter purple for cards */
+  --card: 280 100% 15%;
 
   --card-foreground: 0 0% 95%;
 
-  --card-border: 15 6% 20%;
+  --card-border: 280 30% 20%;
 
-  --sidebar: 15 5% 14%;
+  /* Sidebar uses FPL deep purple */
+  --sidebar: 280 100% 13%;
 
   --sidebar-foreground: 0 0% 95%;
 
-  --sidebar-border: 15 5% 18%;
+  --sidebar-border: 280 30% 18%;
 
-  --sidebar-primary: 280 65% 60%;
+  /* FPL Magenta for primary actions */
+  --sidebar-primary: 338 94% 47%;
 
   --sidebar-primary-foreground: 0 0% 98%;
 
-  --sidebar-accent: 15 4% 18%;
+  --sidebar-accent: 280 20% 18%;
 
   --sidebar-accent-foreground: 0 0% 95%;
 
-  --sidebar-ring: 280 65% 60%;
+  --sidebar-ring: 338 94% 47%;
 
-  --popover: 15 5% 18%;
+  --popover: 280 100% 15%;
 
   --popover-foreground: 0 0% 95%;
 
-  --popover-border: 15 5% 24%;
+  --popover-border: 280 30% 24%;
 
-  --primary: 280 65% 60%;
+  /* FPL Magenta for primary buttons */
+  --primary: 338 94% 47%;
 
   --primary-foreground: 0 0% 98%;
 
-  --secondary: 15 4% 22%;
+  --secondary: 280 20% 22%;
 
-  --secondary-foreground: 15 4% 95%;
+  --secondary-foreground: 0 0% 95%;
 
-  --muted: 15 6% 20%;
+  --muted: 280 25% 20%;
 
   --muted-foreground: 0 0% 65%;
 
-  --accent: 280 12% 22%;
+  /* FPL Cyan for accents */
+  --accent: 182 100% 51%;
 
-  --accent-foreground: 280 12% 92%;
+  --accent-foreground: 280 100% 10%;
 
   --destructive: 0 72% 51%;
 
   --destructive-foreground: 0 0% 98%;
 
   --input: 0 0% 45%;
-  --ring: 280 65% 60%;
-  --chart-1: 280 65% 60%;
-  --chart-2: 142 76% 50%;
-  --chart-3: 220 70% 60%;
-  --chart-4: 24 80% 55%;
-  --chart-5: 340 75% 55%;
+  --ring: 338 94% 47%;
+  
+  /* FPL Official Color Palette */
+  --fpl-magenta: 338 94% 47%;
+  --fpl-cyan: 182 100% 51%;
+  --fpl-green: 152 100% 50%;
+  --fpl-yellow: 60 100% 50%;
+  
+  --chart-1: 338 94% 47%; /* Magenta */
+  --chart-2: 152 100% 50%; /* Neon Green */
+  --chart-3: 182 100% 51%; /* Cyan */
+  --chart-4: 280 100% 24%; /* Deep Purple */
+  --chart-5: 60 100% 50%; /* Yellow */
 
   --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
   --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
@@ -242,27 +263,51 @@
   }
 }
 
-/**
- * Using the elevate system.
- * Automatic contrast adjustment.
- *
- * <element className="hover-elevate" />
- * <element className="active-elevate-2" />
- *
- * // Using the tailwind utility when a data attribute is "on"
- * <element className="toggle-elevate data-[state=on]:toggle-elevated" />
- * // Or manually controlling the toggle state
- * <element className="toggle-elevate toggle-elevated" />
- *
- * Elevation systems have to handle many states.
- * - not-hovered, vs. hovered vs. active  (three mutually exclusive states)
- * - toggled or not
- * - focused or not (this is not handled with these utilities)
- *
- * Even without handling focused or not, this is six possible combinations that
- * need to be distinguished from eachother visually.
- */
+/* FPL Utility Classes */
 @layer utilities {
+  .text-fpl-magenta {
+    color: hsl(var(--fpl-magenta));
+  }
+  
+  .text-fpl-cyan {
+    color: hsl(var(--fpl-cyan));
+  }
+  
+  .text-fpl-green {
+    color: hsl(var(--fpl-green));
+  }
+  
+  .text-fpl-yellow {
+    color: hsl(var(--fpl-yellow));
+  }
+  
+  .bg-fpl-magenta {
+    background-color: hsl(var(--fpl-magenta));
+  }
+  
+  .bg-fpl-cyan {
+    background-color: hsl(var(--fpl-cyan));
+  }
+  
+  .bg-fpl-green {
+    background-color: hsl(var(--fpl-green));
+  }
+  
+  .bg-fpl-yellow {
+    background-color: hsl(var(--fpl-yellow));
+  }
+  
+  .border-fpl-magenta {
+    border-color: hsl(var(--fpl-magenta));
+  }
+  
+  .border-fpl-cyan {
+    border-color: hsl(var(--fpl-cyan));
+  }
+  
+  .border-fpl-green {
+    border-color: hsl(var(--fpl-green));
+  }
 
   /* Hide ugly search cancel button in Chrome until we can style it properly */
   input[type="search"]::-webkit-search-cancel-button {
@@ -278,7 +323,7 @@
 
   /* .no-default-hover-elevate/no-default-active-elevate is an escape hatch so consumers of
    * buttons/badges can remove the automatic brightness adjustment on interactions
-   * and program their own. */
+   * and programming their own. */
   .no-default-hover-elevate {}
 
   .no-default-active-elevate {}

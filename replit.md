@@ -18,11 +18,17 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 - **Storage:** PostgreSQL with Drizzle ORM
 - **Styling:** Tailwind CSS, Shadcn UI components
 
-### Design System
-- **Theme:** Premier League-inspired with Purple accent
+### Design System - FPL Official Theme
+- **Theme:** Official Fantasy Premier League design system
 - **Fonts:** Inter (primary), JetBrains Mono (monospace)
-- **Dark Mode:** Default with light mode support
-- **Colors:** Primary (Purple), Success (Green), Destructive (Red), Background (Deep charcoal)
+- **Dark Mode:** FPL Deep Purple (#38003c) background - default
+- **Colors (Official FPL Palette):**
+  - **Deep Purple:** hsl(280, 100%, 12%) - Background & brand
+  - **Magenta Pink:** hsl(338, 94%, 47%) - Primary buttons & actions
+  - **Cyan Blue:** hsl(182, 100%, 51%) - Accents & highlights
+  - **Neon Green:** hsl(152, 100%, 50%) - Success & positive stats
+  - **Bright Yellow:** hsl(60, 100%, 50%) - Warnings & alerts
+  - **White:** #ffffff - Text on dark backgrounds
 
 ### Core Features
 

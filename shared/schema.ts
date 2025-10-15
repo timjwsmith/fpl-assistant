@@ -368,6 +368,99 @@ export const insertChipUsedSchema = createInsertSchema(chipsUsed).omit({ id: tru
 export type InsertChipUsed = z.infer<typeof insertChipUsedSchema>;
 export type ChipUsed = typeof chipsUsed.$inferSelect;
 
+// FPL Credentials Table
+export const fplCredentials = pgTable('fpl_credentials', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  emailEncrypted: text('email_encrypted').notNull(),
+  passwordEncrypted: text('password_encrypted').notNull(),
+  sessionCookies: text('session_cookies'),
+  cookiesExpiresAt: timestamp('cookies_expires_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index('fpl_credentials_user_id_idx').on(table.userId),
+}));
+
+export const insertFplCredentialsSchema = createInsertSchema(fplCredentials).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertFplCredentials = z.infer<typeof insertFplCredentialsSchema>;
+export type FplCredentials = typeof fplCredentials.$inferSelect;
+
+// Automation Settings Table
+export const automationSettings = pgTable('automation_settings', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  autoSyncEnabled: boolean('auto_sync_enabled').default(false).notNull(),
+  autoApplyTransfers: boolean('auto_apply_transfers').default(false).notNull(),
+  autoApplyCaptain: boolean('auto_apply_captain').default(false).notNull(),
+  autoApplyChips: boolean('auto_apply_chips').default(false).notNull(),
+  maxTransferHit: integer('max_transfer_hit').default(8).notNull(),
+  notificationEnabled: boolean('notification_enabled').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index('automation_settings_user_id_idx').on(table.userId),
+}));
+
+export const insertAutomationSettingsSchema = createInsertSchema(automationSettings).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertAutomationSettings = z.infer<typeof insertAutomationSettingsSchema>;
+export type AutomationSettings = typeof automationSettings.$inferSelect;
+
+// Gameweek Plans Table
+export const gameweekPlans = pgTable('gameweek_plans', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  gameweek: integer('gameweek').notNull(),
+  transfers: jsonb('transfers').notNull().$type<Array<{
+    player_out_id: number;
+    player_in_id: number;
+    expected_points_gain: number;
+    reasoning: string;
+    priority: 'high' | 'medium' | 'low';
+    cost_impact: number;
+  }>>(),
+  captainId: integer('captain_id'),
+  viceCaptainId: integer('vice_captain_id'),
+  chipToPlay: text('chip_to_play', { enum: ['wildcard', 'freehit', 'benchboost', 'triplecaptain'] }),
+  formation: text('formation').notNull(),
+  predictedPoints: integer('predicted_points').notNull(),
+  confidence: integer('confidence').notNull(),
+  aiReasoning: text('ai_reasoning').notNull(),
+  status: text('status', { enum: ['pending', 'previewed', 'applied', 'rejected'] }).notNull().default('pending'),
+  appliedAt: timestamp('applied_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index('gameweek_plans_user_id_idx').on(table.userId),
+  gameweekIdx: index('gameweek_plans_gameweek_idx').on(table.gameweek),
+  userGameweekIdx: index('gameweek_plans_user_gameweek_idx').on(table.userId, table.gameweek),
+}));
+
+export const insertGameweekPlanSchema = createInsertSchema(gameweekPlans).omit({ id: true, createdAt: true });
+export type InsertGameweekPlan = z.infer<typeof insertGameweekPlanSchema>;
+export type GameweekPlan = typeof gameweekPlans.$inferSelect;
+
+// Change History Table
+export const changeHistory = pgTable('change_history', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  gameweek: integer('gameweek').notNull(),
+  changeType: text('change_type', { enum: ['transfer', 'captain', 'chip', 'formation'] }).notNull(),
+  changeData: jsonb('change_data').notNull().$type<{
+    [key: string]: any;
+  }>(),
+  appliedSuccessfully: boolean('applied_successfully').notNull(),
+  errorMessage: text('error_message'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index('change_history_user_id_idx').on(table.userId),
+  gameweekIdx: index('change_history_gameweek_idx').on(table.gameweek),
+  userGameweekIdx: index('change_history_user_gameweek_idx').on(table.userId, table.gameweek),
+}));
+
+export const insertChangeHistorySchema = createInsertSchema(changeHistory).omit({ id: true, createdAt: true });
+export type InsertChangeHistory = z.infer<typeof insertChangeHistorySchema>;
+export type ChangeHistory = typeof changeHistory.$inferSelect;
+
 // ==================== DRIZZLE RELATIONS ====================
 
 export const usersRelations = relations(users, ({ many, one }) => ({
@@ -379,6 +472,16 @@ export const usersRelations = relations(users, ({ many, one }) => ({
     fields: [users.id],
     references: [userSettingsTable.userId],
   }),
+  fplCredentials: one(fplCredentials, {
+    fields: [users.id],
+    references: [fplCredentials.userId],
+  }),
+  automationSettings: one(automationSettings, {
+    fields: [users.id],
+    references: [automationSettings.userId],
+  }),
+  gameweekPlans: many(gameweekPlans),
+  changeHistory: many(changeHistory),
 }));
 
 export const userSettingsRelations = relations(userSettingsTable, ({ one }) => ({
@@ -412,6 +515,34 @@ export const transfersRelations = relations(transfers, ({ one }) => ({
 export const chipsUsedRelations = relations(chipsUsed, ({ one }) => ({
   user: one(users, {
     fields: [chipsUsed.userId],
+    references: [users.id],
+  }),
+}));
+
+export const fplCredentialsRelations = relations(fplCredentials, ({ one }) => ({
+  user: one(users, {
+    fields: [fplCredentials.userId],
+    references: [users.id],
+  }),
+}));
+
+export const automationSettingsRelations = relations(automationSettings, ({ one }) => ({
+  user: one(users, {
+    fields: [automationSettings.userId],
+    references: [users.id],
+  }),
+}));
+
+export const gameweekPlansRelations = relations(gameweekPlans, ({ one }) => ({
+  user: one(users, {
+    fields: [gameweekPlans.userId],
+    references: [users.id],
+  }),
+}));
+
+export const changeHistoryRelations = relations(changeHistory, ({ one }) => ({
+  user: one(users, {
+    fields: [changeHistory.userId],
     references: [users.id],
   }),
 }));

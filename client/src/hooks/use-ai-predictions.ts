@@ -78,7 +78,16 @@ export function useAnalyzeTeam() {
       players: FPLPlayer[];
       formation: string;
     }): Promise<{ insights: string[]; predicted_points: number; confidence: number }> => {
-      return apiRequest<{ insights: string[]; predicted_points: number; confidence: number }>("POST", "/api/ai/analyze-team", { players, formation });
+      console.log('[MUTATION] Analyzing team...', players.length, 'players');
+      const result = await apiRequest<{ insights: string[]; predicted_points: number; confidence: number }>("POST", "/api/ai/analyze-team", { players, formation });
+      console.log('[MUTATION] Got result:', result);
+      return result;
+    },
+    onSuccess: (data) => {
+      console.log('[MUTATION] Success!', data);
+    },
+    onError: (error) => {
+      console.error('[MUTATION] Error!', error);
     },
   });
 }

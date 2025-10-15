@@ -444,38 +444,24 @@ Provide chip strategy in JSON format:
       };
     });
 
-    const prompt = `You are an expert Fantasy Premier League analyst. Analyze this team and provide detailed insights and predictions.
+    const prompt = `You are an expert Fantasy Premier League analyst. Analyze this team and provide concise insights.
 
-TEAM DETAILS:
-Formation: ${formation}
-Total Value: £${(players.reduce((sum, p) => sum + p.now_cost, 0) / 10).toFixed(1)}m
+TEAM:
+Formation: ${formation} | Value: £${(players.reduce((sum, p) => sum + p.now_cost, 0) / 10).toFixed(1)}m
 
 PLAYERS:
-${playerDetails.map(p => `
-${p.name} (${p.position}) - ${p.team}
-- Form: ${p.form.toFixed(1)} | Points: ${p.totalPoints} | Price: £${p.price}m
-- Fixtures: ${p.upcomingFixtures.join(', ') || 'No upcoming fixtures'}
-- xG: ${p.expectedGoals.toFixed(2)} | xA: ${p.expectedAssists.toFixed(2)}
-`).join('\n')}
+${playerDetails.map(p => `${p.name} (${p.position}) ${p.team}: Form ${p.form.toFixed(1)}, ${p.upcomingFixtures[0] || 'No fixtures'}, xG ${p.expectedGoals.toFixed(1)}`).join('\n')}
 
-ANALYSIS REQUIREMENTS:
-1. Evaluate team balance (def/mid/fwd distribution)
-2. Assess fixture difficulty for next 3 gameweeks
-3. Identify form players vs underperformers
-4. Flag injury concerns or rotation risks
-5. Suggest transfer priorities if applicable
-6. Predict total team points for next gameweek
+Provide 3 BRIEF insights (max 2 sentences each):
+1. Team balance & formation
+2. Best fixtures & top picks  
+3. Transfer priority
 
-Provide your analysis in this exact JSON format:
+JSON format (be concise):
 {
-  "insights": [
-    "Insight about team balance and formation",
-    "Insight about upcoming fixtures and difficulty",
-    "Insight about standout players or concerns",
-    "Transfer recommendation or tactical advice"
-  ],
-  "predicted_points": <realistic total points for next gameweek>,
-  "confidence": <confidence level 0-100>
+  "insights": ["insight 1", "insight 2", "insight 3"],
+  "predicted_points": <number>,
+  "confidence": <0-100>
 }`;
 
     try {
@@ -485,7 +471,7 @@ Provide your analysis in this exact JSON format:
         model: "gpt-5",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
-        max_completion_tokens: 4000,
+        max_completion_tokens: 1500,
         stream: true,
       });
 
@@ -551,50 +537,43 @@ Provide your analysis in this exact JSON format:
       };
     });
 
-    const prompt = `You are an expert Fantasy Premier League analyst. Analyze this team and provide detailed insights and predictions.
+    const prompt = `You are an expert Fantasy Premier League analyst. Analyze this team and provide concise insights.
 
-TEAM DETAILS:
-Formation: ${formation}
-Total Value: £${(players.reduce((sum, p) => sum + p.now_cost, 0) / 10).toFixed(1)}m
+TEAM:
+Formation: ${formation} | Value: £${(players.reduce((sum, p) => sum + p.now_cost, 0) / 10).toFixed(1)}m
 
 PLAYERS:
-${playerDetails.map(p => `
-${p.name} (${p.position}) - ${p.team}
-- Form: ${p.form.toFixed(1)} | Points: ${p.totalPoints} | Price: £${p.price}m
-- Fixtures: ${p.upcomingFixtures.join(', ') || 'No upcoming fixtures'}
-- xG: ${p.expectedGoals.toFixed(2)} | xA: ${p.expectedAssists.toFixed(2)}
-`).join('\n')}
+${playerDetails.map(p => `${p.name} (${p.position}) ${p.team}: Form ${p.form.toFixed(1)}, ${p.upcomingFixtures[0] || 'No fixtures'}, xG ${p.expectedGoals.toFixed(1)}`).join('\n')}
 
-ANALYSIS REQUIREMENTS:
-1. Evaluate team balance (def/mid/fwd distribution)
-2. Assess fixture difficulty for next 3 gameweeks
-3. Identify form players vs underperformers
-4. Flag injury concerns or rotation risks
-5. Suggest transfer priorities if applicable
-6. Predict total team points for next gameweek
+Provide 3 BRIEF insights (max 2 sentences each):
+1. Team balance & formation
+2. Best fixtures & top picks  
+3. Transfer priority
 
-Provide your analysis in this exact JSON format:
+JSON format (be concise):
 {
-  "insights": [
-    "Insight about team balance and formation",
-    "Insight about upcoming fixtures and difficulty",
-    "Insight about standout players or concerns",
-    "Transfer recommendation or tactical advice"
-  ],
-  "predicted_points": <realistic total points for next gameweek>,
-  "confidence": <confidence level 0-100>
+  "insights": ["insight 1", "insight 2", "insight 3"],
+  "predicted_points": <number>,
+  "confidence": <0-100>
 }`;
 
     try {
       console.log('[AI] Analyzing team with', players.length, 'players');
+      console.log('[AI] Prompt:', prompt);
+      
       const response = await openai.chat.completions.create({
         model: "gpt-5",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
-        max_completion_tokens: 4000, // Increased for GPT-5 reasoning tokens + actual response
+        max_completion_tokens: 1500,
       });
 
-      const rawContent = response.choices[0].message.content || "{}";
+      console.log('[AI] Full response:', JSON.stringify(response, null, 2));
+      console.log('[AI] Choices:', response.choices);
+      console.log('[AI] First choice:', response.choices[0]);
+      console.log('[AI] Message:', response.choices[0]?.message);
+      
+      const rawContent = response.choices[0]?.message?.content || "{}";
       console.log('[AI] Raw response content:', rawContent);
       const result = JSON.parse(rawContent);
       console.log('[AI] Parsed result:', JSON.stringify(result));

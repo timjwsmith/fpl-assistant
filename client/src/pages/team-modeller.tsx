@@ -23,7 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useFPLPlayers, useFPLTeams, useFPLPositions, useFPLGameweeks } from "@/hooks/use-fpl-data";
-import { useStreamingAI } from "@/hooks/use-streaming-ai";
+import { useAnalyzeTeam } from "@/hooks/use-ai-predictions";
 import { LoadingScreen } from "@/components/loading-screen";
 import { ErrorState } from "@/components/error-state";
 import type { FPLPlayer, UserSettings, UserTeam, Transfer } from "@shared/schema";
@@ -114,15 +114,15 @@ export default function TeamModeller() {
     enabled: !!currentGameweek,
   });
   
-  const streamingAI = useStreamingAI();
+  const analyzeMutation = useAnalyzeTeam();
   
-  // Update AI prediction from streaming result
+  // Update AI prediction from mutation result
   useEffect(() => {
-    if (streamingAI.result) {
-      console.log('[FRONTEND STREAMING] Setting AI prediction:', streamingAI.result);
-      setAiPrediction(streamingAI.result);
+    if (analyzeMutation.data) {
+      console.log('[FRONTEND] Setting AI prediction:', analyzeMutation.data);
+      setAiPrediction(analyzeMutation.data);
     }
-  }, [streamingAI.result]);
+  }, [analyzeMutation.data]);
 
   const isLoading = loadingPlayers || loadingTeams || loadingPositions;
   const error = playersError || teamsError || positionsError;
@@ -281,9 +281,9 @@ export default function TeamModeller() {
     
     const playingPlayers = slots.slice(0, 11).map(s => s.player).filter(Boolean) as FPLPlayer[];
     
-    if (playingPlayers.length >= 11 && !streamingAI.isStreaming) {
+    if (playingPlayers.length >= 11 && !analyzeMutation.isPending) {
       timeoutRef.current = setTimeout(() => {
-        streamingAI.analyzeTeam(playingPlayers, formation);
+        analyzeMutation.mutate({ players: playingPlayers, formation });
       }, 400);
     }
 
@@ -292,7 +292,7 @@ export default function TeamModeller() {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [slots, formation, streamingAI.isStreaming, streamingAI.analyzeTeam]);
+  }, [slots, formation, analyzeMutation]);
 
   // Auto-sync team from FPL Manager ID when manager is set but no team data exists
   useEffect(() => {
@@ -688,12 +688,12 @@ export default function TeamModeller() {
               aiPrediction?.insights || 
               (selectedPlayers.length === 0 
                 ? ["Select players to see AI predictions", "Build your team to get insights"]
-                : streamingAI.isStreaming
-                  ? ["🔄 AI is analyzing your team...", "Streaming live insights..."]
+                : analyzeMutation.isPending
+                  ? ["🔄 AI is analyzing your team...", "This may take 30-45 seconds..."]
                   : ["Select 11 players to get AI predictions"])
             }
-            isStreaming={streamingAI.isStreaming}
-            streamingContent={streamingAI.partialContent}
+            isStreaming={analyzeMutation.isPending}
+            streamingContent=""
           />
 
           <PlayerSearchPanel

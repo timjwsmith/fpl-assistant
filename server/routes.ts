@@ -280,7 +280,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         (chunk: string) => {
           buffer += chunk;
           res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
-          res.flush?.(); // Flush if available
         }
       );
 

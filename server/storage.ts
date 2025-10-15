@@ -9,6 +9,7 @@ import {
   transfers,
   chipsUsed,
   aiTeamPredictions,
+  fplCredentials,
   type User,
   type InsertUser,
   type UserTeam,
@@ -24,6 +25,8 @@ import {
   type UserSettings,
   type AiTeamPrediction,
   type InsertAiTeamPrediction,
+  type FplCredentials,
+  type InsertFplCredentials,
 } from "@shared/schema";
 
 if (!process.env.DATABASE_URL) {
@@ -65,6 +68,12 @@ export interface IStorage {
   failTeamPrediction(predictionId: number, error: string): Promise<void>;
   getChipsUsed(userId: number): Promise<ChipUsed[]>;
   getChipUsedInGameweek(userId: number, gameweek: number): Promise<ChipUsed | undefined>;
+
+  // FPL Credentials
+  saveFplCredentials(credentials: InsertFplCredentials): Promise<FplCredentials>;
+  getFplCredentials(userId: number): Promise<FplCredentials | undefined>;
+  updateFplCredentials(userId: number, credentials: Partial<InsertFplCredentials>): Promise<FplCredentials>;
+  deleteFplCredentials(userId: number): Promise<boolean>;
 }
 
 export class PostgresStorage implements IStorage {
@@ -409,6 +418,67 @@ export class PostgresStorage implements IStorage {
         completedAt: new Date(),
       })
       .where(eq(aiTeamPredictions.id, predictionId));
+  }
+
+  // FPL Credentials methods
+  async saveFplCredentials(credentials: InsertFplCredentials): Promise<FplCredentials> {
+    const existingCreds = await this.getFplCredentials(credentials.userId);
+
+    if (existingCreds) {
+      const updated = await db
+        .update(fplCredentials)
+        .set({
+          ...credentials,
+          updatedAt: new Date(),
+        })
+        .where(eq(fplCredentials.userId, credentials.userId))
+        .returning();
+
+      return updated[0];
+    } else {
+      const inserted = await db
+        .insert(fplCredentials)
+        .values(credentials)
+        .returning();
+
+      return inserted[0];
+    }
+  }
+
+  async getFplCredentials(userId: number): Promise<FplCredentials | undefined> {
+    const results = await db
+      .select()
+      .from(fplCredentials)
+      .where(eq(fplCredentials.userId, userId))
+      .limit(1);
+
+    return results[0];
+  }
+
+  async updateFplCredentials(userId: number, credentials: Partial<InsertFplCredentials>): Promise<FplCredentials> {
+    const updated = await db
+      .update(fplCredentials)
+      .set({
+        ...credentials,
+        updatedAt: new Date(),
+      })
+      .where(eq(fplCredentials.userId, userId))
+      .returning();
+
+    if (!updated[0]) {
+      throw new Error(`FPL credentials not found for user ${userId}`);
+    }
+
+    return updated[0];
+  }
+
+  async deleteFplCredentials(userId: number): Promise<boolean> {
+    const result = await db
+      .delete(fplCredentials)
+      .where(eq(fplCredentials.userId, userId))
+      .returning();
+
+    return result.length > 0;
   }
 }
 

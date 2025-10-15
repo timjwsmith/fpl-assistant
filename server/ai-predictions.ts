@@ -471,7 +471,7 @@ JSON format (be concise):
         model: "gpt-5",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
-        max_completion_tokens: 1500,
+        max_completion_tokens: 4000, // Increased for GPT-5 reasoning tokens + actual response
         stream: true,
       });
 
@@ -565,7 +565,7 @@ JSON format (be concise):
         model: "gpt-5",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
-        max_completion_tokens: 1500,
+        max_completion_tokens: 4000, // Increased for GPT-5 reasoning tokens + actual response
       });
 
       console.log('[AI] Full response:', JSON.stringify(response, null, 2));

@@ -12,11 +12,17 @@ export async function apiRequest<T>(
   url: string,
   data?: unknown | undefined,
 ): Promise<T> {
+  console.log('[API] Starting request:', method, url);
+  
   // Use AbortController for timeout on long-running AI requests
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for AI requests
+  const timeoutId = setTimeout(() => {
+    console.log('[API] Request timeout after 60s for', url);
+    controller.abort();
+  }, 60000); // 60 second timeout for AI requests
 
   try {
+    console.log('[API] Sending fetch request to', url);
     const res = await fetch(url, {
       method,
       headers: data ? { "Content-Type": "application/json" } : {},
@@ -25,8 +31,12 @@ export async function apiRequest<T>(
       signal: controller.signal,
     });
 
+    console.log('[API] Fetch completed, status:', res.status);
     clearTimeout(timeoutId);
+    
     await throwIfResNotOk(res);
+    console.log('[API] Response OK, parsing JSON...');
+    
     const result = await res.json();
     console.log('[API] Response received for', url, result);
     return result;

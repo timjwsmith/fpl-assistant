@@ -304,8 +304,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const analysis = await aiPredictions.analyzeTeamComposition(players, formation);
-      console.log('[ROUTE] Analysis complete, sending response');
-      res.json(analysis);
+      console.log('[ROUTE] Analysis complete:', JSON.stringify(analysis));
+      console.log('[ROUTE] Sending response with status 200');
+      
+      // Use send() which handles both JSON serialization and response completion
+      res.status(200).send(analysis);
+      console.log('[ROUTE] Response sent');
     } catch (error) {
       console.error("Error analyzing team:", error);
       res.status(500).json({ error: "Failed to analyze team" });

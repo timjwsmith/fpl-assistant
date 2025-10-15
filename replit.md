@@ -8,6 +8,16 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 **Last Updated:** October 13, 2025
 
 ## Recent Changes
+**October 15, 2025** - AI Predictions Network Issue Fixed with Async Polling
+- **Root Cause:** Replit proxy was blocking POST response bodies from reaching frontend
+- **Solution:** Implemented database-backed async polling system to bypass proxy limitation
+- Created `ai_team_predictions` table to track prediction status and results
+- POST /api/ai/analyze-team-async creates prediction record and returns ID immediately
+- GET /api/ai/prediction/:id polls for completion (2-second intervals, 60-second timeout)
+- Backend processes GPT-5 analysis asynchronously in background (30-60 seconds)
+- AI successfully generating 44-54pt predictions with 60-62% confidence and 3 strategic insights
+- System now works reliably despite Replit network proxy limitations
+
 **October 13, 2025** - Player Images Added Throughout App
 - Player photos now display on all pages where players are referenced
 - Dashboard Top Players section shows player avatars

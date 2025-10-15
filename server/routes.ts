@@ -253,6 +253,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/ai/analyze-team/stream", async (req, res) => {
+    console.log('[ROUTE SSE] Analyze team stream endpoint called');
+    try {
+      const { players, formation } = req.body;
+      console.log('[ROUTE SSE] Players count:', players?.length, 'Formation:', formation);
+      
+      if (!players || !formation) {
+        console.log('[ROUTE SSE] Missing required data!');
+        return res.status(400).json({ error: "Missing required data" });
+      }
+
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      let buffer = '';
+
+      await aiPredictions.analyzeTeamCompositionStream(
+        players,
+        formation,
+        (chunk: string) => {
+          buffer += chunk;
+          res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+        }
+      );
+
+      res.write(`data: ${JSON.stringify({ done: true, fullContent: buffer })}\n\n`);
+      res.end();
+      console.log('[ROUTE SSE] Stream complete');
+    } catch (error) {
+      console.error('[ROUTE SSE] Error:', error);
+      res.write(`data: ${JSON.stringify({ error: 'Failed to analyze team' })}\n\n`);
+      res.end();
+    }
+  });
+
   app.post("/api/ai/analyze-team", async (req, res) => {
     console.log('[ROUTE] Analyze team endpoint called');
     try {

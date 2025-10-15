@@ -409,6 +409,112 @@ Provide chip strategy in JSON format:
     return result.strategies || [];
   }
 
+  async analyzeTeamCompositionStream(
+    players: FPLPlayer[],
+    formation: string,
+    onChunk: (data: string) => void
+  ): Promise<void> {
+    const { fplApi } = await import("./fpl-api");
+    const fixtures = await fplApi.getFixtures();
+    const teams = await fplApi.getTeams();
+    
+    const playerDetails = players.map(p => {
+      const team = teams.find((t: FPLTeam) => t.id === p.team);
+      const upcomingFixtures = fixtures
+        .filter((f: FPLFixture) => !f.finished && f.event && (f.team_h === p.team || f.team_a === p.team))
+        .slice(0, 3)
+        .map((f: FPLFixture) => {
+          const isHome = f.team_h === p.team;
+          const opponent = teams.find((t: FPLTeam) => t.id === (isHome ? f.team_a : f.team_h));
+          const difficulty = isHome ? f.team_h_difficulty : f.team_a_difficulty;
+          return `${isHome ? 'H' : 'A'} vs ${opponent?.short_name} (Diff: ${difficulty})`;
+        });
+      
+      return {
+        name: p.web_name,
+        position: p.element_type === 1 ? 'GK' : p.element_type === 2 ? 'DEF' : p.element_type === 3 ? 'MID' : 'FWD',
+        team: team?.short_name || 'Unknown',
+        form: parseFloat(p.form),
+        totalPoints: p.total_points,
+        price: p.now_cost / 10,
+        upcomingFixtures,
+        selectedBy: parseFloat(p.selected_by_percent),
+        expectedGoals: parseFloat(p.expected_goals || '0'),
+        expectedAssists: parseFloat(p.expected_assists || '0'),
+      };
+    });
+
+    const prompt = `You are an expert Fantasy Premier League analyst. Analyze this team and provide detailed insights and predictions.
+
+TEAM DETAILS:
+Formation: ${formation}
+Total Value: £${(players.reduce((sum, p) => sum + p.now_cost, 0) / 10).toFixed(1)}m
+
+PLAYERS:
+${playerDetails.map(p => `
+${p.name} (${p.position}) - ${p.team}
+- Form: ${p.form.toFixed(1)} | Points: ${p.totalPoints} | Price: £${p.price}m
+- Fixtures: ${p.upcomingFixtures.join(', ') || 'No upcoming fixtures'}
+- xG: ${p.expectedGoals.toFixed(2)} | xA: ${p.expectedAssists.toFixed(2)}
+`).join('\n')}
+
+ANALYSIS REQUIREMENTS:
+1. Evaluate team balance (def/mid/fwd distribution)
+2. Assess fixture difficulty for next 3 gameweeks
+3. Identify form players vs underperformers
+4. Flag injury concerns or rotation risks
+5. Suggest transfer priorities if applicable
+6. Predict total team points for next gameweek
+
+Provide your analysis in this exact JSON format:
+{
+  "insights": [
+    "Insight about team balance and formation",
+    "Insight about upcoming fixtures and difficulty",
+    "Insight about standout players or concerns",
+    "Transfer recommendation or tactical advice"
+  ],
+  "predicted_points": <realistic total points for next gameweek>,
+  "confidence": <confidence level 0-100>
+}`;
+
+    try {
+      console.log('[AI STREAM] Starting stream for', players.length, 'players');
+      
+      const stream = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 4000,
+        stream: true,
+      });
+
+      let fullContent = '';
+      
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content || '';
+        if (content) {
+          fullContent += content;
+          onChunk(content);
+        }
+      }
+
+      console.log('[AI STREAM] Complete. Full response:', fullContent);
+      
+      try {
+        const result = JSON.parse(fullContent);
+        onChunk('\n[DONE]');
+        console.log('[AI STREAM] Parsed result:', result.predicted_points, 'pts,', result.confidence, '% confidence');
+      } catch (parseError) {
+        console.error('[AI STREAM] Failed to parse final result:', parseError);
+        onChunk('\n[ERROR]');
+      }
+    } catch (error) {
+      console.error('[AI STREAM] Error:', error);
+      onChunk('\n[ERROR]');
+    }
+  }
+
   async analyzeTeamComposition(
     players: FPLPlayer[],
     formation: string

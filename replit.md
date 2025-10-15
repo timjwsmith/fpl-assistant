@@ -34,7 +34,14 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 6.  **Chip Advisor**: Strategic recommendations for Wildcard, Triple Captain, Bench Boost, and Free Hit, including double/blank gameweek identification and expected value calculation.
 7.  **Performance Analysis**: Compares predicted vs. actual points, tracks AI prediction accuracy, and provides historical insights.
 8.  **Settings**: FPL Manager ID connection, risk tolerance, preferred formation, and notification preferences.
-9.  **Full Automation System**: Auto-sync and Gameweek Planner for applying optimal FPL changes. Includes FPL authentication, AI-powered Gameweek Analyzer, Transfer Application Service, and UI for reviewing and applying recommendations.
+9.  **Full Automation System**: Complete end-to-end automation for applying optimal FPL changes each gameweek.
+    - **FPL Authentication**: Secure login with AES-256-GCM encrypted credential storage
+    - **AI Gameweek Analyzer**: Comprehensive analysis considering all FPL rules (squad limits, budget, transfers, chips)
+    - **One-Click Apply**: "Apply to FPL Account" button on Gameweek Planner for instant implementation
+    - **Automated Scheduler**: Background service that automatically applies plans 2 hours before gameweek deadline
+    - **Zero Intervention Mode**: Enable auto-sync in Settings and system handles everything automatically
+    - **Change History**: Complete tracking of all applied changes with success/failure status
+    - **Gameweek Planner UI**: Preview AI recommendations, view strategic insights, approve or reject plans
 
 ### System Design Choices
 - **AI Prediction Pipeline**: User input is processed by a Context Builder, then fed to GPT-5 for analysis, returning a structured response. AI services include player points prediction, transfer recommendations, captain selection, chip strategy, and team analysis.

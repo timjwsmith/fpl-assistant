@@ -59,7 +59,7 @@ Based on form, fixtures, and underlying stats, provide a prediction in JSON form
       model: "gpt-5",
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
-      max_completion_tokens: 500,
+      max_completion_tokens: 4000, // Increased for GPT-5 reasoning tokens + actual response
     });
 
     let result;
@@ -203,7 +203,7 @@ Provide exactly 3 transfer recommendations in this JSON format:
         model: "gpt-5",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
-        max_completion_tokens: 1200,
+        max_completion_tokens: 4000, // Increased for GPT-5 reasoning tokens + actual response
       });
 
       const result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
@@ -324,7 +324,7 @@ Provide exactly 3 captain recommendations in this JSON format:
         model: "gpt-5",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
-        max_completion_tokens: 1000,
+        max_completion_tokens: 4000, // Increased for GPT-5 reasoning tokens + actual response
       });
 
       const result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
@@ -480,15 +480,17 @@ Provide your analysis in this exact JSON format:
 }`;
 
     try {
+      console.log('[AI] Analyzing team with', players.length, 'players');
       const response = await openai.chat.completions.create({
         model: "gpt-5",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
-        max_completion_tokens: 800,
+        max_completion_tokens: 4000, // Increased for GPT-5 reasoning tokens + actual response
       });
 
-      const result = JSON.parse(response.choices[0].message.content || "{}");
-      console.log('[AI] Team analysis result:', JSON.stringify(result, null, 2));
+      const rawContent = response.choices[0].message.content || "{}";
+      const result = JSON.parse(rawContent);
+      console.log('[AI] Team analysis complete:', result.predicted_points, 'pts,', result.confidence, '% confidence');
       
       return {
         insights: Array.isArray(result.insights) ? result.insights : [],
@@ -497,6 +499,10 @@ Provide your analysis in this exact JSON format:
       };
     } catch (error) {
       console.error("Error in team composition analysis:", error);
+      if (error instanceof Error) {
+        console.error("Error message:", error.message);
+        console.error("Error stack:", error.stack);
+      }
       return {
         insights: ["Unable to generate AI insights at this time"],
         predicted_points: 0,

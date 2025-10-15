@@ -33,6 +33,12 @@ const mainItems = [
     testId: "link-transfers",
   },
   {
+    title: "Gameweek Planner",
+    url: "/gameweek-planner",
+    icon: Calendar,
+    testId: "link-gameweek-planner",
+  },
+  {
     title: "Fixture Planner",
     url: "/fixtures",
     icon: Calendar,

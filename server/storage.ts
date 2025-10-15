@@ -12,6 +12,7 @@ import {
   fplCredentials,
   automationSettings,
   gameweekPlans,
+  changeHistory,
   type User,
   type InsertUser,
   type UserTeam,
@@ -33,6 +34,8 @@ import {
   type InsertAutomationSettings,
   type GameweekPlan,
   type InsertGameweekPlan,
+  type ChangeHistory,
+  type InsertChangeHistory,
 } from "@shared/schema";
 
 if (!process.env.DATABASE_URL) {
@@ -88,9 +91,15 @@ export interface IStorage {
   // Gameweek Plans
   saveGameweekPlan(plan: InsertGameweekPlan): Promise<GameweekPlan>;
   getGameweekPlan(userId: number, gameweek: number): Promise<GameweekPlan | undefined>;
+  getGameweekPlanById(planId: number): Promise<GameweekPlan | undefined>;
   getLatestGameweekPlan(userId: number): Promise<GameweekPlan | undefined>;
   getGameweekPlansByUser(userId: number): Promise<GameweekPlan[]>;
   updateGameweekPlanStatus(planId: number, status: 'pending' | 'previewed' | 'applied' | 'rejected'): Promise<void>;
+
+  // Change History
+  saveChangeHistory(change: InsertChangeHistory): Promise<ChangeHistory>;
+  getChangeHistory(userId: number, gameweek: number): Promise<ChangeHistory[]>;
+  getChangeHistoryByUser(userId: number): Promise<ChangeHistory[]>;
 }
 
 export class PostgresStorage implements IStorage {
@@ -559,6 +568,16 @@ export class PostgresStorage implements IStorage {
     return results[0];
   }
 
+  async getGameweekPlanById(planId: number): Promise<GameweekPlan | undefined> {
+    const results = await db
+      .select()
+      .from(gameweekPlans)
+      .where(eq(gameweekPlans.id, planId))
+      .limit(1);
+
+    return results[0];
+  }
+
   async getLatestGameweekPlan(userId: number): Promise<GameweekPlan | undefined> {
     const results = await db
       .select()
@@ -586,6 +605,34 @@ export class PostgresStorage implements IStorage {
         appliedAt: status === 'applied' ? new Date() : undefined,
       })
       .where(eq(gameweekPlans.id, planId));
+  }
+
+  async saveChangeHistory(change: InsertChangeHistory): Promise<ChangeHistory> {
+    const inserted = await db
+      .insert(changeHistory)
+      .values(change)
+      .returning();
+
+    return inserted[0];
+  }
+
+  async getChangeHistory(userId: number, gameweek: number): Promise<ChangeHistory[]> {
+    return db
+      .select()
+      .from(changeHistory)
+      .where(and(
+        eq(changeHistory.userId, userId),
+        eq(changeHistory.gameweek, gameweek)
+      ))
+      .orderBy(changeHistory.createdAt);
+  }
+
+  async getChangeHistoryByUser(userId: number): Promise<ChangeHistory[]> {
+    return db
+      .select()
+      .from(changeHistory)
+      .where(eq(changeHistory.userId, userId))
+      .orderBy(changeHistory.gameweek, changeHistory.createdAt);
   }
 }
 

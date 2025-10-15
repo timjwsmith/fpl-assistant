@@ -689,9 +689,11 @@ export default function TeamModeller() {
               (selectedPlayers.length === 0 
                 ? ["Select players to see AI predictions", "Build your team to get insights"]
                 : streamingAI.isStreaming
-                  ? ["Analyzing your team..."]
+                  ? ["🔄 AI is analyzing your team...", "Streaming live insights..."]
                   : ["Select 11 players to get AI predictions"])
             }
+            isStreaming={streamingAI.isStreaming}
+            streamingContent={streamingAI.partialContent}
           />
 
           <PlayerSearchPanel

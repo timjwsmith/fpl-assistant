@@ -9,6 +9,8 @@ interface PredictionPanelProps {
   confidence: number;
   insights: string[];
   className?: string;
+  isStreaming?: boolean;
+  streamingContent?: string;
 }
 
 export function PredictionPanel({
@@ -17,6 +19,8 @@ export function PredictionPanel({
   confidence,
   insights,
   className,
+  isStreaming = false,
+  streamingContent = '',
 }: PredictionPanelProps) {
   const pointsDiff = predictedPoints - currentPoints;
   const isPositive = pointsDiff > 0;
@@ -83,6 +87,20 @@ export function PredictionPanel({
                   <p className="text-sm text-muted-foreground flex-1">{insight}</p>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {isStreaming && streamingContent && (
+          <div className="space-y-2 border-t pt-3">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
+              <p className="text-xs font-medium text-primary">AI Streaming...</p>
+            </div>
+            <div className="p-2 rounded-md bg-muted/30 border border-dashed">
+              <p className="text-xs text-muted-foreground font-mono max-h-24 overflow-y-auto">
+                {streamingContent.slice(-200)}...
+              </p>
             </div>
           </div>
         )}

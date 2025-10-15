@@ -12,15 +12,29 @@ export async function apiRequest<T>(
   url: string,
   data?: unknown | undefined,
 ): Promise<T> {
-  const res = await fetch(url, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+  // Use AbortController for timeout on long-running AI requests
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for AI requests
 
-  await throwIfResNotOk(res);
-  return await res.json();
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: data ? { "Content-Type": "application/json" } : {},
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "include",
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    await throwIfResNotOk(res);
+    const result = await res.json();
+    console.log('[API] Response received for', url, result);
+    return result;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    console.error('[API] Request failed for', url, error);
+    throw error;
+  }
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";

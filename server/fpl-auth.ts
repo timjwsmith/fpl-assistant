@@ -174,6 +174,7 @@ class FPLAuthService {
       console.log(`[FPL Auth] Launching headless browser...`);
       browser = await chromium.launch({
         headless: true,
+        executablePath: '/home/runner/workspace/.cache/ms-playwright/chromium-1194/chrome-linux/chrome',
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',

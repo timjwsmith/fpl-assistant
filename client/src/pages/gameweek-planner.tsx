@@ -61,6 +61,10 @@ export default function GameweekPlanner() {
 
   const { data: plan, isLoading: loadingPlan, error: planError, refetch: refetchPlan } = useQuery<PlanData>({
     queryKey: ["/api/automation/plan", userId, currentGameweek?.id],
+    queryFn: async () => {
+      const url = `/api/automation/plan/${userId}?gameweek=${currentGameweek?.id}`;
+      return apiRequest("GET", url);
+    },
     enabled: !!currentGameweek?.id,
     retry: false,
     staleTime: 30 * 1000,

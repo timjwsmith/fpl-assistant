@@ -96,7 +96,12 @@ export default function GameweekPlanner() {
 
   const applyPlanMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", `/api/automation/apply/${userId}`, {});
+      if (!plan?.id) {
+        throw new Error("No plan available to apply");
+      }
+      return apiRequest("POST", `/api/automation/apply/${userId}`, {
+        gameweekPlanId: plan.id,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/automation/plan", userId] });

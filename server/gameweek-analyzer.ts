@@ -306,7 +306,7 @@ export class GameweekAnalyzerService {
 CURRENT GAMEWEEK: ${gameweek}
 
 CURRENT SQUAD (15 players):
-${squadDetails.map((p: any, i: number) => `${i + 1}. ${p.name} (${p.position}) - ${p.team}
+${squadDetails.map((p: any, i: number) => `[ID: ${p.id}] ${p.name} (${p.position}) - ${p.team}
    Price: £${p.price}m | Form: ${p.form.toFixed(1)} | PPG: ${p.ppg}
    Total Points: ${p.total_points} | Selected: ${p.selected_by}%
    Status: ${p.status}${p.chance_of_playing !== null ? ` (${p.chance_of_playing}% chance)` : ''}
@@ -369,16 +369,16 @@ Provide a strategic gameweek plan in this EXACT JSON format:
 {
   "transfers": [
     {
-      "player_out_id": <player ID to transfer out>,
-      "player_in_id": <player ID to bring in (must exist in FPL)>,
+      "player_out_id": <NUMERIC player ID from squad list above (e.g., 15, 234)>,
+      "player_in_id": <NUMERIC player ID from FPL database (e.g., 328, 145)>,
       "expected_points_gain": <expected points over next 3 GWs>,
       "reasoning": "<why this transfer makes sense considering fixtures, form, price>",
       "priority": "high|medium|low",
       "cost_impact": <price difference: positive = money saved, negative = money spent>
     }
   ],
-  "captain_id": <player ID for captain>,
-  "vice_captain_id": <player ID for vice captain>,
+  "captain_id": <NUMERIC player ID from squad (use the ID shown in [ID: xxx] for each player)>,
+  "vice_captain_id": <NUMERIC player ID from squad (use the ID shown in [ID: xxx] for each player)>,
   "chip_to_play": <"wildcard"|"freehit"|"benchboost"|"triplecaptain"|null>,
   "formation": "<e.g., 3-4-3, 4-4-2, 3-5-2>",
   "predicted_points": <total expected points this gameweek>,
@@ -391,13 +391,15 @@ Provide a strategic gameweek plan in this EXACT JSON format:
   "reasoning": "<overall strategy explanation>"
 }
 
-IMPORTANT:
+CRITICAL REQUIREMENTS:
+- ALL IDs MUST BE NUMERIC INTEGERS (e.g., 15, 234) - NEVER use player names like "Salah" or "Semenyo"
+- captain_id and vice_captain_id MUST use the numeric [ID: xxx] shown for each player in the squad list above
+- player_out_id must be a numeric ID from players in current squad above
+- player_in_id must be a valid numeric FPL player ID
 - Only suggest transfers if necessary (don't transfer for the sake of it)
 - Consider rolling transfers if team is strong
-- Validate all player_out_id exist in current squad
-- Validate all player_in_id are valid FPL player IDs
 - Ensure transfers stay within budget
-- Captain should be from current squad (after transfers)
+- Captain and vice captain should be from current squad (after transfers)
 - Formation must be valid (e.g., 3-4-3, 4-4-2, 3-5-2, 4-3-3, 5-4-1)`;
 
     try {

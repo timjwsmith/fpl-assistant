@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { Settings as SettingsIcon, Save, RefreshCw, Lock, Unlock, Loader2, Zap } from "lucide-react";
 import {
   Select,
@@ -55,6 +57,7 @@ export default function Settings() {
 
   const [fplEmail, setFplEmail] = useState("");
   const [fplPassword, setFplPassword] = useState("");
+  const [fplCookies, setFplCookies] = useState("");
 
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
   const [autoApplyTransfers, setAutoApplyTransfers] = useState(false);
@@ -127,6 +130,34 @@ export default function Settings() {
     },
   });
 
+  const cookieLoginMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/fpl-auth/login-with-cookies", {
+        userId,
+        cookies: fplCookies,
+        email: fplEmail || undefined,
+        password: fplPassword || undefined,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fpl-auth/status", userId] });
+      refetchAuthStatus();
+      setFplCookies("");
+      setFplPassword("");
+      toast({
+        title: "Login successful",
+        description: "You are now authenticated with FPL using cookies.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Login failed",
+        description: error.message || "Failed to authenticate with FPL. Please check your cookies.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const logoutMutation = useMutation({
     mutationFn: async () => {
       return apiRequest("POST", `/api/fpl-auth/logout/${userId}`);
@@ -137,6 +168,7 @@ export default function Settings() {
       refetchAuthStatus();
       setFplEmail("");
       setFplPassword("");
+      setFplCookies("");
       toast({
         title: "Logged out",
         description: "Your FPL credentials have been removed.",
@@ -266,6 +298,18 @@ export default function Settings() {
     loginMutation.mutate();
   };
 
+  const handleCookieLogin = () => {
+    if (!fplCookies) {
+      toast({
+        title: "Missing cookies",
+        description: "Please paste your FPL session cookies.",
+        variant: "destructive",
+      });
+      return;
+    }
+    cookieLoginMutation.mutate();
+  };
+
   const handleSaveAutomationSettings = () => {
     const settings: Partial<AutomationSettings> = {
       autoSyncEnabled,
@@ -364,55 +408,142 @@ export default function Settings() {
               </div>
 
               {!isFPLAuthenticated ? (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="fpl-email">Email</Label>
-                    <Input
-                      id="fpl-email"
-                      type="email"
-                      placeholder="your@email.com"
-                      value={fplEmail}
-                      onChange={(e) => setFplEmail(e.target.value)}
-                      data-testid="input-fpl-email"
-                    />
-                  </div>
+                <Tabs defaultValue="credentials" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="credentials">Email/Password</TabsTrigger>
+                    <TabsTrigger value="cookies">Cookie Authentication</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="credentials" className="space-y-4 mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="fpl-email">Email</Label>
+                      <Input
+                        id="fpl-email"
+                        type="email"
+                        placeholder="your@email.com"
+                        value={fplEmail}
+                        onChange={(e) => setFplEmail(e.target.value)}
+                        data-testid="input-fpl-email"
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="fpl-password">Password</Label>
-                    <Input
-                      id="fpl-password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={fplPassword}
-                      onChange={(e) => setFplPassword(e.target.value)}
-                      data-testid="input-fpl-password"
-                    />
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="fpl-password">Password</Label>
+                      <Input
+                        id="fpl-password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={fplPassword}
+                        onChange={(e) => setFplPassword(e.target.value)}
+                        data-testid="input-fpl-password"
+                      />
+                    </div>
 
-                  <Button
-                    onClick={handleFPLLogin}
-                    disabled={loginMutation.isPending}
-                    className="w-full"
-                    data-testid="button-fpl-login"
-                  >
-                    {loginMutation.isPending ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Logging in...
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="h-4 w-4 mr-2" />
-                        Login to FPL
-                      </>
-                    )}
-                  </Button>
+                    <Button
+                      onClick={handleFPLLogin}
+                      disabled={loginMutation.isPending}
+                      className="w-full"
+                      data-testid="button-fpl-login"
+                    >
+                      {loginMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Logging in...
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="h-4 w-4 mr-2" />
+                          Login to FPL
+                        </>
+                      )}
+                    </Button>
 
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Lock className="h-3 w-3" />
-                    Your FPL credentials are encrypted and stored securely
-                  </p>
-                </div>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Lock className="h-3 w-3" />
+                      Your FPL credentials are encrypted and stored securely
+                    </p>
+                  </TabsContent>
+                  
+                  <TabsContent value="cookies" className="space-y-4 mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="fpl-cookies">FPL Session Cookies</Label>
+                      <Textarea
+                        id="fpl-cookies"
+                        placeholder="Paste your FPL session cookies here..."
+                        value={fplCookies}
+                        onChange={(e) => setFplCookies(e.target.value)}
+                        data-testid="input-fpl-cookies"
+                        className="font-mono text-xs min-h-[120px]"
+                      />
+                      <div className="space-y-2 text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
+                        <p className="font-medium text-foreground">How to extract cookies from your browser:</p>
+                        <ol className="list-decimal list-inside space-y-1 ml-2">
+                          <li>Open the FPL website and log in</li>
+                          <li>Press F12 to open Developer Tools</li>
+                          <li>Go to Application tab (Chrome) or Storage tab (Firefox)</li>
+                          <li>Click on Cookies in the left sidebar</li>
+                          <li>Copy the session cookies (pl_profile, csrftoken, sessionid)</li>
+                          <li>Paste them here in the format: cookie1=value1; cookie2=value2</li>
+                        </ol>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 border-t pt-4">
+                      <p className="text-sm font-medium">Optional: Enable auto-refresh</p>
+                      <p className="text-sm text-muted-foreground">
+                        Provide email/password to automatically refresh expired cookies
+                      </p>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="fpl-email-cookie">Email (Optional)</Label>
+                        <Input
+                          id="fpl-email-cookie"
+                          type="email"
+                          placeholder="your@email.com"
+                          value={fplEmail}
+                          onChange={(e) => setFplEmail(e.target.value)}
+                          data-testid="input-fpl-email-cookie"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="fpl-password-cookie">Password (Optional)</Label>
+                        <Input
+                          id="fpl-password-cookie"
+                          type="password"
+                          placeholder="••••••••"
+                          value={fplPassword}
+                          onChange={(e) => setFplPassword(e.target.value)}
+                          data-testid="input-fpl-password-cookie"
+                        />
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={handleCookieLogin}
+                      disabled={cookieLoginMutation.isPending}
+                      className="w-full"
+                      data-testid="button-cookie-login"
+                    >
+                      {cookieLoginMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Logging in...
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="h-4 w-4 mr-2" />
+                          Login with Cookies
+                        </>
+                      )}
+                    </Button>
+
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Lock className="h-3 w-3" />
+                      Your FPL cookies are encrypted and stored securely
+                    </p>
+                  </TabsContent>
+                </Tabs>
               ) : (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">

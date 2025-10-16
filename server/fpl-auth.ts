@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { storage } from './storage';
+import { chromium } from 'playwright-core';
 
 const FPL_LOGIN_URL = 'https://users.premierleague.com/accounts/login/';
 const COOKIE_EXPIRY_DAYS = 7;
@@ -71,143 +72,201 @@ interface LoginResponse {
   error?: string;
 }
 
+interface CookieValidationResult {
+  isValid: boolean;
+  normalized?: string;
+  error?: string;
+}
+
+function validateAndNormalizeCookies(rawCookies: string): CookieValidationResult {
+  if (!rawCookies || typeof rawCookies !== 'string') {
+    return {
+      isValid: false,
+      error: 'Cookie string is required and must be a string'
+    };
+  }
+
+  let cookies = rawCookies.trim();
+
+  if (cookies.length === 0) {
+    return {
+      isValid: false,
+      error: 'Cookie string cannot be empty'
+    };
+  }
+
+  if (cookies.includes('\n') || cookies.includes('\r')) {
+    return {
+      isValid: false,
+      error: 'Invalid cookie format: cookies cannot contain newlines. Please provide cookies as a single line in the format: cookie_name=value; cookie_name2=value2'
+    };
+  }
+
+  if (cookies.toLowerCase().startsWith('cookie:')) {
+    cookies = cookies.substring(7).trim();
+  }
+
+  const cookiePairs = cookies.split(';').map(pair => pair.trim()).filter(pair => pair.length > 0);
+
+  if (cookiePairs.length === 0) {
+    return {
+      isValid: false,
+      error: 'Invalid cookie format: no valid cookie pairs found. Expected format: cookie_name=value; cookie_name2=value2'
+    };
+  }
+
+  for (const pair of cookiePairs) {
+    if (!pair.includes('=')) {
+      return {
+        isValid: false,
+        error: `Invalid cookie format: "${pair}" does not contain "=". Each cookie must be in the format: cookie_name=value`
+      };
+    }
+
+    const [name, ...valueParts] = pair.split('=');
+    const cookieName = name.trim();
+    const cookieValue = valueParts.join('=').trim();
+
+    if (cookieName.length === 0) {
+      return {
+        isValid: false,
+        error: `Invalid cookie format: cookie name cannot be empty. Expected format: cookie_name=value; cookie_name2=value2`
+      };
+    }
+
+    if (/[^\x20-\x7E]/.test(pair)) {
+      return {
+        isValid: false,
+        error: 'Invalid cookie format: cookies contain non-printable or invalid characters'
+      };
+    }
+  }
+
+  const normalizedCookies = cookiePairs.join('; ');
+
+  const requiredCookieNames = ['pl_profile', 'sessionid', 'csrftoken'];
+  const cookieNames = cookiePairs.map(pair => pair.split('=')[0].trim().toLowerCase());
+  const hasRequiredCookie = requiredCookieNames.some(required => 
+    cookieNames.includes(required.toLowerCase())
+  );
+
+  if (!hasRequiredCookie) {
+    return {
+      isValid: false,
+      error: `Invalid cookies: missing required FPL session cookies. Expected at least one of: ${requiredCookieNames.join(', ')}. Please ensure you copied the complete cookie string from your browser.`
+    };
+  }
+
+  return {
+    isValid: true,
+    normalized: normalizedCookies
+  };
+}
+
 class FPLAuthService {
   async login(email: string, password: string, userId: number): Promise<void> {
-    console.log(`[FPL Auth] Attempting login for user ${userId}`);
+    console.log(`[FPL Auth] Attempting login for user ${userId} using browser automation`);
+    
+    let browser;
     
     try {
-      // Step 1: Visit the main FPL page to establish session and bypass Cloudflare
-      console.log(`[FPL Auth] Establishing session with FPL...`);
-      const mainPageResponse = await fetch('https://fantasy.premierleague.com/', {
-        method: 'GET',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-          'Accept-Language': 'en-GB,en-US;q=0.9,en;q=0.8',
-          'Accept-Encoding': 'gzip, deflate, br',
-          'Connection': 'keep-alive',
-          'Sec-Fetch-Dest': 'document',
-          'Sec-Fetch-Mode': 'navigate',
-          'Sec-Fetch-Site': 'none',
-          'Sec-Fetch-User': '?1',
-          'Upgrade-Insecure-Requests': '1',
-        },
+      // Launch headless browser to bypass Cloudflare
+      console.log(`[FPL Auth] Launching headless browser...`);
+      browser = await chromium.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-blink-features=AutomationControlled',
+        ],
       });
 
-      const mainPageCookies = mainPageResponse.headers.getSetCookie?.() || [];
-      console.log(`[FPL Auth] Main page cookies: ${mainPageCookies.length}`);
+      const context = await browser.newContext({
+        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        viewport: { width: 1920, height: 1080 },
+        locale: 'en-GB',
+      });
+
+      const page = await context.newPage();
+
+      // Navigate to login page
+      console.log(`[FPL Auth] Navigating to login page...`);
+      await page.goto(FPL_LOGIN_URL, { 
+        waitUntil: 'networkidle',
+        timeout: 30000 
+      });
+
+      // Wait for login form to be visible
+      console.log(`[FPL Auth] Waiting for login form...`);
+      await page.waitForSelector('input[name="login"], input[type="email"]', { timeout: 10000 });
+
+      // Fill in credentials
+      console.log(`[FPL Auth] Filling in credentials...`);
+      const emailInput = await page.$('input[name="login"], input[type="email"]');
+      const passwordInput = await page.$('input[name="password"], input[type="password"]');
+
+      if (!emailInput || !passwordInput) {
+        throw new Error('Could not find login form fields');
+      }
+
+      await emailInput.fill(email);
+      await passwordInput.fill(password);
 
       // Small delay to mimic human behavior
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await page.waitForTimeout(500);
 
-      // Step 2: Get the login page to extract CSRF tokens
-      console.log(`[FPL Auth] Fetching login page...`);
-      const loginPageResponse = await fetch(FPL_LOGIN_URL, {
-        method: 'GET',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-          'Accept-Language': 'en-GB,en-US;q=0.9,en;q=0.8',
-          'Accept-Encoding': 'gzip, deflate, br',
-          'Connection': 'keep-alive',
-          'Sec-Fetch-Dest': 'document',
-          'Sec-Fetch-Mode': 'navigate',
-          'Sec-Fetch-Site': 'same-site',
-          'Sec-Fetch-User': '?1',
-          'Referer': 'https://fantasy.premierleague.com/',
-        },
-      });
-
-      const csrfCookies = loginPageResponse.headers.getSetCookie?.() || [];
-      const loginPageHtml = await loginPageResponse.text();
+      // Submit the form
+      console.log(`[FPL Auth] Submitting login form...`);
+      const submitButton = await page.$('button[type="submit"], input[type="submit"]');
       
-      // Extract CSRF token from HTML if present
-      const csrfTokenMatch = loginPageHtml.match(/name=['"]csrfmiddlewaretoken['"] value=['"]([^'"]+)['"]/);
-      const csrfToken = csrfTokenMatch ? csrfTokenMatch[1] : null;
-      
-      console.log(`[FPL Auth] CSRF token found: ${csrfToken ? 'Yes' : 'No'}`);
-      console.log(`[FPL Auth] Login page cookies: ${csrfCookies.length}`);
-
-      // Combine all cookies
-      const allCookies = [...mainPageCookies, ...csrfCookies];
-      const cookieHeader = allCookies
-        .map(cookie => cookie.split(';')[0])
-        .join('; ');
-
-      // Small delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Step 3: Attempt login with full browser headers
-      const formData = new URLSearchParams({
-        login: email,
-        password: password,
-        redirect_uri: 'https://fantasy.premierleague.com/a/login',
-        app: 'plfpl-web',
-      });
-
-      if (csrfToken) {
-        formData.append('csrfmiddlewaretoken', csrfToken);
+      if (submitButton) {
+        await submitButton.click();
+      } else {
+        // Fallback: submit the form directly
+        await page.keyboard.press('Enter');
       }
 
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'en-GB,en-US;q=0.9,en;q=0.8',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'same-origin',
-        'Sec-Fetch-User': '?1',
-        'Referer': 'https://users.premierleague.com/accounts/login/',
-        'Origin': 'https://users.premierleague.com',
-        'Upgrade-Insecure-Requests': '1',
-      };
-
-      if (cookieHeader) {
-        headers['Cookie'] = cookieHeader;
+      // Wait for navigation or error
+      console.log(`[FPL Auth] Waiting for login response...`);
+      try {
+        await Promise.race([
+          page.waitForURL('**/fantasy.premierleague.com/**', { timeout: 15000 }),
+          page.waitForURL('**/a/login**', { timeout: 15000 }),
+        ]);
+      } catch (e) {
+        // Check if we're on an error page
+        const currentUrl = page.url();
+        if (currentUrl.includes('holding.html')) {
+          throw new Error('FPL authentication temporarily unavailable due to security measures. Please try again in a few minutes.');
+        }
+        
+        // Check for error messages on the page
+        const errorText = await page.textContent('.error, .alert, [role="alert"]').catch(() => null);
+        if (errorText) {
+          throw new Error(`Login failed: ${errorText}`);
+        }
       }
 
-      const response = await fetch(FPL_LOGIN_URL, {
-        method: 'POST',
-        headers,
-        body: formData.toString(),
-        redirect: 'manual',
-      });
+      // Check final URL
+      const finalUrl = page.url();
+      console.log(`[FPL Auth] Final URL: ${finalUrl}`);
 
-      console.log(`[FPL Auth] Response status: ${response.status} ${response.statusText}`);
-      const redirectLocation = response.headers.get('location') || '';
-      console.log(`[FPL Auth] Redirect location: ${redirectLocation}`);
-      
-      const responseText = await response.text();
-      console.log(`[FPL Auth] Response body preview: ${responseText.substring(0, 200)}`);
-
-      // Check if redirected to holding page (Cloudflare block)
-      if (redirectLocation.includes('holding.html')) {
-        console.error(`[FPL Auth] Cloudflare bot protection detected`);
+      if (finalUrl.includes('holding.html')) {
         throw new Error('FPL authentication temporarily unavailable due to security measures. Please try again in a few minutes.');
       }
 
-      // Check for redirect (successful login)
-      if (response.status === 302 || response.status === 303 || response.status === 307) {
-        console.log(`[FPL Auth] Login successful - got redirect to ${redirectLocation}`);
-      } else if (!response.ok) {
-        console.error(`[FPL Auth] Login failed for user ${userId}: ${response.status} ${response.statusText}`);
-        throw new Error(`FPL login failed: ${response.statusText}`);
-      }
+      // Extract cookies from browser context
+      const cookies = await context.cookies();
+      console.log(`[FPL Auth] Extracted ${cookies.length} cookies from browser`);
 
-      const setCookieHeaders = response.headers.getSetCookie?.() || response.headers.get('set-cookie')?.split(',') || [];
-      
-      console.log(`[FPL Auth] Set-Cookie headers count: ${setCookieHeaders.length}`);
-      
-      if (setCookieHeaders.length === 0) {
-        console.error(`[FPL Auth] No cookies received for user ${userId}`);
+      if (cookies.length === 0) {
         throw new Error('Login failed: Invalid email or password. Please check your FPL credentials.');
       }
 
-      const cookieString = setCookieHeaders
-        .map(cookie => cookie.split(';')[0])
+      // Convert cookies to string format
+      const cookieString = cookies
+        .map(cookie => `${cookie.name}=${cookie.value}`)
         .join('; ');
 
       const emailEncrypted = encrypt(email);
@@ -227,6 +286,12 @@ class FPLAuthService {
     } catch (error) {
       console.error(`[FPL Auth] ✗ Login error for user ${userId}:`, error);
       throw error;
+    } finally {
+      // Always close the browser
+      if (browser) {
+        await browser.close();
+        console.log(`[FPL Auth] Browser closed`);
+      }
     }
   }
 
@@ -293,6 +358,11 @@ class FPLAuthService {
       throw new Error(`No FPL credentials found for user ${userId}. Please login first.`);
     }
 
+    // Check if we have stored email/password for refresh
+    if (!credentials.emailEncrypted || !credentials.passwordEncrypted) {
+      throw new Error('Session expired. Cannot auto-refresh without stored credentials. Please re-authenticate with cookies or email/password.');
+    }
+
     try {
       const email = decrypt(credentials.emailEncrypted);
       const password = decrypt(credentials.passwordEncrypted);
@@ -347,6 +417,57 @@ class FPLAuthService {
       console.log(`[FPL Auth] ✓ Session refreshed for user ${userId}, expires ${cookiesExpiresAt.toISOString()}`);
     } catch (error) {
       console.error(`[FPL Auth] ✗ Session refresh error for user ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  async loginWithCookies(userId: number, cookies: string, email?: string, password?: string): Promise<void> {
+    console.log(`[FPL Auth] Manual cookie authentication for user ${userId}`);
+    
+    try {
+      const validationResult = validateAndNormalizeCookies(cookies);
+      
+      if (!validationResult.isValid) {
+        throw new Error(validationResult.error || 'Invalid cookie format');
+      }
+
+      const normalizedCookies = validationResult.normalized!;
+      console.log(`[FPL Auth] Cookie validation passed, testing authentication...`);
+
+      const testResponse = await fetch('https://fantasy.premierleague.com/api/me/', {
+        headers: {
+          'Cookie': normalizedCookies,
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        },
+      });
+
+      if (!testResponse.ok) {
+        if (testResponse.status === 403) {
+          throw new Error('Authentication failed: The provided cookies are invalid or expired. Please log in to FPL in your browser and copy fresh cookies.');
+        } else if (testResponse.status === 401) {
+          throw new Error('Authentication failed: The provided cookies are not authorized. Please ensure you copied the complete cookie string from an active FPL session.');
+        } else {
+          throw new Error(`Authentication failed: FPL API returned status ${testResponse.status}. Please ensure your cookies are current and valid.`);
+        }
+      }
+
+      const userData = await testResponse.json();
+      console.log(`[FPL Auth] Cookie validation successful for user ${userId}, FPL ID: ${userData.player}`);
+
+      const cookiesExpiresAt = new Date();
+      cookiesExpiresAt.setDate(cookiesExpiresAt.getDate() + COOKIE_EXPIRY_DAYS);
+
+      await storage.saveFplCredentials({
+        userId,
+        emailEncrypted: email ? encrypt(email) : null,
+        passwordEncrypted: password ? encrypt(password) : null,
+        sessionCookies: normalizedCookies,
+        cookiesExpiresAt,
+      });
+
+      console.log(`[FPL Auth] ✓ Manual authentication successful for user ${userId}, session expires ${cookiesExpiresAt.toISOString()}`);
+    } catch (error) {
+      console.error(`[FPL Auth] ✗ Manual authentication error for user ${userId}:`, error);
       throw error;
     }
   }

@@ -407,6 +407,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/fpl-auth/login-with-cookies", async (req, res) => {
+    try {
+      const { userId, cookies, email, password } = req.body;
+      
+      if (!userId || !cookies) {
+        return res.status(400).json({ 
+          error: "Missing required fields: userId, cookies",
+          example: "Cookies should be in format: cookie_name=value; cookie_name2=value2"
+        });
+      }
+
+      if (typeof cookies !== 'string') {
+        return res.status(400).json({ 
+          error: "Invalid cookie format: cookies must be a string",
+          example: "Cookies should be in format: cookie_name=value; cookie_name2=value2"
+        });
+      }
+
+      const trimmedCookies = cookies.trim();
+      
+      if (trimmedCookies.length === 0) {
+        return res.status(400).json({ 
+          error: "Cookie string cannot be empty",
+          example: "Cookies should be in format: cookie_name=value; cookie_name2=value2"
+        });
+      }
+
+      if (trimmedCookies.includes('\n') || trimmedCookies.includes('\r')) {
+        return res.status(400).json({ 
+          error: "Invalid cookie format: cookies cannot contain newlines. Please provide cookies as a single line.",
+          example: "Correct format: cookie_name=value; cookie_name2=value2"
+        });
+      }
+
+      if (!trimmedCookies.includes('=')) {
+        return res.status(400).json({ 
+          error: "Invalid cookie format: cookies must contain at least one '=' character",
+          example: "Cookies should be in format: cookie_name=value; cookie_name2=value2"
+        });
+      }
+
+      const userIdNum = parseInt(userId);
+      if (isNaN(userIdNum)) {
+        return res.status(400).json({ error: "Invalid userId: must be a number" });
+      }
+
+      console.log(`[FPL Auth Route] Manual cookie authentication for user ${userIdNum}`);
+      
+      await fplAuth.loginWithCookies(userIdNum, trimmedCookies, email, password);
+      
+      console.log(`[FPL Auth Route] Cookie authentication successful for user ${userIdNum}`);
+      res.json({ success: true, message: "Successfully authenticated with FPL cookies" });
+    } catch (error) {
+      console.error("[FPL Auth Route] Cookie authentication error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(401).json({ 
+        error: "Failed to authenticate with cookies", 
+        details: errorMessage,
+        example: "Cookies should be in format: cookie_name=value; cookie_name2=value2"
+      });
+    }
+  });
+
   app.get("/api/fpl-auth/status/:userId", async (req, res) => {
     try {
       const userId = parseInt(req.params.userId);

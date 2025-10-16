@@ -41,7 +41,11 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 7.  **Performance Analysis**: Compares predicted vs. actual points, tracks AI prediction accuracy, and provides historical insights.
 8.  **Settings**: FPL Manager ID connection, risk tolerance, preferred formation, and notification preferences.
 9.  **Full Automation System**: Complete end-to-end automation for applying optimal FPL changes each gameweek.
-    - **FPL Authentication**: Secure login with AES-256-GCM encrypted credential storage
+    - **FPL Authentication**: Dual authentication system to handle Cloudflare bot protection
+      - **Primary Method**: Playwright browser automation for automated login (requires browser binaries)
+      - **Manual Cookie Method**: Users can paste session cookies from their browser as a reliable alternative
+      - **Security**: AES-256-GCM encrypted credential storage with FPL_ENCRYPTION_KEY
+      - **Session Management**: Auto-refresh when credentials available, 7-day cookie expiry
     - **AI Gameweek Analyzer**: Comprehensive analysis considering all FPL rules (squad limits, budget, transfers, chips)
     - **One-Click Apply**: "Apply to FPL Account" button on Gameweek Planner for instant implementation
     - **Automated Scheduler**: Background service that automatically applies plans 2 hours before gameweek deadline

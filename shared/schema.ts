@@ -372,8 +372,8 @@ export type ChipUsed = typeof chipsUsed.$inferSelect;
 export const fplCredentials = pgTable('fpl_credentials', {
   id: serial('id').primaryKey(),
   userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
-  emailEncrypted: text('email_encrypted').notNull(),
-  passwordEncrypted: text('password_encrypted').notNull(),
+  emailEncrypted: text('email_encrypted'),
+  passwordEncrypted: text('password_encrypted'),
   sessionCookies: text('session_cookies'),
   cookiesExpiresAt: timestamp('cookies_expires_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),

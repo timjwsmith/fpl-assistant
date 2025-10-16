@@ -41,9 +41,10 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 7.  **Performance Analysis**: Compares predicted vs. actual points, tracks AI prediction accuracy, and provides historical insights.
 8.  **Settings**: FPL Manager ID connection, risk tolerance, preferred formation, and notification preferences.
 9.  **Full Automation System**: Complete end-to-end automation for applying optimal FPL changes each gameweek.
-    - **FPL Authentication**: Dual authentication system to handle Cloudflare bot protection
-      - **Primary Method**: Playwright browser automation for automated login (requires browser binaries)
-      - **Manual Cookie Method**: Users can paste session cookies from their browser as a reliable alternative
+    - **FPL Authentication**: Flexible authentication system supporting all platforms including iOS
+      - **Remote Browser Service**: Primary method using Browserless.io for cross-platform automation (works on iOS, Android, all devices)
+      - **Local Browser Automation**: Fallback Playwright automation when remote service unavailable
+      - **Manual Cookie Method**: Alternative for users who prefer to extract cookies manually
       - **Security**: AES-256-GCM encrypted credential storage with FPL_ENCRYPTION_KEY
       - **Session Management**: Auto-refresh when credentials available, 7-day cookie expiry
     - **AI Gameweek Analyzer**: Comprehensive analysis considering all FPL rules (squad limits, budget, transfers, chips)
@@ -61,6 +62,14 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 - **Cookie Management**: Cookies are automatically URL-decoded before sending to FPL API (fixed Oct 16, 2025). Debug endpoint available at `/api/fpl-auth/debug-cookies/:userId` to verify cookie status.
 
 ## Recent Changes (October 16, 2025)
+
+### iOS Automation Enabled (Major Update)
+**Solved iOS automation challenge** by integrating remote browser service (Browserless.io):
+- **Full automation now works on iOS** - Users can enter email/password directly in the app
+- **Remote browser connection** - Server connects to cloud browser via WebSocket, bypassing iOS Safari limitations and Replit environment restrictions
+- **Environment variable**: `BROWSERLESS_ENDPOINT` contains WebSocket endpoint for remote browser
+- **Updated UI**: Settings page now shows "Full Automation Available" with green success banner
+- **Code changes**: Modified `server/fpl-auth.ts` to use `chromium.connect()` when remote endpoint available, falls back to local browser when unavailable
 
 ### Authentication Bug Fixes
 1. **URL Encoding Issue**: Fixed bug where cookies were stored URL-encoded (`%3A` instead of `:`). Added `decodeURIComponent()` to `getSessionCookies()` method in `server/fpl-auth.ts`.

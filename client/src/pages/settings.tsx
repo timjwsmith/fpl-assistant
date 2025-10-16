@@ -415,6 +415,22 @@ export default function Settings() {
                   </TabsList>
                   
                   <TabsContent value="credentials" className="space-y-4 mt-4">
+                    <div className="space-y-4 bg-green-500/10 border border-green-500/20 p-4 rounded-lg mb-4">
+                      <div className="flex items-start gap-3">
+                        <div className="bg-green-500/20 p-2 rounded-lg">
+                          <svg className="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-sm text-green-300 mb-2">✅ Full Automation Available</p>
+                          <p className="text-sm text-muted-foreground">
+                            Remote browser service is configured! This works on iOS, Android, and all devices. Just enter your FPL credentials below.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
                       <Label htmlFor="fpl-email">Email</Label>
                       <Input
@@ -448,37 +464,34 @@ export default function Settings() {
                       {loginMutation.isPending ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Logging in...
+                          Logging in via remote browser...
                         </>
                       ) : (
                         <>
                           <Lock className="h-4 w-4 mr-2" />
-                          Login to FPL
+                          Login to FPL (Automated)
                         </>
                       )}
                     </Button>
 
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Lock className="h-3 w-3" />
-                      Your FPL credentials are encrypted and stored securely
+                      Credentials encrypted & stored securely. Login runs on secure remote browser.
                     </p>
                   </TabsContent>
                   
                   <TabsContent value="cookies" className="space-y-4 mt-4">
-                    <div className="space-y-4 bg-amber-500/10 border border-amber-500/20 p-4 rounded-lg">
+                    <div className="space-y-4 bg-blue-500/10 border border-blue-500/20 p-4 rounded-lg">
                       <div className="flex items-start gap-3">
-                        <div className="bg-amber-500/20 p-2 rounded-lg">
-                          <svg className="h-5 w-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div className="bg-blue-500/20 p-2 rounded-lg">
+                          <svg className="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-sm text-amber-300 mb-2">⚠️ iOS Cookie Limitation</p>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            iOS Safari doesn't allow direct cookie access via JavaScript. Since automated browser login isn't available, <strong>we'll need to wait for FPL to provide an official API key system</strong> or use a computer to extract cookies.
-                          </p>
+                          <p className="font-medium text-sm text-blue-300 mb-2">ℹ️ Manual Cookie Method (Alternative)</p>
                           <p className="text-sm text-muted-foreground">
-                            <strong>Alternative:</strong> If you have access to a computer (Windows/Mac/Linux), use the browser DevTools method there to copy cookies, then paste them below.
+                            <strong>Recommended:</strong> Use the "Email/Password" tab for automated login. This manual method is only for advanced users who already have cookies from browser DevTools.
                           </p>
                         </div>
                       </div>

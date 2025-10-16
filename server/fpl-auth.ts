@@ -349,6 +349,22 @@ class FPLAuthService {
     return credentials.sessionCookies;
   }
 
+  extractCsrfToken(cookies: string): string | null {
+    const csrfMatch = cookies.match(/csrftoken=([^;]+)/);
+    return csrfMatch ? csrfMatch[1] : null;
+  }
+
+  async getCsrfToken(userId: number): Promise<string> {
+    const cookies = await this.getSessionCookies(userId);
+    const token = this.extractCsrfToken(cookies);
+    
+    if (!token) {
+      throw new Error('CSRF token not found in session cookies');
+    }
+    
+    return token;
+  }
+
   async refreshSession(userId: number): Promise<void> {
     console.log(`[FPL Auth] Refreshing session for user ${userId}`);
     

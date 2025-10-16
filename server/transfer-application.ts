@@ -191,6 +191,7 @@ class TransferApplicationService {
       }
 
       const sessionCookies = await fplAuth.getSessionCookies(userId);
+      const csrfToken = await fplAuth.getCsrfToken(userId);
 
       const players = await fplApi.getPlayers();
       
@@ -222,6 +223,7 @@ class TransferApplicationService {
         headers: {
           'Content-Type': 'application/json',
           'Cookie': sessionCookies,
+          'X-CSRFToken': csrfToken,
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           'Referer': 'https://fantasy.premierleague.com/',
         },
@@ -313,6 +315,7 @@ class TransferApplicationService {
       }
 
       const sessionCookies = await fplAuth.getSessionCookies(userId);
+      const csrfToken = await fplAuth.getCsrfToken(userId);
 
       const currentPicks = await fplApi.getManagerPicks(teamId, gameweek);
       
@@ -334,6 +337,7 @@ class TransferApplicationService {
         headers: {
           'Content-Type': 'application/json',
           'Cookie': sessionCookies,
+          'X-CSRFToken': csrfToken,
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           'Referer': 'https://fantasy.premierleague.com/',
         },
@@ -433,6 +437,7 @@ class TransferApplicationService {
       const fplChipName = chipMap[chipType] || chipType;
 
       const sessionCookies = await fplAuth.getSessionCookies(userId);
+      const csrfToken = await fplAuth.getCsrfToken(userId);
 
       const currentPicks = await fplApi.getManagerPicks(teamId, gameweek);
 
@@ -453,6 +458,7 @@ class TransferApplicationService {
         headers: {
           'Content-Type': 'application/json',
           'Cookie': sessionCookies,
+          'X-CSRFToken': csrfToken,
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           'Referer': 'https://fantasy.premierleague.com/',
         },

@@ -170,18 +170,31 @@ class FPLAuthService {
     let browser;
     
     try {
-      // Launch headless browser to bypass Cloudflare
-      console.log(`[FPL Auth] Launching headless browser...`);
-      browser = await chromium.launch({
-        headless: true,
-        executablePath: '/home/runner/workspace/.cache/ms-playwright/chromium-1194/chrome-linux/chrome',
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-blink-features=AutomationControlled',
-        ],
-      });
+      // Check if we should use remote browser service (for iOS/mobile users)
+      const browserlessEndpoint = process.env.BROWSERLESS_ENDPOINT;
+      
+      if (browserlessEndpoint) {
+        // Use remote browser service (e.g., Browserless.io)
+        console.log(`[FPL Auth] Connecting to remote browser service...`);
+        browser = await chromium.connect(browserlessEndpoint, {
+          timeout: 60000,
+        });
+        console.log(`[FPL Auth] Connected to remote browser successfully`);
+      } else {
+        // Use local Playwright (may not work in all environments)
+        console.log(`[FPL Auth] Launching local headless browser...`);
+        browser = await chromium.launch({
+          headless: true,
+          executablePath: '/home/runner/workspace/.cache/ms-playwright/chromium-1194/chrome-linux/chrome',
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-blink-features=AutomationControlled',
+          ],
+        });
+        console.log(`[FPL Auth] Local browser launched successfully`);
+      }
 
       const context = await browser.newContext({
         userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',

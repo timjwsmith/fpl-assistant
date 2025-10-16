@@ -58,6 +58,21 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 - **Asynchronous AI Processing**: Implemented a database-backed async polling system to manage long-running AI predictions and bypass network proxy limitations.
 - **FPL API Integration**: Backend proxy with 5-minute caching to manage requests to the official FPL API.
 - **Comprehensive Player Stats**: AI models leverage 20+ additional player metrics, including ICT Index, Bonus Points System, Consistency Metrics (PPG), Defensive Analytics (xGC, clean sheets), Injury & Availability, Suspension Risk, and Actual vs. Expected stats for enhanced prediction accuracy.
+- **Cookie Management**: Cookies are automatically URL-decoded before sending to FPL API (fixed Oct 16, 2025). Debug endpoint available at `/api/fpl-auth/debug-cookies/:userId` to verify cookie status.
+
+## Recent Changes (October 16, 2025)
+
+### Authentication Bug Fixes
+1. **URL Encoding Issue**: Fixed bug where cookies were stored URL-encoded (`%3A` instead of `:`). Added `decodeURIComponent()` to `getSessionCookies()` method in `server/fpl-auth.ts`.
+2. **Cookie Requirements**: FPL API requires 3 cookies for full authentication:
+   - `sessionid` (or `Sessionid`) - Session identifier
+   - `csrftoken` (or `Csrf`) - CSRF protection token
+   - `pl_profile` - **Main authentication cookie (required for POST requests)**
+3. **Debug Endpoint**: Added `/api/fpl-auth/debug-cookies/:userId` endpoint to verify cookie status (shows decoded cookies, CSRF token, and encoding status).
+
+### Data Integrity
+- Stale gameweek plan deleted (contained recommendations for non-existent players)
+- Team Modeller has auto-load functionality (lines 310-327) that correctly populates team from database
 
 ## External Dependencies
 - **Official FPL API**: For all Fantasy Premier League game data.

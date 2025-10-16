@@ -465,26 +465,38 @@ export default function Settings() {
                   </TabsContent>
                   
                   <TabsContent value="cookies" className="space-y-4 mt-4">
+                    <div className="space-y-4 bg-amber-500/10 border border-amber-500/20 p-4 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <div className="bg-amber-500/20 p-2 rounded-lg">
+                          <svg className="h-5 w-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-sm text-amber-300 mb-2">⚠️ iOS Cookie Limitation</p>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            iOS Safari doesn't allow direct cookie access via JavaScript. Since automated browser login isn't available, <strong>we'll need to wait for FPL to provide an official API key system</strong> or use a computer to extract cookies.
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            <strong>Alternative:</strong> If you have access to a computer (Windows/Mac/Linux), use the browser DevTools method there to copy cookies, then paste them below.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
-                      <Label htmlFor="fpl-cookies">FPL Session Cookies</Label>
+                      <Label htmlFor="fpl-cookies">Paste FPL Session Cookies</Label>
                       <Textarea
                         id="fpl-cookies"
-                        placeholder="Paste your FPL session cookies here..."
+                        placeholder="sessionid=abc123; csrftoken=def456; pl_profile=ghi789"
                         value={fplCookies}
                         onChange={(e) => setFplCookies(e.target.value)}
                         data-testid="input-fpl-cookies"
-                        className="font-mono text-xs min-h-[120px]"
+                        className="font-mono text-xs min-h-[100px]"
                       />
-                      <div className="space-y-2 text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
-                        <p className="font-medium text-foreground">How to extract cookies from your browser:</p>
-                        <ol className="list-decimal list-inside space-y-1 ml-2">
-                          <li>Open the FPL website and log in</li>
-                          <li>Press F12 to open Developer Tools</li>
-                          <li>Go to Application tab (Chrome) or Storage tab (Firefox)</li>
-                          <li>Click on Cookies in the left sidebar</li>
-                          <li>Copy the session cookies (pl_profile, csrftoken, sessionid)</li>
-                          <li>Paste them here in the format: cookie1=value1; cookie2=value2</li>
-                        </ol>
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <p>Required cookies: <code className="bg-muted px-1 py-0.5 rounded">sessionid</code>, <code className="bg-muted px-1 py-0.5 rounded">csrftoken</code>, <code className="bg-muted px-1 py-0.5 rounded">pl_profile</code></p>
+                        <p>Format: <code className="bg-muted px-1 py-0.5 rounded">cookie1=value1; cookie2=value2; cookie3=value3</code></p>
                       </div>
                     </div>
 

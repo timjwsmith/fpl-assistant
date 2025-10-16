@@ -350,7 +350,8 @@ class FPLAuthService {
   }
 
   extractCsrfToken(cookies: string): string | null {
-    const csrfMatch = cookies.match(/csrftoken=([^;]+)/);
+    // FPL uses "Csrf" (capital C) in Safari/Chrome, "csrftoken" in some other browsers
+    const csrfMatch = cookies.match(/(?:Csrf|csrftoken)=([^;]+)/i);
     return csrfMatch ? csrfMatch[1] : null;
   }
 

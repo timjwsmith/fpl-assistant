@@ -76,6 +76,31 @@ class FPLAuthService {
     console.log(`[FPL Auth] Attempting login for user ${userId}`);
     
     try {
+      // Step 1: Get the login page to extract any CSRF tokens
+      console.log(`[FPL Auth] Fetching login page for CSRF token...`);
+      const loginPageResponse = await fetch(FPL_LOGIN_URL, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+      });
+
+      const csrfCookies = loginPageResponse.headers.getSetCookie?.() || [];
+      const loginPageHtml = await loginPageResponse.text();
+      
+      // Extract CSRF token from HTML if present
+      const csrfTokenMatch = loginPageHtml.match(/name=['"]csrfmiddlewaretoken['"] value=['"]([^'"]+)['"]/);
+      const csrfToken = csrfTokenMatch ? csrfTokenMatch[1] : null;
+      
+      console.log(`[FPL Auth] CSRF token found: ${csrfToken ? 'Yes' : 'No'}`);
+      console.log(`[FPL Auth] Initial cookies count: ${csrfCookies.length}`);
+
+      // Build cookies string from initial request
+      const cookieHeader = csrfCookies
+        .map(cookie => cookie.split(';')[0])
+        .join('; ');
+
+      // Step 2: Attempt login with CSRF token and cookies
       const formData = new URLSearchParams({
         login: email,
         password: password,
@@ -83,15 +108,26 @@ class FPLAuthService {
         app: 'plfpl-web',
       });
 
+      if (csrfToken) {
+        formData.append('csrfmiddlewaretoken', csrfToken);
+      }
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': 'https://users.premierleague.com/accounts/login/',
+        'Origin': 'https://users.premierleague.com',
+      };
+
+      if (cookieHeader) {
+        headers['Cookie'] = cookieHeader;
+      }
+
       const response = await fetch(FPL_LOGIN_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Referer': 'https://fantasy.premierleague.com/',
-          'Origin': 'https://fantasy.premierleague.com',
-        },
+        headers,
         body: formData.toString(),
+        redirect: 'manual', // Don't follow redirects automatically
       });
 
       console.log(`[FPL Auth] Response status: ${response.status} ${response.statusText}`);
@@ -100,7 +136,10 @@ class FPLAuthService {
       console.log(`[FPL Auth] Response body length: ${responseText.length}`);
       console.log(`[FPL Auth] Response body preview: ${responseText.substring(0, 200)}`);
 
-      if (!response.ok) {
+      // Check for redirect (successful login)
+      if (response.status === 302 || response.status === 303 || response.status === 307) {
+        console.log(`[FPL Auth] Login successful - got redirect`);
+      } else if (!response.ok) {
         console.error(`[FPL Auth] Login failed for user ${userId}: ${response.status} ${response.statusText}`);
         throw new Error(`FPL login failed: ${response.statusText} - ${responseText.substring(0, 500)}`);
       }
@@ -113,7 +152,7 @@ class FPLAuthService {
       if (setCookieHeaders.length === 0) {
         console.error(`[FPL Auth] No cookies received for user ${userId}`);
         console.error(`[FPL Auth] Response body: ${responseText.substring(0, 1000)}`);
-        throw new Error('Login failed: No session cookies received from FPL');
+        throw new Error('Login failed: Invalid credentials or FPL authentication method has changed. Please check your email and password.');
       }
 
       const cookieString = setCookieHeaders

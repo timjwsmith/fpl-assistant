@@ -76,12 +76,45 @@ class FPLAuthService {
     console.log(`[FPL Auth] Attempting login for user ${userId}`);
     
     try {
-      // Step 1: Get the login page to extract any CSRF tokens
-      console.log(`[FPL Auth] Fetching login page for CSRF token...`);
+      // Step 1: Visit the main FPL page to establish session and bypass Cloudflare
+      console.log(`[FPL Auth] Establishing session with FPL...`);
+      const mainPageResponse = await fetch('https://fantasy.premierleague.com/', {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'en-GB,en-US;q=0.9,en;q=0.8',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Connection': 'keep-alive',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Sec-Fetch-User': '?1',
+          'Upgrade-Insecure-Requests': '1',
+        },
+      });
+
+      const mainPageCookies = mainPageResponse.headers.getSetCookie?.() || [];
+      console.log(`[FPL Auth] Main page cookies: ${mainPageCookies.length}`);
+
+      // Small delay to mimic human behavior
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Step 2: Get the login page to extract CSRF tokens
+      console.log(`[FPL Auth] Fetching login page...`);
       const loginPageResponse = await fetch(FPL_LOGIN_URL, {
         method: 'GET',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'en-GB,en-US;q=0.9,en;q=0.8',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Connection': 'keep-alive',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'same-site',
+          'Sec-Fetch-User': '?1',
+          'Referer': 'https://fantasy.premierleague.com/',
         },
       });
 
@@ -93,14 +126,18 @@ class FPLAuthService {
       const csrfToken = csrfTokenMatch ? csrfTokenMatch[1] : null;
       
       console.log(`[FPL Auth] CSRF token found: ${csrfToken ? 'Yes' : 'No'}`);
-      console.log(`[FPL Auth] Initial cookies count: ${csrfCookies.length}`);
+      console.log(`[FPL Auth] Login page cookies: ${csrfCookies.length}`);
 
-      // Build cookies string from initial request
-      const cookieHeader = csrfCookies
+      // Combine all cookies
+      const allCookies = [...mainPageCookies, ...csrfCookies];
+      const cookieHeader = allCookies
         .map(cookie => cookie.split(';')[0])
         .join('; ');
 
-      // Step 2: Attempt login with CSRF token and cookies
+      // Small delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Step 3: Attempt login with full browser headers
       const formData = new URLSearchParams({
         login: email,
         password: password,
@@ -114,9 +151,18 @@ class FPLAuthService {
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-GB,en-US;q=0.9,en;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'same-origin',
+        'Sec-Fetch-User': '?1',
         'Referer': 'https://users.premierleague.com/accounts/login/',
         'Origin': 'https://users.premierleague.com',
+        'Upgrade-Insecure-Requests': '1',
       };
 
       if (cookieHeader) {
@@ -127,32 +173,37 @@ class FPLAuthService {
         method: 'POST',
         headers,
         body: formData.toString(),
-        redirect: 'manual', // Don't follow redirects automatically
+        redirect: 'manual',
       });
 
       console.log(`[FPL Auth] Response status: ${response.status} ${response.statusText}`);
+      const redirectLocation = response.headers.get('location') || '';
+      console.log(`[FPL Auth] Redirect location: ${redirectLocation}`);
       
       const responseText = await response.text();
-      console.log(`[FPL Auth] Response body length: ${responseText.length}`);
       console.log(`[FPL Auth] Response body preview: ${responseText.substring(0, 200)}`);
+
+      // Check if redirected to holding page (Cloudflare block)
+      if (redirectLocation.includes('holding.html')) {
+        console.error(`[FPL Auth] Cloudflare bot protection detected`);
+        throw new Error('FPL authentication temporarily unavailable due to security measures. Please try again in a few minutes.');
+      }
 
       // Check for redirect (successful login)
       if (response.status === 302 || response.status === 303 || response.status === 307) {
-        console.log(`[FPL Auth] Login successful - got redirect`);
+        console.log(`[FPL Auth] Login successful - got redirect to ${redirectLocation}`);
       } else if (!response.ok) {
         console.error(`[FPL Auth] Login failed for user ${userId}: ${response.status} ${response.statusText}`);
-        throw new Error(`FPL login failed: ${response.statusText} - ${responseText.substring(0, 500)}`);
+        throw new Error(`FPL login failed: ${response.statusText}`);
       }
 
       const setCookieHeaders = response.headers.getSetCookie?.() || response.headers.get('set-cookie')?.split(',') || [];
       
       console.log(`[FPL Auth] Set-Cookie headers count: ${setCookieHeaders.length}`);
-      console.log(`[FPL Auth] All response headers:`, Array.from(response.headers.entries()));
       
       if (setCookieHeaders.length === 0) {
         console.error(`[FPL Auth] No cookies received for user ${userId}`);
-        console.error(`[FPL Auth] Response body: ${responseText.substring(0, 1000)}`);
-        throw new Error('Login failed: Invalid credentials or FPL authentication method has changed. Please check your email and password.');
+        throw new Error('Login failed: Invalid email or password. Please check your FPL credentials.');
       }
 
       const cookieString = setCookieHeaders

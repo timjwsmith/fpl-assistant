@@ -221,9 +221,10 @@ class TransferApplicationService {
       const response = await fetch(`${FPL_BASE_URL}/entry/${teamId}/transfers/`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json;charset=UTF-8',
           'Cookie': sessionCookies,
           'X-CSRFToken': csrfToken,
+          'X-Requested-With': 'XMLHttpRequest',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           'Referer': 'https://fantasy.premierleague.com/',
         },
@@ -335,9 +336,10 @@ class TransferApplicationService {
       const response = await fetch(`${FPL_BASE_URL}/my-team/${teamId}/`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json;charset=UTF-8',
           'Cookie': sessionCookies,
           'X-CSRFToken': csrfToken,
+          'X-Requested-With': 'XMLHttpRequest',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           'Referer': 'https://fantasy.premierleague.com/',
         },
@@ -456,9 +458,10 @@ class TransferApplicationService {
       const response = await fetch(`${FPL_BASE_URL}/my-team/${teamId}/`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json;charset=UTF-8',
           'Cookie': sessionCookies,
           'X-CSRFToken': csrfToken,
+          'X-Requested-With': 'XMLHttpRequest',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           'Referer': 'https://fantasy.premierleague.com/',
         },

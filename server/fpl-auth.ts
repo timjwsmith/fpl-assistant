@@ -343,10 +343,10 @@ class FPLAuthService {
         throw new Error('Failed to refresh session cookies');
       }
       
-      return refreshedCredentials.sessionCookies;
+      return decodeURIComponent(refreshedCredentials.sessionCookies);
     }
 
-    return credentials.sessionCookies;
+    return decodeURIComponent(credentials.sessionCookies);
   }
 
   extractCsrfToken(cookies: string): string | null {

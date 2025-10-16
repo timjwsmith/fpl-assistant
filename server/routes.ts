@@ -513,6 +513,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/fpl-auth/debug-cookies/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+
+      const cookies = await fplAuth.getSessionCookies(userId);
+      const csrfToken = await fplAuth.getCsrfToken(userId);
+      
+      res.json({ 
+        cookies: cookies.substring(0, 100) + '...',
+        csrfToken,
+        cookiesLength: cookies.length,
+        hasColons: cookies.includes(':'),
+        hasUrlEncoding: cookies.includes('%')
+      });
+    } catch (error) {
+      console.error("[FPL Auth Route] Debug cookies error:", error);
+      res.status(500).json({ 
+        error: "Failed to debug cookies",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Automation Settings Routes
   app.get("/api/automation/settings/:userId", async (req, res) => {
     try {

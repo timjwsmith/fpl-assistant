@@ -29,6 +29,8 @@ interface TransferPayload {
 interface TransfersRequest {
   chip: string | null;
   transfers: TransferPayload[];
+  entry: number;
+  event: number;
 }
 
 interface TeamPickPayload {
@@ -214,11 +216,13 @@ class TransferApplicationService {
       const requestBody: TransfersRequest = {
         chip: chipToUse || null,
         transfers: transferPayloads,
+        entry: teamId,
+        event: gameweek,
       };
 
       console.log(`[Transfer Application] Sending transfer request to FPL API for team ${teamId}`);
       
-      const response = await fetch(`${FPL_BASE_URL}/entry/${teamId}/transfers/`, {
+      const response = await fetch(`${FPL_BASE_URL}/my-team/${teamId}/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json;charset=UTF-8',

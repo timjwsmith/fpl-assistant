@@ -94,16 +94,25 @@ class FPLAuthService {
         body: formData.toString(),
       });
 
+      console.log(`[FPL Auth] Response status: ${response.status} ${response.statusText}`);
+      
+      const responseText = await response.text();
+      console.log(`[FPL Auth] Response body length: ${responseText.length}`);
+      console.log(`[FPL Auth] Response body preview: ${responseText.substring(0, 200)}`);
+
       if (!response.ok) {
-        const errorText = await response.text();
         console.error(`[FPL Auth] Login failed for user ${userId}: ${response.status} ${response.statusText}`);
-        throw new Error(`FPL login failed: ${response.statusText} - ${errorText}`);
+        throw new Error(`FPL login failed: ${response.statusText} - ${responseText.substring(0, 500)}`);
       }
 
       const setCookieHeaders = response.headers.getSetCookie?.() || response.headers.get('set-cookie')?.split(',') || [];
       
+      console.log(`[FPL Auth] Set-Cookie headers count: ${setCookieHeaders.length}`);
+      console.log(`[FPL Auth] All response headers:`, Array.from(response.headers.entries()));
+      
       if (setCookieHeaders.length === 0) {
         console.error(`[FPL Auth] No cookies received for user ${userId}`);
+        console.error(`[FPL Auth] Response body: ${responseText.substring(0, 1000)}`);
         throw new Error('Login failed: No session cookies received from FPL');
       }
 
@@ -216,14 +225,20 @@ class FPLAuthService {
         body: formData.toString(),
       });
 
+      console.log(`[FPL Auth Refresh] Response status: ${response.status} ${response.statusText}`);
+      const responseText = await response.text();
+
       if (!response.ok) {
         console.error(`[FPL Auth] Session refresh failed for user ${userId}: ${response.status}`);
-        throw new Error(`FPL session refresh failed: ${response.statusText}`);
+        throw new Error(`FPL session refresh failed: ${response.statusText} - ${responseText.substring(0, 500)}`);
       }
 
       const setCookieHeaders = response.headers.getSetCookie?.() || response.headers.get('set-cookie')?.split(',') || [];
       
+      console.log(`[FPL Auth Refresh] Set-Cookie headers count: ${setCookieHeaders.length}`);
+      
       if (setCookieHeaders.length === 0) {
+        console.error(`[FPL Auth Refresh] Response body: ${responseText.substring(0, 1000)}`);
         throw new Error('Session refresh failed: No cookies received');
       }
 

@@ -71,7 +71,7 @@ function DraggablePlayerSlot({ slot, onRemove }: DraggablePlayerSlotProps) {
       <div className="relative flex flex-col items-center gap-1 hover-elevate active-elevate-2 rounded-lg p-2 -m-2">
         <div className="relative">
           <Avatar className="h-14 w-14 border-2 border-background ring-2 ring-primary/50">
-            <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${slot.player.id}.png`} />
+            <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${slot.player.photo}`} />
             <AvatarFallback className="text-xs font-semibold bg-primary/20">
               {slot.player.web_name.substring(0, 2).toUpperCase()}
             </AvatarFallback>
@@ -429,7 +429,7 @@ export function PitchVisualization({
           <div className="opacity-80">
             <div className="relative flex flex-col items-center gap-1 bg-card rounded-lg p-2 border-2 border-primary shadow-lg">
               <Avatar className="h-14 w-14 border-2 border-background ring-2 ring-primary/50">
-                <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${draggedPlayer.id}.png`} />
+                <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${draggedPlayer.photo}`} />
                 <AvatarFallback className="text-xs font-semibold bg-primary/20">
                   {draggedPlayer.web_name.substring(0, 2).toUpperCase()}
                 </AvatarFallback>

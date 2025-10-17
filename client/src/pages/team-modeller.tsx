@@ -681,7 +681,6 @@ export default function TeamModeller() {
 
         <div className="space-y-6">
           <PredictionPanel
-            currentPoints={selectedPlayers.reduce((sum, p) => sum + p.total_points, 0)}
             predictedPoints={aiPrediction?.predicted_points || 0}
             confidence={aiPrediction?.confidence || 0}
             insights={

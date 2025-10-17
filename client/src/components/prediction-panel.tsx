@@ -1,10 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, TrendingUp, TrendingDown } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PredictionPanelProps {
-  currentPoints: number;
   predictedPoints: number;
   confidence: number;
   insights: string[];
@@ -14,7 +13,6 @@ interface PredictionPanelProps {
 }
 
 export function PredictionPanel({
-  currentPoints,
   predictedPoints,
   confidence,
   insights,
@@ -22,9 +20,6 @@ export function PredictionPanel({
   isStreaming = false,
   streamingContent = '',
 }: PredictionPanelProps) {
-  const pointsDiff = predictedPoints - currentPoints;
-  const isPositive = pointsDiff > 0;
-
   return (
     <Card className={cn("border-primary/50", className)} data-testid="panel-prediction">
       <CardHeader className="pb-3">
@@ -34,34 +29,12 @@ export function PredictionPanel({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-sm text-muted-foreground">Current</p>
-            <p className="text-2xl font-bold font-mono" data-testid="text-current-points">
-              {currentPoints}
-              <span className="text-sm text-muted-foreground ml-1">pts</span>
-            </p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Predicted</p>
-            <p className="text-2xl font-bold font-mono" data-testid="text-predicted-points">
-              {predictedPoints}
-              <span className="text-sm text-muted-foreground ml-1">pts</span>
-            </p>
-          </div>
-        </div>
-
-        <div className="p-3 rounded-md bg-muted/50 border">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Expected Change</span>
-            <div className={cn(
-              "flex items-center gap-1 font-bold font-mono",
-              isPositive ? "text-chart-2" : "text-destructive"
-            )}>
-              {isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-              {isPositive ? '+' : ''}{pointsDiff} pts
-            </div>
-          </div>
+        <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+          <p className="text-sm text-muted-foreground mb-1">Predicted Gameweek Points</p>
+          <p className="text-3xl font-bold font-mono" data-testid="text-predicted-points">
+            {predictedPoints}
+            <span className="text-lg text-muted-foreground ml-2">pts</span>
+          </p>
         </div>
 
         <div className="flex items-center justify-between">

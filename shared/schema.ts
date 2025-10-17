@@ -38,6 +38,7 @@ export const fplPlayerSchema = z.object({
   influence: z.string(),
   creativity: z.string(),
   threat: z.string(),
+  photo: z.string(), // Player photo filename e.g. "437730.jpg"
 });
 
 export type FPLPlayer = z.infer<typeof fplPlayerSchema>;

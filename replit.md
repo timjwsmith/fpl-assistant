@@ -63,6 +63,28 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 
 ## Recent Changes
 
+### AI Reasoning & Player Images Enhancement (October 17, 2025)
+**Fixed AI reasoning to use natural language and corrected player image display:**
+
+**AI Reasoning Improvements:**
+- **Removed Player IDs from reasoning**: AI no longer references players by ID numbers like "[ID: 82]"
+- **Pure Natural Language**: All AI reasoning is now written conversationally without parentheses, abbreviations, or technical formatting
+- **Player Names Only**: AI uses actual player names (e.g., "Mohamed Salah", "Erling Haaland") in all explanations
+- **Conversational Tone**: Reasoning reads like explaining to a friend with data naturally woven into sentences
+- **Example**: Instead of "[ID: 82] (C) because: Home vs BOU (xG: 0.8)", now says "Captain Mohamed Salah this week. He is playing at home against Bournemouth who have conceded an average of 2.3 goals per game recently. His expected goals rate over the last five matches is 0.8 per game..."
+
+**Player Image Fixes:**
+- Fixed ALL player avatar URLs across Gameweek Planner to use FPL's `photo` field correctly
+- Converts photo extension from `.jpg` (in API) to `.png` (on CDN) for proper image loading
+- Affected sections: Transfer recommendations, Captain/Vice-captain, Lineup, Bench, League Analysis
+- Images now load from correct URLs like `p437730.png` instead of broken `p82.png`
+
+**To See Natural Language Reasoning:**
+- Click "Generate New Plan" button in Gameweek Planner to create fresh AI recommendations
+- Existing plans (before this update) still contain old format with player IDs
+
+**Files Modified**: server/gameweek-analyzer.ts, client/src/pages/gameweek-planner.tsx
+
 ### Comprehensive League Analysis & Navigation Consolidation (October 17, 2025)
 **Major architectural enhancement: Gameweek Planner is now the one-stop-shop with league competitive intelligence:**
 

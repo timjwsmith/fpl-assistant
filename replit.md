@@ -61,7 +61,15 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 - **Comprehensive Player Stats**: AI models leverage 20+ additional player metrics, including ICT Index, Bonus Points System, Consistency Metrics (PPG), Defensive Analytics (xGC, clean sheets), Injury & Availability, Suspension Risk, and Actual vs. Expected stats for enhanced prediction accuracy.
 - **Cookie Management**: Cookies are automatically URL-decoded before sending to FPL API (fixed Oct 16, 2025). Debug endpoint available at `/api/fpl-auth/debug-cookies/:userId` to verify cookie status.
 
-## Recent Changes (October 16, 2025)
+## Recent Changes
+
+### UI Workflow Clarification (October 17, 2025)
+**Updated Gameweek Planner to promote manual workflow with AI assistance:**
+- **Primary Workflow**: AI recommends → User applies manually in FPL → Sync button updates app
+- **Clear Step-by-Step Guide**: Added visual workflow instructions in Gameweek Planner
+- **Sync from FPL Button**: Primary action button with loading states and proper mutation handling
+- **Auto-Apply Optional**: Moved to secondary position with clear warnings about FPL's anti-bot blocking
+- **Realistic Expectations**: UI now clearly communicates that true "zero-touch" automation isn't possible due to FPL's security
 
 ### Cookie Authentication as Primary Method (October 17, 2025)
 **After extensive testing, cookie authentication is now the primary FPL authentication method:**
@@ -71,6 +79,7 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 - **Cookie expiry tracking** - Backend tracks expiry dates, UI shows days remaining, warns when <2 days left
 - **7-day validity** - Cookies last ~7 days, users get proactive renewal reminders
 - **Secure storage** - AES-256-GCM encrypted credential storage with FPL_ENCRYPTION_KEY
+- **Auto-refresh attempt**: Optional email/password storage to attempt automatic cookie refresh (may be blocked by FPL)
 
 ### Authentication Bug Fixes
 1. **URL Encoding Issue**: Fixed bug where cookies were stored URL-encoded (`%3A` instead of `:`). Added `decodeURIComponent()` to `getSessionCookies()` method in `server/fpl-auth.ts`.

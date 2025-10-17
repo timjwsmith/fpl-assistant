@@ -256,6 +256,8 @@ export default function Settings() {
         description: `Synced ${data.playerCount} players, Team Value: £${(data.teamValue / 10).toFixed(1)}m, Free Transfers: ${data.freeTransfers}`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/settings", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/manager", parseInt(managerId), "status"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/manager/${managerId}/status`] });
     },
     onError: (error: any) => {
       toast({

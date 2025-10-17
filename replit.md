@@ -63,3 +63,20 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 - **OpenAI GPT-5**: Utilized via Replit AI Integrations for all AI-powered predictions and analysis.
 - **PostgreSQL**: Primary database for persistent storage.
 - **@dnd-kit**: For drag-and-drop functionality in the Team Modeller.
+
+## Recent Changes
+
+### Sync Data Refresh Fix (October 17, 2025)
+**Fixed team sync not updating displayed data across the app:**
+
+**Problem**: After syncing team from FPL, the Dashboard and other pages still showed old cached data because only the settings query was being invalidated.
+
+**Solution**: Updated sync mutation to invalidate all relevant queries:
+- Settings query: `/api/settings/:userId`
+- Manager status query (both formats):
+  - Array format: `["/api/manager", managerId, "status"]`
+  - String format: `` `/api/manager/${managerId}/status` ``
+
+**Impact**: Now when you sync your team in Settings, all pages immediately refresh with the latest data from FPL.
+
+**Files Modified**: client/src/pages/settings.tsx

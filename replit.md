@@ -63,6 +63,15 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 
 ## Recent Changes
 
+### Gameweek Plan Retrieval Bug Fix (October 17, 2025)
+**Fixed critical bug where stale gameweek plans were displayed instead of latest AI recommendations:**
+- **Root Cause**: `storage.getGameweekPlan()` had no ORDER BY clause, returning oldest plan when duplicates existed
+- **Impact**: UI displayed wrong captain/vice-captain recommendations (players not in user's team)
+- **Fix**: Added `desc(gameweekPlans.createdAt)` ordering to ensure latest plan is always returned
+- **Database Cleanup**: Removed 6 duplicate plans, keeping only the most recent per user+gameweek
+- **Also Fixed**: `getLatestGameweekPlan()` now correctly orders by created_at DESC instead of gameweek
+- **Testing**: Verified API returns plan ID 8 (latest) with correct recommendations: Semenyo (captain), Saliba (vice-captain)
+
 ### UI Workflow Clarification (October 17, 2025)
 **Updated Gameweek Planner to promote manual workflow with AI assistance:**
 - **Primary Workflow**: AI recommends → User applies manually in FPL → Sync button updates app

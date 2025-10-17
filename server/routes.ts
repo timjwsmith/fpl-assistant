@@ -480,7 +480,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const authenticated = await fplAuth.isAuthenticated(userId);
       
-      res.json({ authenticated });
+      // Get expiry information
+      let cookieExpiry = null;
+      let daysUntilExpiry = null;
+      let expiryWarning = false;
+      
+      if (authenticated) {
+        const credentials = await storage.getFplCredentials(userId);
+        if (credentials?.cookiesExpiresAt) {
+          const expiryDate = new Date(credentials.cookiesExpiresAt);
+          cookieExpiry = expiryDate.toISOString();
+          const now = new Date();
+          const diffMs = expiryDate.getTime() - now.getTime();
+          daysUntilExpiry = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+          expiryWarning = daysUntilExpiry <= 2; // Warn if 2 days or less
+        }
+      }
+      
+      res.json({ 
+        authenticated,
+        cookieExpiry,
+        daysUntilExpiry,
+        expiryWarning
+      });
     } catch (error) {
       console.error("[FPL Auth Route] Status check error:", error);
       res.status(500).json({ 

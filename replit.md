@@ -41,12 +41,12 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 7.  **Performance Analysis**: Compares predicted vs. actual points, tracks AI prediction accuracy, and provides historical insights.
 8.  **Settings**: FPL Manager ID connection, risk tolerance, preferred formation, and notification preferences.
 9.  **Full Automation System**: Complete end-to-end automation for applying optimal FPL changes each gameweek.
-    - **FPL Authentication**: Flexible authentication system supporting all platforms including iOS
-      - **Remote Browser Service**: Primary method using Browserless.io for cross-platform automation (works on iOS, Android, all devices)
-      - **Local Browser Automation**: Fallback Playwright automation when remote service unavailable
-      - **Manual Cookie Method**: Alternative for users who prefer to extract cookies manually
-      - **Security**: AES-256-GCM encrypted credential storage with FPL_ENCRYPTION_KEY
-      - **Session Management**: Auto-refresh when credentials available, 7-day cookie expiry
+    - **FPL Authentication**: Cookie-based authentication system supporting all platforms including iOS
+      - **Cookie Authentication**: Primary method - users paste FPL cookies from browser DevTools (works on iOS, Android, all devices)
+      - **iOS-Friendly Setup**: Step-by-step guide for obtaining cookies from desktop browser or iPad in desktop mode
+      - **Security**: AES-256-GCM encrypted cookie storage with FPL_ENCRYPTION_KEY
+      - **Cookie Expiry Tracking**: System tracks expiry dates, displays days remaining, warns when <2 days left
+      - **7-Day Validity**: Cookies last ~7 days, users receive proactive renewal reminders
     - **AI Gameweek Analyzer**: Comprehensive analysis considering all FPL rules (squad limits, budget, transfers, chips)
     - **One-Click Apply**: "Apply to FPL Account" button on Gameweek Planner for instant implementation
     - **Automated Scheduler**: Background service that automatically applies plans 2 hours before gameweek deadline
@@ -63,13 +63,14 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 
 ## Recent Changes (October 16, 2025)
 
-### iOS Automation Enabled (Major Update)
-**Solved iOS automation challenge** by integrating remote browser service (Browserless.io):
-- **Full automation now works on iOS** - Users can enter email/password directly in the app
-- **Remote browser connection** - Server connects to cloud browser via WebSocket, bypassing iOS Safari limitations and Replit environment restrictions
-- **Environment variable**: `BROWSERLESS_ENDPOINT` contains WebSocket endpoint for remote browser
-- **Updated UI**: Settings page now shows "Full Automation Available" with green success banner
-- **Code changes**: Modified `server/fpl-auth.ts` to use `chromium.connect()` when remote endpoint available, falls back to local browser when unavailable
+### Cookie Authentication as Primary Method (October 17, 2025)
+**After extensive testing, cookie authentication is now the primary FPL authentication method:**
+- **Browser automation blocked by FPL** - FPL's anti-bot system redirects automated browsers to `holding.html` page, preventing login
+- **Cookie method works on all devices** - Including iOS, Android, and all platforms
+- **Simplified user experience** - Clear iOS-friendly setup guide with step-by-step instructions
+- **Cookie expiry tracking** - Backend tracks expiry dates, UI shows days remaining, warns when <2 days left
+- **7-day validity** - Cookies last ~7 days, users get proactive renewal reminders
+- **Secure storage** - AES-256-GCM encrypted credential storage with FPL_ENCRYPTION_KEY
 
 ### Authentication Bug Fixes
 1. **URL Encoding Issue**: Fixed bug where cookies were stored URL-encoded (`%3A` instead of `:`). Added `decodeURIComponent()` to `getSessionCookies()` method in `server/fpl-auth.ts`.

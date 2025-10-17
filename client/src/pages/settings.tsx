@@ -25,6 +25,9 @@ import type { UserSettings } from "@shared/schema";
 
 interface FPLAuthStatus {
   authenticated: boolean;
+  cookieExpiry: string | null;
+  daysUntilExpiry: number | null;
+  expiryWarning: boolean;
 }
 
 interface AutomationSettings {
@@ -503,25 +506,49 @@ export default function Settings() {
                 </Tabs>
               ) : (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label>Authentication Status</Label>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="default" className="flex items-center gap-1">
-                          <Unlock className="h-3 w-3" />
-                          Connected
-                        </Badge>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label>Authentication Status</Label>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="default" className="flex items-center gap-1">
+                            <Unlock className="h-3 w-3" />
+                            Connected
+                          </Badge>
+                          {authStatus?.daysUntilExpiry !== null && (
+                            <span className="text-xs text-muted-foreground">
+                              ({authStatus.daysUntilExpiry} days left)
+                            </span>
+                          )}
+                        </div>
                       </div>
+                      <Button
+                        onClick={() => logoutMutation.mutate()}
+                        disabled={logoutMutation.isPending}
+                        variant="outline"
+                        size="sm"
+                        data-testid="button-fpl-logout"
+                      >
+                        {logoutMutation.isPending ? "Logging out..." : "Logout"}
+                      </Button>
                     </div>
-                    <Button
-                      onClick={() => logoutMutation.mutate()}
-                      disabled={logoutMutation.isPending}
-                      variant="outline"
-                      size="sm"
-                      data-testid="button-fpl-logout"
-                    >
-                      {logoutMutation.isPending ? "Logging out..." : "Logout"}
-                    </Button>
+
+                    {authStatus?.expiryWarning && (
+                      <div className="bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <svg className="h-5 w-5 text-yellow-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-yellow-200">⚠️ Cookies Expiring Soon</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Your FPL authentication will expire in {authStatus.daysUntilExpiry} day{authStatus.daysUntilExpiry !== 1 ? 's' : ''}. 
+                              Please re-authenticate soon to maintain automation.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="border-t pt-4 space-y-4">

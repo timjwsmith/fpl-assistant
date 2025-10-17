@@ -408,14 +408,13 @@ export default function Settings() {
               </div>
 
               {!isFPLAuthenticated ? (
-                <Tabs defaultValue="credentials" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="credentials">Email/Password</TabsTrigger>
+                <Tabs defaultValue="cookies" className="w-full">
+                  <TabsList className="grid w-full grid-cols-1">
                     <TabsTrigger value="cookies">Cookie Authentication</TabsTrigger>
                   </TabsList>
                   
-                  <TabsContent value="credentials" className="space-y-4 mt-4">
-                    <div className="space-y-4 bg-green-500/10 border border-green-500/20 p-4 rounded-lg mb-4">
+                  <TabsContent value="cookies" className="space-y-4 mt-4">
+                    <div className="space-y-4 bg-green-500/10 border border-green-500/20 p-4 rounded-lg">
                       <div className="flex items-start gap-3">
                         <div className="bg-green-500/20 p-2 rounded-lg">
                           <svg className="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -423,64 +422,14 @@ export default function Settings() {
                           </svg>
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-sm text-green-300 mb-2">✅ Full Automation Available</p>
+                          <p className="font-medium text-sm text-green-300 mb-2">✅ Recommended Authentication Method</p>
                           <p className="text-sm text-muted-foreground">
-                            Remote browser service is configured! This works on iOS, Android, and all devices. Just enter your FPL credentials below.
+                            Cookie authentication works on all devices including iOS! Set it up once, and automation runs for 7 days.
                           </p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="fpl-email">Email</Label>
-                      <Input
-                        id="fpl-email"
-                        type="email"
-                        placeholder="your@email.com"
-                        value={fplEmail}
-                        onChange={(e) => setFplEmail(e.target.value)}
-                        data-testid="input-fpl-email"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="fpl-password">Password</Label>
-                      <Input
-                        id="fpl-password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={fplPassword}
-                        onChange={(e) => setFplPassword(e.target.value)}
-                        data-testid="input-fpl-password"
-                      />
-                    </div>
-
-                    <Button
-                      onClick={handleFPLLogin}
-                      disabled={loginMutation.isPending}
-                      className="w-full"
-                      data-testid="button-fpl-login"
-                    >
-                      {loginMutation.isPending ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Logging in via remote browser...
-                        </>
-                      ) : (
-                        <>
-                          <Lock className="h-4 w-4 mr-2" />
-                          Login to FPL (Automated)
-                        </>
-                      )}
-                    </Button>
-
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Lock className="h-3 w-3" />
-                      Credentials encrypted & stored securely. Login runs on secure remote browser.
-                    </p>
-                  </TabsContent>
-                  
-                  <TabsContent value="cookies" className="space-y-4 mt-4">
                     <div className="space-y-4 bg-blue-500/10 border border-blue-500/20 p-4 rounded-lg">
                       <div className="flex items-start gap-3">
                         <div className="bg-blue-500/20 p-2 rounded-lg">
@@ -489,10 +438,18 @@ export default function Settings() {
                           </svg>
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-sm text-blue-300 mb-2">ℹ️ Manual Cookie Method (Alternative)</p>
-                          <p className="text-sm text-muted-foreground">
-                            <strong>Recommended:</strong> Use the "Email/Password" tab for automated login. This manual method is only for advanced users who already have cookies from browser DevTools.
-                          </p>
+                          <p className="font-medium text-sm text-blue-300 mb-2">📱 Quick Setup Guide (Works on iOS!)</p>
+                          <div className="text-sm text-muted-foreground space-y-2">
+                            <p><strong>You need a computer or iPad in Desktop mode once:</strong></p>
+                            <ol className="list-decimal list-inside space-y-1 ml-2">
+                              <li>Open <a href="https://fantasy.premierleague.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">fantasy.premierleague.com</a> and log in</li>
+                              <li>Press <kbd className="bg-muted px-1.5 py-0.5 rounded text-xs">F12</kbd> (or right-click → Inspect)</li>
+                              <li>Go to <strong>Application</strong> tab → <strong>Cookies</strong> → fantasy.premierleague.com</li>
+                              <li>Copy these 3 cookies: <code className="bg-muted px-1 py-0.5 rounded">sessionid</code>, <code className="bg-muted px-1 py-0.5 rounded">csrftoken</code>, <code className="bg-muted px-1 py-0.5 rounded">pl_profile</code></li>
+                              <li>Paste them below in the format shown</li>
+                            </ol>
+                            <p className="mt-2 text-xs">💡 <strong>Tip:</strong> Ask a friend/family member to do this if you don't have access to a computer!</p>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -508,39 +465,8 @@ export default function Settings() {
                         className="font-mono text-xs min-h-[100px]"
                       />
                       <div className="text-xs text-muted-foreground space-y-1">
-                        <p>Required cookies: <code className="bg-muted px-1 py-0.5 rounded">sessionid</code>, <code className="bg-muted px-1 py-0.5 rounded">csrftoken</code>, <code className="bg-muted px-1 py-0.5 rounded">pl_profile</code></p>
-                        <p>Format: <code className="bg-muted px-1 py-0.5 rounded">cookie1=value1; cookie2=value2; cookie3=value3</code></p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4 border-t pt-4">
-                      <p className="text-sm font-medium">Optional: Enable auto-refresh</p>
-                      <p className="text-sm text-muted-foreground">
-                        Provide email/password to automatically refresh expired cookies
-                      </p>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="fpl-email-cookie">Email (Optional)</Label>
-                        <Input
-                          id="fpl-email-cookie"
-                          type="email"
-                          placeholder="your@email.com"
-                          value={fplEmail}
-                          onChange={(e) => setFplEmail(e.target.value)}
-                          data-testid="input-fpl-email-cookie"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="fpl-password-cookie">Password (Optional)</Label>
-                        <Input
-                          id="fpl-password-cookie"
-                          type="password"
-                          placeholder="••••••••"
-                          value={fplPassword}
-                          onChange={(e) => setFplPassword(e.target.value)}
-                          data-testid="input-fpl-password-cookie"
-                        />
+                        <p><strong>Example format:</strong></p>
+                        <code className="bg-muted px-2 py-1 rounded block">sessionid=abc123; csrftoken=def456; pl_profile=ghi789</code>
                       </div>
                     </div>
 
@@ -553,15 +479,21 @@ export default function Settings() {
                       {cookieLoginMutation.isPending ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Logging in...
+                          Authenticating...
                         </>
                       ) : (
                         <>
                           <Lock className="h-4 w-4 mr-2" />
-                          Login with Cookies
+                          Connect with Cookies
                         </>
                       )}
                     </Button>
+
+                    <div className="space-y-2 bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-lg">
+                      <p className="text-xs text-yellow-200/90">
+                        <strong>⏰ Cookie Expiry:</strong> Cookies last ~7 days. You'll need to repeat this process when they expire. We'll notify you before expiry.
+                      </p>
+                    </div>
 
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Lock className="h-3 w-3" />

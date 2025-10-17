@@ -63,6 +63,19 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 
 ## Recent Changes
 
+### Team Modeller UI Cleanup (October 17, 2025)
+**Removed extraneous and misleading data displays from Team Modeller:**
+- **AI Prediction Panel Simplification**:
+  - Removed misleading "Current: 374 pts" that was showing total season points instead of gameweek predictions
+  - Removed confusing "Expected Change: -374 pts" calculation (was subtracting season total from gameweek prediction)
+  - Now shows only: Predicted Gameweek Points, Confidence %, and Key Insights
+  - Cleaner, focused UI without scary/meaningless negative numbers
+- **Player Image Fix**:
+  - Added missing `photo` field to `fplPlayerSchema` in shared/schema.ts
+  - Fixed player avatar URLs from incorrect `p${player.id}.png` to correct `p${player.photo}` (e.g., "p437730.jpg")
+  - Player images now load correctly from FPL CDN with fallback to initials if unavailable
+- **Files Updated**: prediction-panel.tsx, team-modeller.tsx, pitch-visualization.tsx, shared/schema.ts
+
 ### Gameweek Plan Retrieval Bug Fix (October 17, 2025)
 **Fixed critical bug where stale gameweek plans were displayed instead of latest AI recommendations:**
 - **Root Cause**: `storage.getGameweekPlan()` had no ORDER BY clause, returning oldest plan when duplicates existed

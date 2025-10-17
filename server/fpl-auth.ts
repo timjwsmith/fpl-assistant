@@ -211,12 +211,12 @@ class FPLAuthService {
 
       // Wait for login form to be visible
       console.log(`[FPL Auth] Waiting for login form...`);
-      await page.waitForSelector('input[name="login"], input[type="email"]', { timeout: 10000 });
+      await page.waitForSelector('input#login, input[name="login"]', { timeout: 20000 });
 
       // Fill in credentials
       console.log(`[FPL Auth] Filling in credentials...`);
-      const emailInput = await page.$('input[name="login"], input[type="email"]');
-      const passwordInput = await page.$('input[name="password"], input[type="password"]');
+      const emailInput = await page.$('input#login, input[name="login"]');
+      const passwordInput = await page.$('input#password, input[name="password"]');
 
       if (!emailInput || !passwordInput) {
         throw new Error('Could not find login form fields');

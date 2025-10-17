@@ -176,9 +176,7 @@ class FPLAuthService {
       if (browserlessEndpoint) {
         // Use remote browser service (e.g., Browserless.io)
         console.log(`[FPL Auth] Connecting to remote browser service...`);
-        browser = await chromium.connect(browserlessEndpoint, {
-          timeout: 60000,
-        });
+        browser = await chromium.connectOverCDP(browserlessEndpoint);
         console.log(`[FPL Auth] Connected to remote browser successfully`);
       } else {
         // Use local Playwright (may not work in all environments)

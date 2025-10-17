@@ -389,7 +389,7 @@ export default function GameweekPlanner() {
                           <div className="flex-1 p-3 rounded-md bg-destructive/10 border border-destructive/30">
                             <div className="flex items-center gap-3">
                               <Avatar className="h-12 w-12 border-2 border-destructive/30">
-                                <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${playerOut?.id}.png`} />
+                                <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${playerOut?.photo?.replace('.jpg', '.png')}`} />
                                 <AvatarFallback className="text-xs font-semibold">
                                   {playerOut?.web_name.substring(0, 2).toUpperCase() || '??'}
                                 </AvatarFallback>
@@ -414,7 +414,7 @@ export default function GameweekPlanner() {
                           <div className="flex-1 p-3 rounded-md bg-chart-2/10 border border-chart-2/30">
                             <div className="flex items-center gap-3">
                               <Avatar className="h-12 w-12 border-2 border-chart-2/30">
-                                <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${playerIn?.id}.png`} />
+                                <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${playerIn?.photo?.replace('.jpg', '.png')}`} />
                                 <AvatarFallback className="text-xs font-semibold">
                                   {playerIn?.web_name.substring(0, 2).toUpperCase() || '??'}
                                 </AvatarFallback>
@@ -470,7 +470,7 @@ export default function GameweekPlanner() {
                         return (
                           <div className="flex items-center gap-3">
                             <Avatar className="h-16 w-16 border-2 border-primary">
-                              <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${captain?.id}.png`} />
+                              <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${captain?.photo?.replace('.jpg', '.png')}`} />
                               <AvatarFallback className="font-semibold">
                                 {captain?.web_name.substring(0, 2).toUpperCase() || '??'}
                               </AvatarFallback>
@@ -506,7 +506,7 @@ export default function GameweekPlanner() {
                         return (
                           <div className="flex items-center gap-3">
                             <Avatar className="h-16 w-16 border-2 border-muted">
-                              <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${viceCaptain?.id}.png`} />
+                              <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${viceCaptain?.photo?.replace('.jpg', '.png')}`} />
                               <AvatarFallback className="font-semibold">
                                 {viceCaptain?.web_name.substring(0, 2).toUpperCase() || '??'}
                               </AvatarFallback>
@@ -555,7 +555,7 @@ export default function GameweekPlanner() {
                           return (
                             <div key={idx} className="p-2 rounded-md border bg-card flex items-center gap-2">
                               <Avatar className="h-8 w-8">
-                                <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player?.id}.png`} />
+                                <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player?.photo?.replace('.jpg', '.png')}`} />
                                 <AvatarFallback className="text-xs">
                                   {player?.web_name.substring(0, 2).toUpperCase()}
                                 </AvatarFallback>
@@ -580,7 +580,7 @@ export default function GameweekPlanner() {
                           return (
                             <div key={idx} className="p-2 rounded-md border bg-muted/50 flex items-center gap-2">
                               <Avatar className="h-8 w-8">
-                                <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player?.id}.png`} />
+                                <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player?.photo?.replace('.jpg', '.png')}`} />
                                 <AvatarFallback className="text-xs">
                                   {player?.web_name.substring(0, 2).toUpperCase()}
                                 </AvatarFallback>
@@ -665,7 +665,7 @@ export default function GameweekPlanner() {
                         return (
                           <div key={idx} className="p-3 rounded-md border bg-card flex items-center gap-3">
                             <Avatar className="h-10 w-10 border-2 border-chart-2/30">
-                              <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player?.id}.png`} />
+                              <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player?.photo?.replace('.jpg', '.png')}`} />
                               <AvatarFallback className="text-xs">
                                 {player?.web_name.substring(0, 2).toUpperCase() || '??'}
                               </AvatarFallback>
@@ -697,7 +697,7 @@ export default function GameweekPlanner() {
                         return (
                           <div key={idx} className="p-3 rounded-md border bg-card flex items-start gap-3">
                             <Avatar className="h-10 w-10">
-                              <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player?.id}.png`} />
+                              <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player?.photo?.replace('.jpg', '.png')}`} />
                               <AvatarFallback className="text-xs">
                                 {player?.web_name.substring(0, 2).toUpperCase() || '??'}
                               </AvatarFallback>

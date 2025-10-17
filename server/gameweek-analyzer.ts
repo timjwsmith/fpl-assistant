@@ -383,7 +383,7 @@ ${leagueInsights.strategicInsights.map((insight: string) => `- ${insight}`).join
 CURRENT GAMEWEEK: ${gameweek}
 
 CURRENT SQUAD (15 players):
-${squadDetails.map((p: any, i: number) => `[ID: ${p.id}] ${p.name} (${p.position}) - ${p.team}
+${squadDetails.map((p: any, i: number) => `${p.name} (${p.position}) - ${p.team}
    Price: £${p.price}m | Form: ${p.form.toFixed(1)} | PPG: ${p.ppg}
    Total Points: ${p.total_points} | Selected: ${p.selected_by}%
    Status: ${p.status}${p.chance_of_playing !== null ? ` (${p.chance_of_playing}% chance)` : ''}
@@ -436,16 +436,18 @@ ${setPieceInfo}
 ${dreamTeamInfo}
 ${leagueInfo}
 
-=== CRITICAL: VERBOSE REASONING REQUIREMENTS ===
+=== CRITICAL: PURE NATURAL LANGUAGE REASONING ===
 
-For EACH TRANSFER, provide DATA-RICH reasoning in this format:
-"Recommend OUT: [Player] because PPG X.X (below squad avg X.X), facing [opponents] with avg difficulty X.X, price trend [rising/falling], injury concern [if any], owned by only X% of league leaders. IN: [Player] because Form X.X (top X%), next 6 fixtures avg difficulty X.X, on [penalties/corners/free kicks if applicable], owned by X% of league leaders, expected X.X points over next 3 GWs."
+Write ALL reasoning in PURE NATURAL LANGUAGE - like you're explaining to a friend. NO parentheses, NO abbreviations, NO technical formatting. Just clear, conversational sentences with data woven naturally into the narrative.
 
-For CAPTAIN CHOICE, provide detailed reasoning:
-"[Player] (C) because: [Home/Away] vs [Opponent] who conceded X.X goals/game in last 5, player's xG X.X/game in last 5 matches, scored in X/5 recent games, league leaders X% captaining him, historical record of X pts vs this opponent, [additional context about form/fixtures]."
+For EACH TRANSFER, write a natural paragraph like:
+"I recommend transferring out [Player Name] because he has only averaged 2.1 points per game which is well below the squad average of 3.5. His upcoming fixtures are difficult with matches against Tottenham and Manchester City where the average difficulty rating is 4.5 out of 5. His price is also falling by 0.1 million. Instead, bring in [Player Name] who is in excellent form with 8.2 points in recent matches. His next six fixtures are favorable with an average difficulty of just 2.1, he takes penalties for his team, and 65 percent of league leaders already own him."
 
-For CHIP STRATEGY, be specific with data:
-"[Save/Use] [Chip] because [detailed fixture analysis]. Example: 'Save Wildcard for GW12-14 when [team] players have 5 green fixtures and prices stabilize. Use Bench Boost in DGW X when [specific player names] have 2 games against [opponents with poor defensive records].' OR 'Use Triple Captain on [player] this week because [detailed reasoning with stats]'."
+For CAPTAIN CHOICE, write naturally:
+"Captain [Player Name] this week. He is playing at home against Bournemouth who have conceded an average of 2.3 goals per game recently. His expected goals rate over the last five matches is 0.8 per game and he has scored in four out of his last five appearances. Importantly, 80 percent of league leaders are also captaining him. Last season against Bournemouth he scored 12 points."
+
+For CHIP STRATEGY, write conversationally:
+"I recommend saving your Wildcard until gameweeks 12 through 14 because that is when several top teams have favorable fixture runs and player prices typically stabilize. You should use your Bench Boost during the double gameweek when your bench players have two matches each. For example, if your bench includes players from teams with doubles against weaker opponents."
 
 For STRATEGIC INSIGHTS, include:
 1. League competitive analysis (what leaders are doing differently)
@@ -483,12 +485,14 @@ Provide a strategic gameweek plan in this EXACT JSON format with VERBOSE, DATA-D
 }
 
 CRITICAL REQUIREMENTS:
-- ALL IDs MUST BE NUMERIC INTEGERS - NEVER use player names
-- REASONING MUST BE VERBOSE with specific numbers, stats, and context
+- In the JSON response: "player_out_id", "player_in_id", "captain_id", "vice_captain_id" MUST be NUMERIC PLAYER IDs (integers)
+- In ALL "reasoning" and "strategic_insights" text fields: ALWAYS use PLAYER NAMES, NEVER use IDs or numbers to refer to players
+- ALL reasoning text must be PURE NATURAL LANGUAGE - no parentheses, no abbreviations, no technical formatting
+- Write reasoning like you're talking to a friend - clear conversational sentences with data woven naturally
 - Include league competitive insights in strategic thinking
-- Reference set piece takers when relevant to transfers
+- Reference set piece takers when relevant by using their names
 - Consider dream team performers as form indicators
-- Every recommendation must cite specific data points`;
+- Every recommendation must include specific stats and numbers but written naturally into sentences`;
 
     try {
       const response = await openai.chat.completions.create({

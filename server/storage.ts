@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import {
   users,
   userSettingsTable,
@@ -571,6 +571,7 @@ export class PostgresStorage implements IStorage {
         eq(gameweekPlans.userId, userId),
         eq(gameweekPlans.gameweek, gameweek)
       ))
+      .orderBy(desc(gameweekPlans.createdAt))
       .limit(1);
 
     return results[0];
@@ -591,7 +592,7 @@ export class PostgresStorage implements IStorage {
       .select()
       .from(gameweekPlans)
       .where(eq(gameweekPlans.userId, userId))
-      .orderBy(gameweekPlans.gameweek)
+      .orderBy(desc(gameweekPlans.createdAt))
       .limit(1);
 
     return results[0];

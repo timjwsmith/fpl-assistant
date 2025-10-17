@@ -9,6 +9,8 @@ import { fplAuth } from "./fpl-auth";
 import { gameweekAnalyzer } from "./gameweek-analyzer";
 import { transferApplication } from "./transfer-application";
 import { leagueAnalysis } from "./league-analysis";
+import { competitorPredictor } from "./competitor-predictor";
+import { leagueProjection } from "./league-projection";
 import { z } from "zod";
 import { userSettingsSchema } from "@shared/schema";
 
@@ -1068,6 +1070,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error analyzing league:", error);
       res.status(500).json({ error: "Failed to analyze league" });
+    }
+  });
+
+  app.get("/api/league-projection/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const gameweek = req.query.gameweek ? parseInt(req.query.gameweek as string) : undefined;
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+
+      console.log(`[LEAGUE PROJECTION] Fetching projection for user ${userId}, GW ${gameweek}`);
+
+      const userSettings = await storage.getUserSettings(userId);
+      
+      if (!userSettings?.manager_id) {
+        return res.status(400).json({ error: "Manager ID not configured in user settings" });
+      }
+
+      if (!userSettings.primary_league_id) {
+        return res.status(400).json({ error: "No primary league configured in user settings" });
+      }
+
+      const players = await fplApi.getPlayers();
+      const teams = await fplApi.getTeams();
+      const gameweeks = await fplApi.getGameweeks();
+      const currentGW = gameweeks.find((gw: any) => gw.is_current) || gameweeks[0];
+      const gwToUse = gameweek || currentGW?.id;
+
+      if (!gwToUse) {
+        return res.status(400).json({ error: "Could not determine gameweek" });
+      }
+
+      const fixtures = await fplApi.getFixtures(gwToUse);
+
+      console.log(`[LEAGUE PROJECTION] Fetching league standings for league ${userSettings.primary_league_id}`);
+      const standings = await fplApi.getLeagueStandings(userSettings.primary_league_id);
+      const entries = standings.standings?.results || [];
+      
+      if (entries.length === 0) {
+        return res.status(404).json({ error: "No league standings found" });
+      }
+
+      const topEntries = entries.slice(0, 10);
+      const userEntry = entries.find((e: any) => e.entry === userSettings.manager_id);
+      
+      let competitorIds = topEntries.map((e: any) => e.entry);
+      
+      if (userEntry && !competitorIds.includes(userSettings.manager_id)) {
+        competitorIds.push(userSettings.manager_id);
+      }
+
+      console.log(`[LEAGUE PROJECTION] Predicting points for ${competitorIds.length} competitors`);
+      const predictions = await competitorPredictor.predictCompetitorPoints(
+        userSettings.primary_league_id,
+        competitorIds,
+        gwToUse,
+        players,
+        fixtures,
+        teams
+      );
+
+      console.log(`[LEAGUE PROJECTION] Calculating projections`);
+      const projection = leagueProjection.calculateProjection(
+        entries,
+        predictions,
+        userSettings.manager_id
+      );
+
+      res.json({
+        gameweek: gwToUse,
+        leagueId: userSettings.primary_league_id,
+        ...projection,
+      });
+    } catch (error) {
+      console.error("[LEAGUE PROJECTION] Error:", error);
+      res.status(500).json({ error: "Failed to calculate league projection" });
     }
   });
 

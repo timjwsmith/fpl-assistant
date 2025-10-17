@@ -70,6 +70,17 @@ export default function GameweekPlanner() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: leagueProjection, isLoading: loadingProjection } = useQuery({
+    queryKey: ["/api/league-projection", userId, currentGameweek?.id],
+    queryFn: async () => {
+      const url = `/api/league-projection/${userId}?gameweek=${currentGameweek?.id}`;
+      return apiRequest("GET", url);
+    },
+    enabled: !!currentGameweek?.id && !!settings?.primary_league_id,
+    retry: false,
+    staleTime: 30 * 60 * 1000,
+  });
+
   const { data: plan, isLoading: loadingPlan, error: planError, refetch: refetchPlan } = useQuery<PlanData>({
     queryKey: ["/api/automation/plan", userId, currentGameweek?.id],
     queryFn: async () => {
@@ -728,6 +739,126 @@ export default function GameweekPlanner() {
                         </li>
                       ))}
                     </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {leagueProjection && leagueProjection.standings && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  Projected League Standings
+                </CardTitle>
+                <CardDescription>
+                  Predicted positions after Gameweek {leagueProjection.gameweek} based on expected points
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {leagueProjection.insights && leagueProjection.insights.length > 0 && (
+                  <div className="space-y-2">
+                    {leagueProjection.insights.map((insight: string, idx: number) => (
+                      <Alert key={idx} className="bg-primary/5 border-primary/20">
+                        <AlertDescription className="text-sm flex items-start gap-2">
+                          <div className="mt-0.5">{insight.charAt(0)}</div>
+                          <span>{insight.slice(1)}</span>
+                        </AlertDescription>
+                      </Alert>
+                    ))}
+                  </div>
+                )}
+
+                <div className="rounded-md border overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-muted/50">
+                        <tr className="border-b">
+                          <th className="px-3 py-2 text-left text-xs font-medium">Rank</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium">Manager</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium">Current</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium">GW Pred</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium">Projected</th>
+                          <th className="px-3 py-2 text-center text-xs font-medium">Change</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {leagueProjection.standings.slice(0, 15).map((standing: any) => (
+                          <tr 
+                            key={standing.managerId} 
+                            className={`border-b ${standing.isUser ? 'bg-primary/10 font-medium' : ''}`}
+                          >
+                            <td className="px-3 py-2 text-sm">
+                              <div className="flex items-center gap-2">
+                                <span className={standing.isUser ? 'text-primary font-bold' : ''}>
+                                  #{standing.projectedRank}
+                                </span>
+                                {standing.projectedRank === 1 && <span className="text-yellow-500">🏆</span>}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 text-sm">
+                              <div>
+                                <p className={`truncate max-w-[150px] ${standing.isUser ? 'text-primary font-semibold' : ''}`}>
+                                  {standing.teamName}
+                                </p>
+                                <p className="text-xs text-muted-foreground truncate max-w-[150px]">
+                                  {standing.managerName}
+                                </p>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 text-sm text-right">
+                              <div>
+                                <p>{standing.currentPoints}</p>
+                                <p className="text-xs text-muted-foreground">#{standing.currentRank}</p>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 text-sm text-right">
+                              <Badge variant="outline" className="font-mono">
+                                {standing.predictedGWPoints}
+                              </Badge>
+                            </td>
+                            <td className="px-3 py-2 text-sm text-right font-medium">
+                              {standing.projectedPoints}
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              {standing.rankChange > 0 ? (
+                                <Badge variant="default" className="bg-chart-2 text-white gap-1">
+                                  <TrendingUp className="h-3 w-3" />
+                                  {standing.rankChange}
+                                </Badge>
+                              ) : standing.rankChange < 0 ? (
+                                <Badge variant="destructive" className="gap-1">
+                                  <TrendingDown className="h-3 w-3" />
+                                  {Math.abs(standing.rankChange)}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline">
+                                  <ArrowRight className="h-3 w-3" />
+                                </Badge>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {leagueProjection.winStrategy && leagueProjection.winStrategy.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-yellow-500" />
+                      Win Strategy
+                    </h4>
+                    <div className="space-y-2">
+                      {leagueProjection.winStrategy.map((strategy: string, idx: number) => (
+                        <div key={idx} className="p-3 rounded-md border bg-muted/50 flex items-start gap-2 text-sm">
+                          <div className="mt-0.5">{strategy.charAt(0)}</div>
+                          <span>{strategy.slice(1)}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </CardContent>

@@ -2,6 +2,8 @@ import OpenAI from "openai";
 import { storage } from "./storage";
 import { fplApi } from "./fpl-api";
 import { leagueAnalysis } from "./league-analysis";
+import { competitorPredictor } from "./competitor-predictor";
+import { leagueProjection } from "./league-projection";
 import type {
   FPLPlayer,
   FPLFixture,
@@ -162,6 +164,7 @@ export class GameweekAnalyzerService {
     let setPieceTakers = null;
     let dreamTeam = null;
     let leagueInsights = null;
+    let leagueProjectionData = null;
 
     try {
       [setPieceTakers, dreamTeam] = await Promise.all([
@@ -180,6 +183,38 @@ export class GameweekAnalyzerService {
           console.log('[GameweekAnalyzer] League analysis unavailable:', err.message);
           return null;
         });
+
+        try {
+          const standings = await fplApi.getLeagueStandings(userSettings.primary_league_id);
+          const entries = standings.standings?.results || [];
+          
+          if (entries.length > 0) {
+            const topEntries = entries.slice(0, 10);
+            const userEntry = entries.find((e: any) => e.entry === userSettings.manager_id);
+            
+            let competitorIds = topEntries.map((e: any) => e.entry);
+            if (userEntry && !competitorIds.includes(userSettings.manager_id)) {
+              competitorIds.push(userSettings.manager_id);
+            }
+
+            const predictions = await competitorPredictor.predictCompetitorPoints(
+              userSettings.primary_league_id,
+              competitorIds,
+              gameweek,
+              allPlayers,
+              upcomingFixtures,
+              teams
+            );
+
+            leagueProjectionData = leagueProjection.calculateProjection(
+              entries,
+              predictions,
+              userSettings.manager_id
+            );
+          }
+        } catch (err) {
+          console.log('[GameweekAnalyzer] League projection unavailable:', err instanceof Error ? err.message : 'Unknown error');
+        }
       }
     } catch (error) {
       console.log('[GameweekAnalyzer] Error fetching additional data:', error);
@@ -200,6 +235,7 @@ export class GameweekAnalyzerService {
       setPieceTakers,
       dreamTeam,
       leagueInsights,
+      leagueProjectionData,
     };
   }
 
@@ -285,7 +321,7 @@ export class GameweekAnalyzerService {
   }
 
   private async generateAIRecommendations(inputData: any, gameweek: number): Promise<AIGameweekResponse> {
-    const { currentTeam, allPlayers, teams, upcomingFixtures, userSettings, chipsUsed, freeTransfers, budget, setPieceTakers, dreamTeam, leagueInsights } = inputData;
+    const { currentTeam, allPlayers, teams, upcomingFixtures, userSettings, chipsUsed, freeTransfers, budget, setPieceTakers, dreamTeam, leagueInsights, leagueProjectionData } = inputData;
 
     // Get current squad details
     const squadDetails = currentTeam.players
@@ -377,6 +413,27 @@ ${leagueInsights.strategicInsights.map((insight: string) => `- ${insight}`).join
 `;
     }
 
+    // Build league projection info
+    let projectionInfo = '';
+    if (leagueProjectionData?.userStanding) {
+      const user = leagueProjectionData.userStanding;
+      projectionInfo = `\n\n=== PROJECTED LEAGUE STANDINGS (After GW${gameweek}) ===
+YOUR PROJECTED POSITION: ${user.currentRank} → ${user.projectedRank} ${user.rankChange > 0 ? `(UP ${user.rankChange})` : user.rankChange < 0 ? `(DOWN ${Math.abs(user.rankChange)})` : '(NO CHANGE)'}
+Your Predicted GW Points: ${user.predictedGWPoints} pts
+Your Projected Total: ${user.projectedPoints} pts
+Gap to 1st Place: ${user.gapToFirst} pts
+
+TOP COMPETITORS' PREDICTED POINTS:
+${leagueProjectionData.standings.slice(0, 5).map((s: any) => `- ${s.teamName} (${s.managerName}): ${s.predictedGWPoints} pts predicted → ${s.projectedRank}${s.projectedRank === 1 ? ' 🏆' : ''}`).join('\n')}
+
+WIN STRATEGY RECOMMENDATIONS:
+${leagueProjectionData.winStrategy?.map((strategy: string) => `- ${strategy}`).join('\n') || 'N/A'}
+
+KEY INSIGHTS:
+${leagueProjectionData.insights?.map((insight: string) => `- ${insight}`).join('\n') || 'N/A'}
+`;
+    }
+
     // Create comprehensive prompt with VERBOSE reasoning requirements
     const prompt = `You are an expert Fantasy Premier League strategist with access to comprehensive data. Analyze the team and provide EXTREMELY DETAILED, DATA-DRIVEN recommendations with VERBOSE reasoning.
 
@@ -435,6 +492,7 @@ ${teams.map((t: FPLTeam) => {
 ${setPieceInfo}
 ${dreamTeamInfo}
 ${leagueInfo}
+${projectionInfo}
 
 === CRITICAL: PURE NATURAL LANGUAGE REASONING ===
 

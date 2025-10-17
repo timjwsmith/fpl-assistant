@@ -209,6 +209,39 @@ class FPLAuthService {
         timeout: 30000 
       });
 
+      // Debug: Log page details
+      const currentUrl = page.url();
+      const pageTitle = await page.title();
+      console.log(`[FPL Auth Debug] Current URL: ${currentUrl}`);
+      console.log(`[FPL Auth Debug] Page title: ${pageTitle}`);
+
+      // Debug: Check for security challenges
+      const pageContent = await page.content();
+      const hasCaptcha = pageContent.includes('captcha') || pageContent.includes('CAPTCHA');
+      const hasCloudflare = pageContent.includes('cloudflare') || pageContent.includes('Cloudflare');
+      const hasChallenge = pageContent.includes('challenge') || pageContent.includes('Just a moment');
+      
+      console.log(`[FPL Auth Debug] Has CAPTCHA: ${hasCaptcha}`);
+      console.log(`[FPL Auth Debug] Has Cloudflare: ${hasCloudflare}`);
+      console.log(`[FPL Auth Debug] Has Challenge: ${hasChallenge}`);
+
+      // Debug: Check what inputs exist on the page
+      const allInputs = await page.$$eval('input', inputs => 
+        inputs.map(i => ({ 
+          type: i.type, 
+          name: i.name, 
+          id: i.id, 
+          placeholder: i.placeholder 
+        }))
+      );
+      console.log(`[FPL Auth Debug] Found ${allInputs.length} input fields:`, JSON.stringify(allInputs, null, 2));
+
+      // Wait a bit longer for JavaScript to load the form
+      console.log(`[FPL Auth] Waiting for page to fully load...`);
+      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {
+        console.log(`[FPL Auth Debug] Network didn't go idle, continuing anyway...`);
+      });
+
       // Wait for login form to be visible
       console.log(`[FPL Auth] Waiting for login form...`);
       await page.waitForSelector('input#login, input[name="login"]', { timeout: 20000 });

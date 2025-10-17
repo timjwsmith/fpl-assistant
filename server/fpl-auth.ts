@@ -205,7 +205,7 @@ class FPLAuthService {
       // Navigate to login page
       console.log(`[FPL Auth] Navigating to login page...`);
       await page.goto(FPL_LOGIN_URL, { 
-        waitUntil: 'networkidle',
+        waitUntil: 'domcontentloaded',
         timeout: 30000 
       });
 

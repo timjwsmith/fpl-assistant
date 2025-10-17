@@ -473,6 +473,48 @@ export default function Settings() {
                       </div>
                     </div>
 
+                    <div className="space-y-4 border-t pt-4">
+                      <div className="flex items-start gap-3">
+                        <Zap className="h-5 w-5 text-green-400 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium mb-2">⚡ Enable Auto-Refresh (Recommended for True Automation)</p>
+                          <p className="text-xs text-muted-foreground mb-3">
+                            Provide your FPL email/password so the system can <strong>automatically refresh cookies</strong> when they expire. 
+                            No more manual updates!
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="fpl-email-auto">FPL Email (Optional - for auto-refresh)</Label>
+                        <Input
+                          id="fpl-email-auto"
+                          type="email"
+                          placeholder="your@email.com"
+                          value={fplEmail}
+                          onChange={(e) => setFplEmail(e.target.value)}
+                          data-testid="input-fpl-email-auto"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="fpl-password-auto">FPL Password (Optional - for auto-refresh)</Label>
+                        <Input
+                          id="fpl-password-auto"
+                          type="password"
+                          placeholder="••••••••"
+                          value={fplPassword}
+                          onChange={(e) => setFplPassword(e.target.value)}
+                          data-testid="input-fpl-password-auto"
+                        />
+                      </div>
+
+                      <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded">
+                        <p>ℹ️ <strong>How it works:</strong> When cookies expire, the system will attempt to automatically get fresh cookies using your credentials. 
+                        If FPL's security blocks this (unlikely but possible), you'll be notified to manually refresh.</p>
+                      </div>
+                    </div>
+
                     <Button
                       onClick={handleCookieLogin}
                       disabled={cookieLoginMutation.isPending}
@@ -487,14 +529,14 @@ export default function Settings() {
                       ) : (
                         <>
                           <Lock className="h-4 w-4 mr-2" />
-                          Connect with Cookies
+                          Connect {fplEmail && fplPassword ? 'with Auto-Refresh' : 'with Cookies'}
                         </>
                       )}
                     </Button>
 
-                    <div className="space-y-2 bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-lg">
-                      <p className="text-xs text-yellow-200/90">
-                        <strong>⏰ Cookie Expiry:</strong> Cookies last ~7 days. You'll need to repeat this process when they expire. We'll notify you before expiry.
+                    <div className="space-y-2 bg-green-500/10 border border-green-500/20 p-3 rounded-lg">
+                      <p className="text-xs text-green-200/90">
+                        <strong>✅ {fplEmail && fplPassword ? 'Full Automation Enabled!' : 'Manual Refresh Required'}</strong> {fplEmail && fplPassword ? 'Your cookies will auto-refresh when they expire.' : 'Add email/password above to enable automatic cookie refresh.'}
                       </p>
                     </div>
 

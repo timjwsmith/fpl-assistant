@@ -55,6 +55,7 @@ export default function Settings() {
   });
 
   const [managerId, setManagerId] = useState("");
+  const [primaryLeagueId, setPrimaryLeagueId] = useState("");
   const [riskTolerance, setRiskTolerance] = useState<"conservative" | "balanced" | "aggressive">("balanced");
   const [formation, setFormation] = useState("4-4-2");
 
@@ -72,6 +73,7 @@ export default function Settings() {
   useEffect(() => {
     if (settings) {
       setManagerId(settings.manager_id?.toString() || "");
+      setPrimaryLeagueId(settings.primary_league_id?.toString() || "");
       setRiskTolerance(settings.risk_tolerance || "balanced");
       setFormation(settings.preferred_formation || "4-4-2");
     }
@@ -271,6 +273,7 @@ export default function Settings() {
   const handleSave = () => {
     const newSettings: UserSettings = {
       manager_id: managerId ? parseInt(managerId) : null,
+      primary_league_id: primaryLeagueId ? parseInt(primaryLeagueId) : null,
       risk_tolerance: riskTolerance,
       preferred_formation: formation,
       auto_captain: false,
@@ -379,6 +382,20 @@ export default function Settings() {
               </div>
               <p className="text-xs text-muted-foreground">
                 Find your Manager ID in the FPL website URL when viewing your team
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="primary-league-id">Primary League ID (Optional)</Label>
+              <Input
+                id="primary-league-id"
+                placeholder="Enter your mini-league ID"
+                value={primaryLeagueId}
+                onChange={(e) => setPrimaryLeagueId(e.target.value)}
+                data-testid="input-primary-league-id"
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter your mini-league ID to see competitor analysis and projected league standings in Gameweek Planner
               </p>
             </div>
 

@@ -138,6 +138,7 @@ export class PostgresStorage implements IStorage {
     const dbRow = settings[0];
     return {
       manager_id: dbRow.managerId,
+      primary_league_id: dbRow.primaryLeagueId ?? undefined,
       risk_tolerance: dbRow.riskTolerance,
       preferred_formation: dbRow.preferredFormation ?? undefined,
       auto_captain: dbRow.autoCaptain,
@@ -160,6 +161,7 @@ export class PostgresStorage implements IStorage {
       const dbSettings: Partial<typeof userSettingsTable.$inferInsert> = {};
       
       if (settings.hasOwnProperty('manager_id')) dbSettings.managerId = settings.manager_id;
+      if (settings.hasOwnProperty('primary_league_id')) dbSettings.primaryLeagueId = settings.primary_league_id;
       if (settings.hasOwnProperty('risk_tolerance')) dbSettings.riskTolerance = settings.risk_tolerance;
       if (settings.hasOwnProperty('preferred_formation')) dbSettings.preferredFormation = settings.preferred_formation;
       if (settings.hasOwnProperty('auto_captain')) dbSettings.autoCaptain = settings.auto_captain;
@@ -180,10 +182,12 @@ export class PostgresStorage implements IStorage {
         autoCaptain: false,
         notificationsEnabled: false,
         managerId: null,
+        primaryLeagueId: null,
       };
 
       // Override with any explicitly provided values
       if (settings.hasOwnProperty('manager_id')) dbSettings.managerId = settings.manager_id;
+      if (settings.hasOwnProperty('primary_league_id')) dbSettings.primaryLeagueId = settings.primary_league_id;
       if (settings.hasOwnProperty('risk_tolerance')) dbSettings.riskTolerance = settings.risk_tolerance;
       if (settings.hasOwnProperty('preferred_formation')) dbSettings.preferredFormation = settings.preferred_formation;
       if (settings.hasOwnProperty('auto_captain')) dbSettings.autoCaptain = settings.auto_captain;
@@ -200,6 +204,7 @@ export class PostgresStorage implements IStorage {
     // Transform camelCase DB result back to snake_case API contract
     return {
       manager_id: result.managerId,
+      primary_league_id: result.primaryLeagueId ?? undefined,
       risk_tolerance: result.riskTolerance,
       preferred_formation: result.preferredFormation ?? undefined,
       auto_captain: result.autoCaptain,

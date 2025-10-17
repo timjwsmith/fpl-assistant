@@ -63,6 +63,44 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 
 ## Recent Changes
 
+### Comprehensive League Analysis & Navigation Consolidation (October 17, 2025)
+**Major architectural enhancement: Gameweek Planner is now the one-stop-shop with league competitive intelligence:**
+
+**New Features:**
+- **League Competitive Analysis Service** (server/league-analysis.ts):
+  - Analyzes top 5 competitors in user's league
+  - Identifies "essential picks" (60%+ ownership among leaders)
+  - Recommends "differential opportunities" (<40% leader ownership + good form/fixtures)
+  - Generates strategic insights based on gap to first place
+  - Tracks what league leaders are captaining
+- **Enhanced FPL API Endpoints** (server/fpl-api.ts):
+  - `/api/fpl/league/:leagueId/standings` - League standings with pagination
+  - `/api/fpl/set-piece-takers` - Set piece taker data
+  - `/api/fpl/dream-team/:gameweek` - Dream team for specific gameweek
+  - `/api/fpl/event-status` - Event status (chip usage, transfers)
+  - `/api/league-analysis/:userId` - Full competitive intelligence report
+- **Verbose AI Reasoning** (server/gameweek-analyzer.ts):
+  - AI now provides data-backed explanations with specific metrics
+  - Transfer reasoning: "Player X because PPG 2.1, facing TOT/MCI (avg diff 4.5), price falling £0.1m, owned by only 25% of league leaders"
+  - Captain reasoning: "Player Y (C) because: Home vs BOU, xG 0.8/game last 5, scored in 4/5, 80% league leaders captaining him"
+  - Chip strategy: "Save Wildcard for GW12-14 when [specific fixture reasons with data]"
+  - Integrates league insights, set piece takers, dream team data into recommendations
+
+**Navigation Streamlining:**
+- **REMOVED redundant pages**: Captain Selector, Chip Advisor, Performance Analysis
+- **CONSOLIDATED into Gameweek Planner**: All captain, chip, transfer, and league features in one place
+- **Clean navigation**: Dashboard → Team Modeller → Transfers → Fixtures → Gameweek Planner → Settings
+- **Rationale**: Gameweek Planner already showed captain/chip recommendations; separate pages were redundant
+
+**UI Enhancements:**
+- League Competitive Analysis section in Gameweek Planner
+- Shows: rank, gap to 1st, common picks among leaders, differentials with reasoning
+- Visual player avatars for essential picks and differentials
+- Strategic insights tailored to user's league position
+- **Note**: User must configure `primary_league_id` in Settings to enable league features
+
+**Files Modified**: server/fpl-api.ts, server/routes.ts, server/league-analysis.ts, server/gameweek-analyzer.ts, client/src/components/app-sidebar.tsx, client/src/App.tsx, client/src/pages/gameweek-planner.tsx
+
 ### Team Modeller UI Cleanup (October 17, 2025)
 **Removed extraneous and misleading data displays from Team Modeller:**
 - **AI Prediction Panel Simplification**:

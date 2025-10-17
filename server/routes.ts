@@ -8,6 +8,7 @@ import { actualPointsService } from "./actual-points";
 import { fplAuth } from "./fpl-auth";
 import { gameweekAnalyzer } from "./gameweek-analyzer";
 import { transferApplication } from "./transfer-application";
+import { leagueAnalysis } from "./league-analysis";
 import { z } from "zod";
 import { userSettingsSchema } from "@shared/schema";
 
@@ -127,6 +128,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching manager history:", error);
       res.status(500).json({ error: "Failed to fetch manager history" });
+    }
+  });
+
+  // League Analysis Endpoints
+  app.get("/api/fpl/league/:leagueId/standings", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.leagueId);
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const standings = await fplApi.getLeagueStandings(leagueId, page);
+      res.json(standings);
+    } catch (error) {
+      console.error("Error fetching league standings:", error);
+      res.status(500).json({ error: "Failed to fetch league standings" });
+    }
+  });
+
+  app.get("/api/fpl/set-piece-takers", async (req, res) => {
+    try {
+      const setPieceTakers = await fplApi.getSetPieceTakers();
+      res.json(setPieceTakers);
+    } catch (error) {
+      console.error("Error fetching set piece takers:", error);
+      res.status(500).json({ error: "Failed to fetch set piece takers" });
+    }
+  });
+
+  app.get("/api/fpl/dream-team/:gameweek", async (req, res) => {
+    try {
+      const gameweek = parseInt(req.params.gameweek);
+      const dreamTeam = await fplApi.getDreamTeam(gameweek);
+      res.json(dreamTeam);
+    } catch (error) {
+      console.error("Error fetching dream team:", error);
+      res.status(500).json({ error: "Failed to fetch dream team" });
+    }
+  });
+
+  app.get("/api/fpl/event-status", async (req, res) => {
+    try {
+      const status = await fplApi.getEventStatus();
+      res.json(status);
+    } catch (error) {
+      console.error("Error fetching event status:", error);
+      res.status(500).json({ error: "Failed to fetch event status" });
     }
   });
 
@@ -974,6 +1019,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating actual points:", error);
       res.status(500).json({ error: "Failed to update actual points" });
+    }
+  });
+
+  app.get("/api/league-analysis/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const gameweek = req.query.gameweek ? parseInt(req.query.gameweek as string) : undefined;
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+
+      const userSettings = await storage.getUserSettings(userId);
+      
+      if (!userSettings?.manager_id) {
+        return res.status(400).json({ error: "Manager ID not configured in user settings" });
+      }
+
+      if (!userSettings.primary_league_id) {
+        return res.status(400).json({ error: "No primary league configured in user settings" });
+      }
+
+      if (!gameweek) {
+        const gameweeks = await fplApi.getGameweeks();
+        const currentGW = gameweeks.find((gw: any) => gw.is_current) || gameweeks[0];
+        if (!currentGW) {
+          return res.status(400).json({ error: "Could not determine current gameweek" });
+        }
+      }
+
+      const players = await fplApi.getPlayers();
+      const gwToUse = gameweek || (await fplApi.getGameweeks()).find((gw: any) => gw.is_current)?.id || 1;
+
+      const analysis = await leagueAnalysis.analyzeLeague(
+        userSettings.primary_league_id,
+        userId,
+        userSettings.manager_id,
+        gwToUse,
+        players
+      );
+
+      if (!analysis) {
+        return res.status(404).json({ error: "Could not analyze league. League may be private or empty." });
+      }
+
+      res.json(analysis);
+    } catch (error) {
+      console.error("Error analyzing league:", error);
+      res.status(500).json({ error: "Failed to analyze league" });
     }
   });
 

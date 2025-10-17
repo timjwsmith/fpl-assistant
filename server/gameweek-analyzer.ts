@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { storage } from "./storage";
 import { fplApi } from "./fpl-api";
+import { leagueAnalysis } from "./league-analysis";
 import type {
   FPLPlayer,
   FPLFixture,
@@ -157,6 +158,33 @@ export class GameweekAnalyzerService {
     // Calculate budget
     const budget = this.calculateBudget(currentTeam, allPlayers);
 
+    // Fetch additional competitive intelligence data
+    let setPieceTakers = null;
+    let dreamTeam = null;
+    let leagueInsights = null;
+
+    try {
+      [setPieceTakers, dreamTeam] = await Promise.all([
+        fplApi.getSetPieceTakers().catch(() => null),
+        fplApi.getDreamTeam(gameweek - 1).catch(() => null),
+      ]);
+
+      if (userSettings?.manager_id && userSettings?.primary_league_id) {
+        leagueInsights = await leagueAnalysis.analyzeLeague(
+          userSettings.primary_league_id,
+          userId,
+          userSettings.manager_id,
+          gameweek,
+          allPlayers
+        ).catch((err) => {
+          console.log('[GameweekAnalyzer] League analysis unavailable:', err.message);
+          return null;
+        });
+      }
+    } catch (error) {
+      console.log('[GameweekAnalyzer] Error fetching additional data:', error);
+    }
+
     return {
       userSettings: userSettings || { risk_tolerance: 'balanced' as const, manager_id: null, auto_captain: false },
       automationSettings,
@@ -169,6 +197,9 @@ export class GameweekAnalyzerService {
       freeTransfers,
       budget,
       maxTransferHit: automationSettings?.maxTransferHit || 8,
+      setPieceTakers,
+      dreamTeam,
+      leagueInsights,
     };
   }
 
@@ -254,7 +285,7 @@ export class GameweekAnalyzerService {
   }
 
   private async generateAIRecommendations(inputData: any, gameweek: number): Promise<AIGameweekResponse> {
-    const { currentTeam, allPlayers, teams, upcomingFixtures, userSettings, chipsUsed, freeTransfers, budget } = inputData;
+    const { currentTeam, allPlayers, teams, upcomingFixtures, userSettings, chipsUsed, freeTransfers, budget, setPieceTakers, dreamTeam, leagueInsights } = inputData;
 
     // Get current squad details
     const squadDetails = currentTeam.players
@@ -300,8 +331,54 @@ export class GameweekAnalyzerService {
       chip => !chipsUsed.some((c: ChipUsed) => c.chipType === chip)
     );
 
-    // Create comprehensive prompt
-    const prompt = `You are an expert Fantasy Premier League strategist. Analyze the following team and create an optimal gameweek plan.
+    // Build set piece takers info
+    let setPieceInfo = '';
+    if (setPieceTakers) {
+      setPieceInfo = '\n\nSET PIECE TAKERS (Penalties, Corners, Free Kicks):\n';
+      for (const team of Object.keys(setPieceTakers)) {
+        const data = setPieceTakers[team];
+        if (data.penalties || data.corners || data.free_kicks) {
+          setPieceInfo += `${team}: `;
+          const details = [];
+          if (data.penalties) details.push(`Pens: ${data.penalties.join(', ')}`);
+          if (data.corners) details.push(`Corners: ${data.corners.join(', ')}`);
+          if (data.free_kicks) details.push(`FKs: ${data.free_kicks.join(', ')}`);
+          setPieceInfo += details.join(' | ') + '\n';
+        }
+      }
+    }
+
+    // Build dream team info
+    let dreamTeamInfo = '';
+    if (dreamTeam?.team) {
+      dreamTeamInfo = `\n\nLAST GAMEWEEK DREAM TEAM (Top Performers):\n`;
+      dreamTeamInfo += dreamTeam.team.map((p: any) => {
+        const player = allPlayers.find((pl: FPLPlayer) => pl.id === p.element);
+        return `${player?.web_name || 'Unknown'} (${p.points} pts)`;
+      }).join(', ');
+    }
+
+    // Build league insights info
+    let leagueInfo = '';
+    if (leagueInsights) {
+      leagueInfo = `\n\n=== LEAGUE COMPETITIVE ANALYSIS ===
+Your League Position: ${leagueInsights.userRank}
+Gap to 1st Place: ${leagueInsights.gapToFirst} points
+Average League Score: ${leagueInsights.averageLeaguePoints} pts
+
+TOP MANAGERS' COMMON PICKS (Essential Assets):
+${leagueInsights.commonPicks.map((p: any) => `- ${p.playerName}: Owned by ${p.count}/${leagueInsights.leadersAnalysis.length} top managers (${Math.round((p.count / leagueInsights.leadersAnalysis.length) * 100)}%)`).join('\n')}
+
+DIFFERENTIAL OPPORTUNITIES (Low ownership among leaders):
+${leagueInsights.differentials.map((d: any) => `- ${d.playerName}: ${d.reason}`).join('\n')}
+
+STRATEGIC LEAGUE INSIGHTS:
+${leagueInsights.strategicInsights.map((insight: string) => `- ${insight}`).join('\n')}
+`;
+    }
+
+    // Create comprehensive prompt with VERBOSE reasoning requirements
+    const prompt = `You are an expert Fantasy Premier League strategist with access to comprehensive data. Analyze the team and provide EXTREMELY DETAILED, DATA-DRIVEN recommendations with VERBOSE reasoning.
 
 CURRENT GAMEWEEK: ${gameweek}
 
@@ -355,52 +432,63 @@ ${teams.map((t: FPLTeam) => {
     });
   return `${t.short_name}: ${teamFixtures.join(', ')}`;
 }).join('\n')}
+${setPieceInfo}
+${dreamTeamInfo}
+${leagueInfo}
+
+=== CRITICAL: VERBOSE REASONING REQUIREMENTS ===
+
+For EACH TRANSFER, provide DATA-RICH reasoning in this format:
+"Recommend OUT: [Player] because PPG X.X (below squad avg X.X), facing [opponents] with avg difficulty X.X, price trend [rising/falling], injury concern [if any], owned by only X% of league leaders. IN: [Player] because Form X.X (top X%), next 6 fixtures avg difficulty X.X, on [penalties/corners/free kicks if applicable], owned by X% of league leaders, expected X.X points over next 3 GWs."
+
+For CAPTAIN CHOICE, provide detailed reasoning:
+"[Player] (C) because: [Home/Away] vs [Opponent] who conceded X.X goals/game in last 5, player's xG X.X/game in last 5 matches, scored in X/5 recent games, league leaders X% captaining him, historical record of X pts vs this opponent, [additional context about form/fixtures]."
+
+For CHIP STRATEGY, be specific with data:
+"[Save/Use] [Chip] because [detailed fixture analysis]. Example: 'Save Wildcard for GW12-14 when [team] players have 5 green fixtures and prices stabilize. Use Bench Boost in DGW X when [specific player names] have 2 games against [opponents with poor defensive records].' OR 'Use Triple Captain on [player] this week because [detailed reasoning with stats]'."
+
+For STRATEGIC INSIGHTS, include:
+1. League competitive analysis (what leaders are doing differently)
+2. Differential opportunities with risk/reward assessment
+3. Fixture swing analysis for next 6 gameweeks
+4. Price change predictions and their impact
+5. Specific tactical recommendations based on data
 
 YOUR TASK:
-Analyze the current squad considering:
-1. Player form, fixtures, and expected points
-2. Injury/suspension concerns
-3. Budget constraints and selling prices
-4. Optimal captain choice based on fixtures and form
-5. Whether to use a chip this gameweek (consider upcoming fixtures for optimal timing)
-6. Strategic transfer priorities (address weak spots, maximize fixture returns)
+Provide a strategic gameweek plan in this EXACT JSON format with VERBOSE, DATA-DRIVEN reasoning:
 
-Provide a strategic gameweek plan in this EXACT JSON format:
 {
   "transfers": [
     {
-      "player_out_id": <NUMERIC player ID from squad list above (e.g., 15, 234)>,
-      "player_in_id": <NUMERIC player ID from FPL database (e.g., 328, 145)>,
-      "expected_points_gain": <expected points over next 3 GWs>,
-      "reasoning": "<why this transfer makes sense considering fixtures, form, price>",
+      "player_out_id": <NUMERIC ID>,
+      "player_in_id": <NUMERIC ID>,
+      "expected_points_gain": <number>,
+      "reasoning": "<VERBOSE explanation with specific stats, fixtures, ownership, prices>",
       "priority": "high|medium|low",
-      "cost_impact": <price difference: positive = money saved, negative = money spent>
+      "cost_impact": <number>
     }
   ],
-  "captain_id": <NUMERIC player ID from squad (use the ID shown in [ID: xxx] for each player)>,
-  "vice_captain_id": <NUMERIC player ID from squad (use the ID shown in [ID: xxx] for each player)>,
+  "captain_id": <NUMERIC ID from squad>,
+  "vice_captain_id": <NUMERIC ID from squad>,
   "chip_to_play": <"wildcard"|"freehit"|"benchboost"|"triplecaptain"|null>,
-  "formation": "<e.g., 3-4-3, 4-4-2, 3-5-2>",
-  "predicted_points": <total expected points this gameweek>,
-  "confidence": <0-100 confidence in this plan>,
+  "formation": "<e.g., 3-4-3, 4-4-2>",
+  "predicted_points": <number>,
+  "confidence": <0-100>,
   "strategic_insights": [
-    "<key insight 1>",
-    "<key insight 2>",
-    "<key insight 3>"
+    "<DETAILED insight with data - e.g., 'Top 3 managers all own Haaland (£14.0m, Form 9.5, 3 green fixtures) - essential coverage'>",
+    "<DETAILED insight with data - e.g., 'Differential pick: Isak (owned by 0/5 leaders, Form 7.2, vs SHU/BUR/LUT avg diff 1.8)'>",
+    "<DETAILED insight with data - e.g., 'GW15-18 fixture swing: Sell Arsenal assets (4 red fixtures), buy Liverpool (4 green fixtures)'>"
   ],
-  "reasoning": "<overall strategy explanation>"
+  "reasoning": "<OVERALL STRATEGY with specific data, league context, fixture analysis, and risk assessment>"
 }
 
 CRITICAL REQUIREMENTS:
-- ALL IDs MUST BE NUMERIC INTEGERS (e.g., 15, 234) - NEVER use player names like "Salah" or "Semenyo"
-- captain_id and vice_captain_id MUST use the numeric [ID: xxx] shown for each player in the squad list above
-- player_out_id must be a numeric ID from players in current squad above
-- player_in_id must be a valid numeric FPL player ID
-- Only suggest transfers if necessary (don't transfer for the sake of it)
-- Consider rolling transfers if team is strong
-- Ensure transfers stay within budget
-- Captain and vice captain should be from current squad (after transfers)
-- Formation must be valid (e.g., 3-4-3, 4-4-2, 3-5-2, 4-3-3, 5-4-1)`;
+- ALL IDs MUST BE NUMERIC INTEGERS - NEVER use player names
+- REASONING MUST BE VERBOSE with specific numbers, stats, and context
+- Include league competitive insights in strategic thinking
+- Reference set piece takers when relevant to transfers
+- Consider dream team performers as form indicators
+- Every recommendation must cite specific data points`;
 
     try {
       const response = await openai.chat.completions.create({

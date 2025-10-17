@@ -141,6 +141,43 @@ class FPLApiService {
 
     return response.json();
   }
+
+  // League Analysis Endpoints
+  async getLeagueStandings(leagueId: number, page: number = 1) {
+    const response = await fetch(`${FPL_BASE_URL}/leagues-classic/${leagueId}/standings/?page_standings=${page}`);
+    if (!response.ok) {
+      throw new Error(`FPL API error: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async getSetPieceTakers() {
+    const response = await fetch(`${FPL_BASE_URL}/set-piece-notes/`);
+    if (!response.ok) {
+      throw new Error(`FPL API error: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async getDreamTeam(gameweek: number) {
+    const response = await fetch(`${FPL_BASE_URL}/dream-team/${gameweek}/`);
+    if (!response.ok) {
+      throw new Error(`FPL API error: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async getEventStatus() {
+    const response = await fetch(`${FPL_BASE_URL}/event-status/`);
+    if (!response.ok) {
+      throw new Error(`FPL API error: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
 }
 
 export const fplApi = new FPLApiService();

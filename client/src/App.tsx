@@ -12,9 +12,6 @@ import Dashboard from "@/pages/dashboard";
 import TeamModeller from "@/pages/team-modeller";
 import Transfers from "@/pages/transfers";
 import Fixtures from "@/pages/fixtures";
-import Captain from "@/pages/captain";
-import Chips from "@/pages/chips";
-import Performance from "@/pages/performance";
 import Settings from "@/pages/settings";
 import GameweekPlanner from "@/pages/gameweek-planner";
 import NotFound from "@/pages/not-found";
@@ -26,9 +23,6 @@ function Router() {
       <Route path="/team-modeller" component={TeamModeller} />
       <Route path="/transfers" component={Transfers} />
       <Route path="/fixtures" component={Fixtures} />
-      <Route path="/captain" component={Captain} />
-      <Route path="/chips" component={Chips} />
-      <Route path="/performance" component={Performance} />
       <Route path="/gameweek-planner" component={GameweekPlanner} />
       <Route path="/settings" component={Settings} />
       <Route component={NotFound} />

@@ -59,6 +59,17 @@ export default function GameweekPlanner() {
 
   const currentGameweek = (gameweeks as FPLGameweek[] | undefined)?.find((gw: FPLGameweek) => gw.is_current) || (gameweeks as FPLGameweek[] | undefined)?.[0];
 
+  const { data: leagueAnalysis } = useQuery({
+    queryKey: ["/api/league-analysis", userId, currentGameweek?.id],
+    queryFn: async () => {
+      const url = `/api/league-analysis/${userId}?gameweek=${currentGameweek?.id}`;
+      return apiRequest("GET", url);
+    },
+    enabled: !!currentGameweek?.id && !!settings?.primary_league_id,
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const { data: plan, isLoading: loadingPlan, error: planError, refetch: refetchPlan } = useQuery<PlanData>({
     queryKey: ["/api/automation/plan", userId, currentGameweek?.id],
     queryFn: async () => {
@@ -610,6 +621,115 @@ export default function GameweekPlanner() {
                     </li>
                   ))}
                 </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {leagueAnalysis && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  League Competitive Analysis
+                </CardTitle>
+                <CardDescription>
+                  Insights from your league's top performers to help you climb the rankings
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="p-4 rounded-lg bg-muted/50">
+                    <p className="text-sm text-muted-foreground mb-1">Your Position</p>
+                    <p className="text-3xl font-bold">#{leagueAnalysis.userRank}</p>
+                  </div>
+                  <div className="p-4 rounded-lg bg-muted/50">
+                    <p className="text-sm text-muted-foreground mb-1">Gap to 1st</p>
+                    <p className="text-3xl font-bold">{leagueAnalysis.gapToFirst} pts</p>
+                  </div>
+                  <div className="p-4 rounded-lg bg-muted/50">
+                    <p className="text-sm text-muted-foreground mb-1">League Avg</p>
+                    <p className="text-3xl font-bold">{leagueAnalysis.averageLeaguePoints} pts</p>
+                  </div>
+                </div>
+
+                {leagueAnalysis.commonPicks && leagueAnalysis.commonPicks.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-chart-2" />
+                      Essential Picks (Top Managers)
+                    </h4>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {leagueAnalysis.commonPicks.map((pick: any, idx: number) => {
+                        const player = getPlayerById(pick.playerId);
+                        const team = getTeamById(player?.team);
+                        return (
+                          <div key={idx} className="p-3 rounded-md border bg-card flex items-center gap-3">
+                            <Avatar className="h-10 w-10 border-2 border-chart-2/30">
+                              <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player?.id}.png`} />
+                              <AvatarFallback className="text-xs">
+                                {player?.web_name.substring(0, 2).toUpperCase() || '??'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{player?.web_name || pick.playerName}</p>
+                              <p className="text-xs text-muted-foreground">{team?.short_name}</p>
+                              <Badge variant="outline" className="text-xs mt-1">
+                                {pick.count}/{leagueAnalysis.leadersAnalysis?.length || 5} leaders
+                              </Badge>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {leagueAnalysis.differentials && leagueAnalysis.differentials.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-yellow-500" />
+                      Differential Opportunities
+                    </h4>
+                    <div className="space-y-2">
+                      {leagueAnalysis.differentials.map((diff: any, idx: number) => {
+                        const player = getPlayerById(diff.playerId);
+                        const team = getTeamById(player?.team);
+                        return (
+                          <div key={idx} className="p-3 rounded-md border bg-card flex items-start gap-3">
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player?.id}.png`} />
+                              <AvatarFallback className="text-xs">
+                                {player?.web_name.substring(0, 2).toUpperCase() || '??'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">{player?.web_name || diff.playerName}</p>
+                              <p className="text-xs text-muted-foreground mb-1">{team?.short_name}</p>
+                              <p className="text-xs text-muted-foreground">{diff.reason}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {leagueAnalysis.strategicInsights && leagueAnalysis.strategicInsights.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-primary" />
+                      League Strategy Insights
+                    </h4>
+                    <ul className="space-y-2">
+                      {leagueAnalysis.strategicInsights.map((insight: string, idx: number) => (
+                        <li key={idx} className="flex items-start gap-2 text-sm">
+                          <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+                          <span>{insight}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

@@ -1,4 +1,4 @@
-import { Home, Users, Repeat, Calendar, Trophy, Zap, TrendingUp, Settings } from "lucide-react";
+import { Home, Users, Repeat, Calendar, Trophy, Settings } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -33,37 +33,16 @@ const mainItems = [
     testId: "link-transfers",
   },
   {
-    title: "Gameweek Planner",
-    url: "/gameweek-planner",
-    icon: Calendar,
-    testId: "link-gameweek-planner",
-  },
-  {
-    title: "Fixture Planner",
+    title: "Fixtures",
     url: "/fixtures",
     icon: Calendar,
     testId: "link-fixtures",
   },
-];
-
-const toolsItems = [
   {
-    title: "Captain Selector",
-    url: "/captain",
-    icon: Trophy,
-    testId: "link-captain",
-  },
-  {
-    title: "Chip Advisor",
-    url: "/chips",
-    icon: Zap,
-    testId: "link-chips",
-  },
-  {
-    title: "Performance",
-    url: "/performance",
-    icon: TrendingUp,
-    testId: "link-performance",
+    title: "Gameweek Planner",
+    url: "/gameweek-planner",
+    icon: Calendar,
+    testId: "link-gameweek-planner",
   },
 ];
 
@@ -85,27 +64,10 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Main</SidebarGroupLabel>
+          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={location === item.url}>
-                    <Link href={item.url} data-testid={item.testId}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Tools</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {toolsItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={location === item.url}>
                     <Link href={item.url} data-testid={item.testId}>

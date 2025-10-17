@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Calendar, TrendingUp, TrendingDown, ArrowRight, CheckCircle, XCircle, AlertCircle, Zap, Sparkles, Users, Shield } from "lucide-react";
+import { Calendar, TrendingUp, TrendingDown, ArrowRight, CheckCircle, XCircle, AlertCircle, Zap, Sparkles, Users, Shield, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -128,6 +128,28 @@ export default function GameweekPlanner() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/automation/plan", userId] });
+    },
+  });
+
+  const syncTeamMutation = useMutation({
+    mutationFn: async () => {
+      if (!settings?.manager_id) throw new Error("Manager ID not found");
+      return apiRequest("POST", `/api/manager/sync/${settings.manager_id}`, {});
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/manager/${settings?.manager_id}/status`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/automation/plan", userId] });
+      toast({
+        title: "Sync Complete",
+        description: `Synced ${data.playerCount} players from FPL`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Sync Failed",
+        description: error.message || "Could not sync from FPL",
+        variant: "destructive",
+      });
     },
   });
 
@@ -594,51 +616,85 @@ export default function GameweekPlanner() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Actions</CardTitle>
+              <CardTitle>How to Use This Plan</CardTitle>
               <CardDescription>
-                Review and apply your gameweek plan
+                Follow these steps to apply AI recommendations to your FPL team
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-wrap gap-3">
-              <Button
-                variant="outline"
-                onClick={() => updateStatusMutation.mutate('previewed')}
-                disabled={plan.status === 'previewed' || plan.status === 'applied' || updateStatusMutation.isPending}
-              >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Preview Changes
-              </Button>
-              <Button
-                onClick={() => setShowApplyDialog(true)}
-                disabled={
-                  plan.status === 'applied' ||
-                  !fplAuthStatus?.authenticated ||
-                  applyPlanMutation.isPending
-                }
-                data-testid="button-apply-plan"
-              >
-                <Sparkles className="h-4 w-4 mr-2" />
-                Apply to FPL Account
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => updateStatusMutation.mutate('rejected')}
-                disabled={plan.status === 'rejected' || plan.status === 'applied' || updateStatusMutation.isPending}
-              >
-                <XCircle className="h-4 w-4 mr-2" />
-                Reject Plan
-              </Button>
-            </CardContent>
-            {!fplAuthStatus?.authenticated && (
-              <CardContent className="pt-0">
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    You need to authenticate with FPL in settings before applying changes.
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <Alert className="bg-primary/5 border-primary/20">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <AlertDescription className="text-sm">
+                    <p className="font-medium mb-2">📋 Recommended Workflow:</p>
+                    <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
+                      <li>Review the AI recommendations above</li>
+                      <li>Open the <a href="https://fantasy.premierleague.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">FPL website/app</a> and apply changes manually</li>
+                      <li>Click "Sync from FPL" below to update this app with your changes</li>
+                    </ol>
                   </AlertDescription>
                 </Alert>
-              </CardContent>
-            )}
+
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    variant="default"
+                    onClick={() => syncTeamMutation.mutate()}
+                    disabled={!settings?.manager_id || syncTeamMutation.isPending}
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${syncTeamMutation.isPending ? 'animate-spin' : ''}`} />
+                    {syncTeamMutation.isPending ? 'Syncing...' : 'Sync from FPL'}
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    onClick={() => updateStatusMutation.mutate('previewed')}
+                    disabled={plan.status === 'previewed' || plan.status === 'applied' || updateStatusMutation.isPending}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Mark as Reviewed
+                  </Button>
+
+                  <Button
+                    variant="destructive"
+                    onClick={() => updateStatusMutation.mutate('rejected')}
+                    disabled={plan.status === 'rejected' || plan.status === 'applied' || updateStatusMutation.isPending}
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Reject Plan
+                  </Button>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <div className="flex items-start gap-2 mb-3">
+                  <Zap className="h-4 w-4 text-yellow-500 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Auto-Apply (Optional - Limited)</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      If you've set up FPL authentication in Settings, you can try automatic application. Note: FPL's security may block this.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowApplyDialog(true)}
+                  disabled={
+                    plan.status === 'applied' ||
+                    !fplAuthStatus?.authenticated ||
+                    applyPlanMutation.isPending
+                  }
+                  data-testid="button-apply-plan"
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Try Auto-Apply
+                </Button>
+                {!fplAuthStatus?.authenticated && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    ⚙️ Set up FPL authentication in Settings to enable this feature
+                  </p>
+                )}
+              </div>
+            </CardContent>
           </Card>
         </>
       )}

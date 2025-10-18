@@ -91,6 +91,38 @@ export class GameweekAnalyzerService {
         strategicInsights.push(`This plan will cost ${transferCost} points in transfer hits`);
       }
 
+      // 6.5. Capture original team snapshot for "what-if" analysis
+      let originalTeamSnapshot = undefined;
+      if (inputData.userSettings?.manager_id) {
+        try {
+          console.log(`[GameweekAnalyzer] Capturing original team snapshot for manager ${inputData.userSettings.manager_id}, GW ${gameweek}`);
+          const currentPicks = await fplApi.getManagerPicks(inputData.userSettings.manager_id, gameweek);
+          
+          // Find captain and vice captain
+          const captainPick = currentPicks.picks.find(p => p.is_captain);
+          const viceCaptainPick = currentPicks.picks.find(p => p.is_vice_captain);
+          
+          originalTeamSnapshot = {
+            captain_id: captainPick?.element || 0,
+            vice_captain_id: viceCaptainPick?.element || 0,
+            players: currentPicks.picks.map(pick => ({
+              player_id: pick.element,
+              position: pick.position,
+              is_captain: pick.is_captain,
+              is_vice_captain: pick.is_vice_captain,
+              multiplier: pick.multiplier,
+            })),
+          };
+          
+          console.log(`[GameweekAnalyzer] Original team snapshot captured: ${originalTeamSnapshot.players.length} players`);
+        } catch (error) {
+          console.error(`[GameweekAnalyzer] Failed to capture original team snapshot:`, error instanceof Error ? error.message : 'Unknown error');
+          // Don't fail the entire plan creation - just log the error and continue without snapshot
+        }
+      } else {
+        console.log(`[GameweekAnalyzer] No manager_id set, skipping original team snapshot capture`);
+      }
+
       // 7. Save to database
       const plan = await storage.saveGameweekPlan({
         userId,
@@ -113,6 +145,7 @@ export class GameweekAnalyzerService {
           transferCost,
         }),
         status: 'pending',
+        originalTeamSnapshot,
       });
 
       console.log(`[GameweekAnalyzer] Analysis complete, plan ID: ${plan.id}`);

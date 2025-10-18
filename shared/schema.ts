@@ -432,6 +432,21 @@ export const gameweekPlans = pgTable('gameweek_plans', {
   status: text('status', { enum: ['pending', 'previewed', 'applied', 'rejected'] }).notNull().default('pending'),
   appliedAt: timestamp('applied_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+  originalTeamSnapshot: jsonb('original_team_snapshot').$type<{
+    captain_id: number;
+    vice_captain_id: number;
+    players: Array<{
+      player_id: number | null;
+      position: number;
+      is_captain: boolean;
+      is_vice_captain: boolean;
+      multiplier: number;
+    }>;
+  }>(),
+  actualPointsWithAI: integer('actual_points_with_ai'),
+  actualPointsWithoutAI: integer('actual_points_without_ai'),
+  pointsDelta: integer('points_delta'),
+  analysisCompletedAt: timestamp('analysis_completed_at'),
 }, (table) => ({
   userIdIdx: index('gameweek_plans_user_id_idx').on(table.userId),
   gameweekIdx: index('gameweek_plans_gameweek_idx').on(table.gameweek),

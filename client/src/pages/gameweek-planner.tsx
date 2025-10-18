@@ -636,235 +636,6 @@ export default function GameweekPlanner() {
             </Card>
           )}
 
-          {leagueAnalysis && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-primary" />
-                  League Competitive Analysis
-                </CardTitle>
-                <CardDescription>
-                  Insights from your league's top performers to help you climb the rankings
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="p-4 rounded-lg bg-muted/50">
-                    <p className="text-sm text-muted-foreground mb-1">Your Position</p>
-                    <p className="text-3xl font-bold">#{leagueAnalysis.userRank}</p>
-                  </div>
-                  <div className="p-4 rounded-lg bg-muted/50">
-                    <p className="text-sm text-muted-foreground mb-1">Gap to 1st</p>
-                    <p className="text-3xl font-bold">{leagueAnalysis.gapToFirst} pts</p>
-                  </div>
-                  <div className="p-4 rounded-lg bg-muted/50">
-                    <p className="text-sm text-muted-foreground mb-1">League Avg</p>
-                    <p className="text-3xl font-bold">{leagueAnalysis.averageLeaguePoints} pts</p>
-                  </div>
-                </div>
-
-                {leagueAnalysis.commonPicks && leagueAnalysis.commonPicks.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold mb-3 flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-chart-2" />
-                      Essential Picks (Top Managers)
-                    </h4>
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                      {leagueAnalysis.commonPicks.map((pick: any, idx: number) => {
-                        const player = getPlayerById(pick.playerId);
-                        const team = getTeamById(player?.team);
-                        return (
-                          <div key={idx} className="p-3 rounded-md border bg-card flex items-center gap-3">
-                            <Avatar className="h-10 w-10 border-2 border-chart-2/30">
-                              <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player?.photo?.replace('.jpg', '.png')}`} />
-                              <AvatarFallback className="text-xs">
-                                {player?.web_name.substring(0, 2).toUpperCase() || '??'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{player?.web_name || pick.playerName}</p>
-                              <p className="text-xs text-muted-foreground">{team?.short_name}</p>
-                              <Badge variant="outline" className="text-xs mt-1">
-                                {pick.count}/{leagueAnalysis.leadersAnalysis?.length || 5} leaders
-                              </Badge>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {leagueAnalysis.differentials && leagueAnalysis.differentials.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold mb-3 flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-yellow-500" />
-                      Differential Opportunities
-                    </h4>
-                    <div className="space-y-2">
-                      {leagueAnalysis.differentials.map((diff: any, idx: number) => {
-                        const player = getPlayerById(diff.playerId);
-                        const team = getTeamById(player?.team);
-                        return (
-                          <div key={idx} className="p-3 rounded-md border bg-card flex items-start gap-3">
-                            <Avatar className="h-10 w-10">
-                              <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player?.photo?.replace('.jpg', '.png')}`} />
-                              <AvatarFallback className="text-xs">
-                                {player?.web_name.substring(0, 2).toUpperCase() || '??'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                              <p className="text-sm font-medium">{player?.web_name || diff.playerName}</p>
-                              <p className="text-xs text-muted-foreground mb-1">{team?.short_name}</p>
-                              <p className="text-xs text-muted-foreground">{diff.reason}</p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {leagueAnalysis.strategicInsights && leagueAnalysis.strategicInsights.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold mb-3 flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-primary" />
-                      League Strategy Insights
-                    </h4>
-                    <ul className="space-y-2">
-                      {leagueAnalysis.strategicInsights.map((insight: string, idx: number) => (
-                        <li key={idx} className="flex items-start gap-2 text-sm">
-                          <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
-                          <span>{insight}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {leagueProjection && leagueProjection.standings && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-primary" />
-                  Projected League Standings
-                </CardTitle>
-                <CardDescription>
-                  Predicted positions after Gameweek {leagueProjection.gameweek} based on expected points
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {leagueProjection.insights && leagueProjection.insights.length > 0 && (
-                  <div className="space-y-2">
-                    {leagueProjection.insights.map((insight: string, idx: number) => (
-                      <Alert key={idx} className="bg-primary/5 border-primary/20">
-                        <AlertDescription className="text-sm flex items-start gap-2">
-                          <div className="mt-0.5">{insight.charAt(0)}</div>
-                          <span>{insight.slice(1)}</span>
-                        </AlertDescription>
-                      </Alert>
-                    ))}
-                  </div>
-                )}
-
-                <div className="rounded-md border overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-muted/50">
-                        <tr className="border-b">
-                          <th className="px-3 py-2 text-left text-xs font-medium">Rank</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium">Manager</th>
-                          <th className="px-3 py-2 text-right text-xs font-medium">Current</th>
-                          <th className="px-3 py-2 text-right text-xs font-medium">GW Pred</th>
-                          <th className="px-3 py-2 text-right text-xs font-medium">Projected</th>
-                          <th className="px-3 py-2 text-center text-xs font-medium">Change</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {leagueProjection.standings.slice(0, 15).map((standing: any) => (
-                          <tr 
-                            key={standing.managerId} 
-                            className={`border-b ${standing.isUser ? 'bg-primary/10 font-medium' : ''}`}
-                          >
-                            <td className="px-3 py-2 text-sm">
-                              <div className="flex items-center gap-2">
-                                <span className={standing.isUser ? 'text-primary font-bold' : ''}>
-                                  #{standing.projectedRank}
-                                </span>
-                                {standing.projectedRank === 1 && <span className="text-yellow-500">🏆</span>}
-                              </div>
-                            </td>
-                            <td className="px-3 py-2 text-sm">
-                              <div>
-                                <p className={`truncate max-w-[150px] ${standing.isUser ? 'text-primary font-semibold' : ''}`}>
-                                  {standing.teamName}
-                                </p>
-                                <p className="text-xs text-muted-foreground truncate max-w-[150px]">
-                                  {standing.managerName}
-                                </p>
-                              </div>
-                            </td>
-                            <td className="px-3 py-2 text-sm text-right">
-                              <div>
-                                <p>{standing.currentPoints}</p>
-                                <p className="text-xs text-muted-foreground">#{standing.currentRank}</p>
-                              </div>
-                            </td>
-                            <td className="px-3 py-2 text-sm text-right">
-                              <Badge variant="outline" className="font-mono">
-                                {standing.predictedGWPoints}
-                              </Badge>
-                            </td>
-                            <td className="px-3 py-2 text-sm text-right font-medium">
-                              {standing.projectedPoints}
-                            </td>
-                            <td className="px-3 py-2 text-center">
-                              {standing.rankChange > 0 ? (
-                                <Badge variant="default" className="bg-chart-2 text-white gap-1">
-                                  <TrendingUp className="h-3 w-3" />
-                                  {standing.rankChange}
-                                </Badge>
-                              ) : standing.rankChange < 0 ? (
-                                <Badge variant="destructive" className="gap-1">
-                                  <TrendingDown className="h-3 w-3" />
-                                  {Math.abs(standing.rankChange)}
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline">
-                                  <ArrowRight className="h-3 w-3" />
-                                </Badge>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {leagueProjection.winStrategy && leagueProjection.winStrategy.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold mb-3 flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-yellow-500" />
-                      Win Strategy
-                    </h4>
-                    <div className="space-y-2">
-                      {leagueProjection.winStrategy.map((strategy: string, idx: number) => (
-                        <div key={idx} className="p-3 rounded-md border bg-muted/50 flex items-start gap-2 text-sm">
-                          <div className="mt-0.5">{strategy.charAt(0)}</div>
-                          <span>{strategy.slice(1)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
           <Card>
             <CardHeader>
               <CardTitle>How to Use This Plan</CardTitle>
@@ -948,6 +719,235 @@ export default function GameweekPlanner() {
             </CardContent>
           </Card>
         </>
+      )}
+
+      {leagueAnalysis && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              League Competitive Analysis
+            </CardTitle>
+            <CardDescription>
+              Insights from your league's top performers to help you climb the rankings
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="p-4 rounded-lg bg-muted/50">
+                <p className="text-sm text-muted-foreground mb-1">Your Position</p>
+                <p className="text-3xl font-bold">#{leagueAnalysis.userRank}</p>
+              </div>
+              <div className="p-4 rounded-lg bg-muted/50">
+                <p className="text-sm text-muted-foreground mb-1">Gap to 1st</p>
+                <p className="text-3xl font-bold">{leagueAnalysis.gapToFirst} pts</p>
+              </div>
+              <div className="p-4 rounded-lg bg-muted/50">
+                <p className="text-sm text-muted-foreground mb-1">League Avg</p>
+                <p className="text-3xl font-bold">{leagueAnalysis.averageLeaguePoints} pts</p>
+              </div>
+            </div>
+
+            {leagueAnalysis.commonPicks && leagueAnalysis.commonPicks.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-chart-2" />
+                  Essential Picks (Top Managers)
+                </h4>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {leagueAnalysis.commonPicks.map((pick: any, idx: number) => {
+                    const player = getPlayerById(pick.playerId);
+                    const team = getTeamById(player?.team);
+                    return (
+                      <div key={idx} className="p-3 rounded-md border bg-card flex items-center gap-3">
+                        <Avatar className="h-10 w-10 border-2 border-chart-2/30">
+                          <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player?.photo?.replace('.jpg', '.png')}`} />
+                          <AvatarFallback className="text-xs">
+                            {player?.web_name.substring(0, 2).toUpperCase() || '??'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{player?.web_name || pick.playerName}</p>
+                          <p className="text-xs text-muted-foreground">{team?.short_name}</p>
+                          <Badge variant="outline" className="text-xs mt-1">
+                            {pick.count}/{leagueAnalysis.leadersAnalysis?.length || 5} leaders
+                          </Badge>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {leagueAnalysis.differentials && leagueAnalysis.differentials.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-yellow-500" />
+                  Differential Opportunities
+                </h4>
+                <div className="space-y-2">
+                  {leagueAnalysis.differentials.map((diff: any, idx: number) => {
+                    const player = getPlayerById(diff.playerId);
+                    const team = getTeamById(player?.team);
+                    return (
+                      <div key={idx} className="p-3 rounded-md border bg-card flex items-start gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player?.photo?.replace('.jpg', '.png')}`} />
+                          <AvatarFallback className="text-xs">
+                            {player?.web_name.substring(0, 2).toUpperCase() || '??'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{player?.web_name || diff.playerName}</p>
+                          <p className="text-xs text-muted-foreground mb-1">{team?.short_name}</p>
+                          <p className="text-xs text-muted-foreground">{diff.reason}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {leagueAnalysis.strategicInsights && leagueAnalysis.strategicInsights.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  League Strategy Insights
+                </h4>
+                <ul className="space-y-2">
+                  {leagueAnalysis.strategicInsights.map((insight: string, idx: number) => (
+                    <li key={idx} className="flex items-start gap-2 text-sm">
+                      <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+                      <span>{insight}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {leagueProjection && leagueProjection.standings && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              Projected League Standings
+            </CardTitle>
+            <CardDescription>
+              Predicted positions after Gameweek {leagueProjection.gameweek} based on expected points
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {leagueProjection.insights && leagueProjection.insights.length > 0 && (
+              <div className="space-y-2">
+                {leagueProjection.insights.map((insight: string, idx: number) => (
+                  <Alert key={idx} className="bg-primary/5 border-primary/20">
+                    <AlertDescription className="text-sm flex items-start gap-2">
+                      <div className="mt-0.5">{insight.charAt(0)}</div>
+                      <span>{insight.slice(1)}</span>
+                    </AlertDescription>
+                  </Alert>
+                ))}
+              </div>
+            )}
+
+            <div className="rounded-md border overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-muted/50">
+                    <tr className="border-b">
+                      <th className="px-3 py-2 text-left text-xs font-medium">Rank</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium">Manager</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium">Current</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium">GW Pred</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium">Projected</th>
+                      <th className="px-3 py-2 text-center text-xs font-medium">Change</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leagueProjection.standings.slice(0, 15).map((standing: any) => (
+                      <tr 
+                        key={standing.managerId} 
+                        className={`border-b ${standing.isUser ? 'bg-primary/10 font-medium' : ''}`}
+                      >
+                        <td className="px-3 py-2 text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className={standing.isUser ? 'text-primary font-bold' : ''}>
+                              #{standing.projectedRank}
+                            </span>
+                            {standing.projectedRank === 1 && <span className="text-yellow-500">🏆</span>}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-sm">
+                          <div>
+                            <p className={`truncate max-w-[150px] ${standing.isUser ? 'text-primary font-semibold' : ''}`}>
+                              {standing.teamName}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate max-w-[150px]">
+                              {standing.managerName}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-sm text-right">
+                          <div>
+                            <p>{standing.currentPoints}</p>
+                            <p className="text-xs text-muted-foreground">#{standing.currentRank}</p>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-sm text-right">
+                          <Badge variant="outline" className="font-mono">
+                            {standing.predictedGWPoints}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-2 text-sm text-right font-medium">
+                          {standing.projectedPoints}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {standing.rankChange > 0 ? (
+                            <Badge variant="default" className="bg-chart-2 text-white gap-1">
+                              <TrendingUp className="h-3 w-3" />
+                              {standing.rankChange}
+                            </Badge>
+                          ) : standing.rankChange < 0 ? (
+                            <Badge variant="destructive" className="gap-1">
+                              <TrendingDown className="h-3 w-3" />
+                              {Math.abs(standing.rankChange)}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">
+                              <ArrowRight className="h-3 w-3" />
+                            </Badge>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {leagueProjection.winStrategy && leagueProjection.winStrategy.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-yellow-500" />
+                  Win Strategy
+                </h4>
+                <div className="space-y-2">
+                  {leagueProjection.winStrategy.map((strategy: string, idx: number) => (
+                    <div key={idx} className="p-3 rounded-md border bg-muted/50 flex items-start gap-2 text-sm">
+                      <div className="mt-0.5">{strategy.charAt(0)}</div>
+                      <span>{strategy.slice(1)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {history && history.length > 0 && (

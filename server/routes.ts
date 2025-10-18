@@ -11,6 +11,7 @@ import { transferApplication } from "./transfer-application";
 import { leagueAnalysis } from "./league-analysis";
 import { competitorPredictor } from "./competitor-predictor";
 import { leagueProjection } from "./league-projection";
+import { aiImpactAnalysis } from "./ai-impact-analysis";
 import { z } from "zod";
 import { userSettingsSchema } from "@shared/schema";
 
@@ -842,6 +843,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("[Automation History Route] Error fetching change history:", error);
       res.status(500).json({ 
         error: "Failed to fetch change history",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // AI Impact Analysis Endpoints
+  app.post("/api/ai-impact/analyze/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid user ID provided" });
+      }
+
+      console.log(`[AI Impact Analysis Route] Analyzing all completed gameweeks for user ${userId}`);
+      
+      const results = await aiImpactAnalysis.analyzeAllCompletedGameweeks(userId);
+      
+      console.log(`[AI Impact Analysis Route] Analysis complete: ${results.length} gameweeks analyzed`);
+      res.json(results);
+    } catch (error) {
+      console.error("[AI Impact Analysis Route] Error analyzing gameweeks:", error);
+      res.status(500).json({ 
+        error: "Unable to analyze gameweeks - please try again later",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.post("/api/ai-impact/analyze-plan/:planId", async (req, res) => {
+    try {
+      const planId = parseInt(req.params.planId);
+      
+      if (isNaN(planId)) {
+        return res.status(400).json({ error: "Invalid plan ID provided" });
+      }
+
+      const plan = await storage.getGameweekPlanById(planId);
+      if (!plan) {
+        return res.status(404).json({ error: "Gameweek plan not found" });
+      }
+
+      console.log(`[AI Impact Analysis Route] Analyzing plan ${planId} for gameweek ${plan.gameweek}`);
+      
+      const result = await aiImpactAnalysis.analyzeGameweekImpact(planId);
+      
+      console.log(`[AI Impact Analysis Route] Analysis complete for plan ${planId}: ${result.pointsDelta >= 0 ? '+' : ''}${result.pointsDelta} points`);
+      res.json(result);
+    } catch (error) {
+      console.error("[AI Impact Analysis Route] Error analyzing plan:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      
+      if (errorMessage.includes("not finished")) {
+        return res.status(400).json({ 
+          error: "Unable to analyze gameweek - please ensure the gameweek has finished",
+          details: errorMessage
+        });
+      }
+      
+      if (errorMessage.includes("was not applied")) {
+        return res.status(400).json({ 
+          error: "Cannot analyze plan that was not applied",
+          details: errorMessage
+        });
+      }
+
+      res.status(500).json({ 
+        error: "Unable to analyze gameweek plan - please try again later",
+        details: errorMessage
+      });
+    }
+  });
+
+  app.get("/api/ai-impact/summary/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid user ID provided" });
+      }
+
+      console.log(`[AI Impact Analysis Route] Fetching impact summary for user ${userId}`);
+      
+      const allPlans = await storage.getGameweekPlansByUser(userId);
+      const analyzedPlans = allPlans.filter(plan => 
+        plan.analysisCompletedAt !== null && 
+        plan.pointsDelta !== null
+      );
+
+      if (analyzedPlans.length === 0) {
+        return res.json({
+          totalGameweeksAnalyzed: 0,
+          totalPointsDelta: 0,
+          averagePointsDelta: 0,
+          positiveImpactCount: 0,
+          negativeImpactCount: 0,
+          gameweekBreakdown: []
+        });
+      }
+
+      const totalPointsDelta = analyzedPlans.reduce((sum, plan) => sum + (plan.pointsDelta || 0), 0);
+      const averagePointsDelta = totalPointsDelta / analyzedPlans.length;
+      const positiveImpactCount = analyzedPlans.filter(plan => (plan.pointsDelta || 0) > 0).length;
+      const negativeImpactCount = analyzedPlans.filter(plan => (plan.pointsDelta || 0) < 0).length;
+
+      const gameweekBreakdown = analyzedPlans.map(plan => ({
+        planId: plan.id,
+        gameweek: plan.gameweek,
+        pointsDelta: plan.pointsDelta || 0,
+        actualPointsWithAI: plan.actualPointsWithAI || 0,
+        actualPointsWithoutAI: plan.actualPointsWithoutAI || 0,
+        analysisCompletedAt: plan.analysisCompletedAt,
+        status: plan.status,
+        transfers: plan.transfers,
+        captainId: plan.captainId,
+      })).sort((a, b) => a.gameweek - b.gameweek);
+
+      const summary = {
+        totalGameweeksAnalyzed: analyzedPlans.length,
+        totalPointsDelta: Math.round(totalPointsDelta * 100) / 100,
+        averagePointsDelta: Math.round(averagePointsDelta * 100) / 100,
+        positiveImpactCount,
+        negativeImpactCount,
+        gameweekBreakdown
+      };
+
+      console.log(`[AI Impact Analysis Route] Summary complete: ${summary.totalGameweeksAnalyzed} gameweeks, ${summary.totalPointsDelta >= 0 ? '+' : ''}${summary.totalPointsDelta} total impact`);
+      res.json(summary);
+    } catch (error) {
+      console.error("[AI Impact Analysis Route] Error fetching summary:", error);
+      res.status(500).json({ 
+        error: "Unable to fetch impact summary - please try again later",
         details: error instanceof Error ? error.message : "Unknown error"
       });
     }

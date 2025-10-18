@@ -14,6 +14,7 @@ import Transfers from "@/pages/transfers";
 import Fixtures from "@/pages/fixtures";
 import Settings from "@/pages/settings";
 import GameweekPlanner from "@/pages/gameweek-planner";
+import AIImpact from "@/pages/ai-impact";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/transfers" component={Transfers} />
       <Route path="/fixtures" component={Fixtures} />
       <Route path="/gameweek-planner" component={GameweekPlanner} />
+      <Route path="/ai-impact" component={AIImpact} />
       <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>

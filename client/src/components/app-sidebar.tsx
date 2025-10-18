@@ -1,4 +1,4 @@
-import { Home, Users, Repeat, Calendar, Trophy, Settings } from "lucide-react";
+import { Home, Users, Repeat, Calendar, Trophy, Settings, BarChart3 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -43,6 +43,12 @@ const mainItems = [
     url: "/gameweek-planner",
     icon: Calendar,
     testId: "link-gameweek-planner",
+  },
+  {
+    title: "AI Impact",
+    url: "/ai-impact",
+    icon: BarChart3,
+    testId: "link-ai-impact",
   },
 ];
 

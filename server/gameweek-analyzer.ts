@@ -4,6 +4,7 @@ import { fplApi } from "./fpl-api";
 import { leagueAnalysis } from "./league-analysis";
 import { competitorPredictor } from "./competitor-predictor";
 import { leagueProjection } from "./league-projection";
+import { aiLearningFeedback } from "./ai-learning-feedback";
 import type {
   FPLPlayer,
   FPLFixture,
@@ -55,7 +56,7 @@ export class GameweekAnalyzerService {
       const inputData = await this.collectInputData(userId, gameweek);
 
       // 2. Generate AI recommendations
-      const aiResponse = await this.generateAIRecommendations(inputData, gameweek);
+      const aiResponse = await this.generateAIRecommendations(userId, inputData, gameweek);
 
       // 3. Validate FPL rules
       const validation = await this.validateFPLRules(
@@ -353,7 +354,7 @@ export class GameweekAnalyzerService {
     return (bank + totalCurrentValue) / 10;
   }
 
-  private async generateAIRecommendations(inputData: any, gameweek: number): Promise<AIGameweekResponse> {
+  private async generateAIRecommendations(userId: number, inputData: any, gameweek: number): Promise<AIGameweekResponse> {
     const { currentTeam, allPlayers, teams, upcomingFixtures, userSettings, chipsUsed, freeTransfers, budget, setPieceTakers, dreamTeam, leagueInsights, leagueProjectionData } = inputData;
 
     // Get current squad details
@@ -585,6 +586,32 @@ CRITICAL REQUIREMENTS:
 - Consider dream team performers as form indicators
 - Every recommendation must include specific stats and numbers but written naturally into sentences`;
 
+    // Fetch AI learning context to learn from past mistakes
+    let learningPrompt = '';
+    try {
+      console.log(`[GameweekAnalyzer] Fetching AI learning context for user ${userId}...`);
+      const learningContext = await aiLearningFeedback.generateLearningContext(userId);
+      console.log(`[GameweekAnalyzer] Learning context fetched: ${learningContext.totalGameweeksAnalyzed} gameweeks analyzed`);
+      
+      if (learningContext.keyLessons.length > 0) {
+        console.log(`[GameweekAnalyzer] Key lessons to apply:`, learningContext.keyLessons);
+      }
+      
+      if (learningContext.recentMistakes.length > 0) {
+        console.log(`[GameweekAnalyzer] Recent mistakes to avoid:`, learningContext.recentMistakes.map(m => `GW${m.gameweek}: ${m.mistake}`));
+      }
+      
+      learningPrompt = aiLearningFeedback.formatForPrompt(learningContext);
+      console.log(`[GameweekAnalyzer] Learning prompt generated successfully`);
+    } catch (error) {
+      console.error(`[GameweekAnalyzer] Failed to fetch learning context:`, error instanceof Error ? error.message : 'Unknown error');
+      console.log(`[GameweekAnalyzer] Continuing with plan generation without learning context`);
+      // Don't throw - continue with empty learning prompt
+    }
+
+    // Append learning context to the main prompt
+    const finalPromptWithLearning = prompt + learningPrompt;
+
     // Bounded retry logic for token limit handling
     const maxRetries = 1;
     let lastError: Error | null = null;
@@ -593,8 +620,8 @@ CRITICAL REQUIREMENTS:
       try {
         // On retry, add conciseness instruction to prompt
         const finalPrompt = attempt > 0 
-          ? `${prompt}\n\nIMPORTANT: Previous response exceeded token limit. Please be more concise while maintaining all required fields and key insights. Limit strategic_insights to 2-3 items and keep reasoning focused.`
-          : prompt;
+          ? `${finalPromptWithLearning}\n\nIMPORTANT: Previous response exceeded token limit. Please be more concise while maintaining all required fields and key insights. Limit strategic_insights to 2-3 items and keep reasoning focused.`
+          : finalPromptWithLearning;
         
         console.log(`[GameweekAnalyzer] Calling OpenAI API (attempt ${attempt + 1}/${maxRetries + 1})`);
         const response = await openai.chat.completions.create({

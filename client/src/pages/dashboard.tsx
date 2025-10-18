@@ -208,7 +208,7 @@ export default function Dashboard() {
                   <CardContent className="p-4">
                     <div className="mb-3 flex justify-center">
                       <Avatar className="h-20 w-20 border-2 border-border">
-                        <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player.id}.png`} />
+                        <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player.photo?.replace('.jpg', '.png')}`} />
                         <AvatarFallback className="text-sm font-semibold">
                           {player.web_name.substring(0, 2).toUpperCase()}
                         </AvatarFallback>

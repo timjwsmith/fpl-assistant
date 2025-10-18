@@ -56,7 +56,7 @@ export function PlayerCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 flex-1">
           <Avatar className="h-12 w-12 border-2 border-border">
-            <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player.id}.png`} />
+            <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player.photo?.replace('.jpg', '.png')}`} />
             <AvatarFallback className="text-xs font-semibold">
               {player.web_name.substring(0, 2).toUpperCase()}
             </AvatarFallback>

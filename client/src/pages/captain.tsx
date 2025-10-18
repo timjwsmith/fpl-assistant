@@ -147,7 +147,7 @@ export default function Captain() {
               <CardContent className="p-6">
                 <div className="flex items-start gap-4">
                   <Avatar className="h-16 w-16 border-2 border-border">
-                    <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player?.id}.png`} />
+                    <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player?.photo?.replace('.jpg', '.png')}`} />
                     <AvatarFallback className="text-lg font-semibold">
                       {player?.web_name.split(' ').map(n => n[0]).join('') || '??'}
                     </AvatarFallback>

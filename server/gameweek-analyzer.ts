@@ -552,44 +552,82 @@ CRITICAL REQUIREMENTS:
 - Consider dream team performers as form indicators
 - Every recommendation must include specific stats and numbers but written naturally into sentences`;
 
-    try {
-      console.log('[GameweekAnalyzer] Calling OpenAI API with model: gpt-5');
-      const response = await openai.chat.completions.create({
-        model: "gpt-5",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 8192,
-      });
+    // Bounded retry logic for token limit handling
+    const maxRetries = 1;
+    let lastError: Error | null = null;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        // On retry, add conciseness instruction to prompt
+        const finalPrompt = attempt > 0 
+          ? `${prompt}\n\nIMPORTANT: Previous response exceeded token limit. Please be more concise while maintaining all required fields and key insights. Limit strategic_insights to 2-3 items and keep reasoning focused.`
+          : prompt;
+        
+        console.log(`[GameweekAnalyzer] Calling OpenAI API (attempt ${attempt + 1}/${maxRetries + 1})`);
+        const response = await openai.chat.completions.create({
+          model: "gpt-5",
+          messages: [{ role: "user", content: finalPrompt }],
+          response_format: { type: "json_object" },
+          max_completion_tokens: 16384,
+        });
 
-      console.log('[GameweekAnalyzer] OpenAI response received. Finish reason:', response.choices[0].finish_reason);
-      
-      const messageContent = response.choices[0].message.content;
-      if (!messageContent) {
-        console.error('[GameweekAnalyzer] Empty AI response content');
-        throw new Error('AI returned empty response');
-      }
+        const finishReason = response.choices[0].finish_reason;
+        console.log('[GameweekAnalyzer] OpenAI response received. Finish reason:', finishReason);
+        
+        // Handle token limit exceeded case - retry if possible
+        if (finishReason === 'length') {
+          if (attempt < maxRetries) {
+            console.warn('[GameweekAnalyzer] Response truncated - retrying with conciseness instruction');
+            continue; // Retry
+          } else {
+            console.error('[GameweekAnalyzer] Response truncated even after retry');
+            throw new Error('AI response too long even with conciseness instruction. Please try again or contact support if this persists.');
+          }
+        }
+        
+        const messageContent = response.choices[0].message.content;
+        if (!messageContent) {
+          console.error('[GameweekAnalyzer] Empty AI response content');
+          throw new Error('AI returned empty response. Please try again.');
+        }
 
-      console.log('[GameweekAnalyzer] Parsing AI response...');
-      const result = JSON.parse(messageContent);
-      console.log('[GameweekAnalyzer] AI response parsed successfully');
-      
-      // Validate required fields
-      if (!result.captain_id || !result.vice_captain_id) {
-        console.error('[GameweekAnalyzer] Missing required fields in AI response:', Object.keys(result));
-        throw new Error('AI response missing required fields (captain_id, vice_captain_id)');
-      }
-      
-      // Ensure transfers is an array (can be empty)
-      if (!Array.isArray(result.transfers)) {
-        console.log('[GameweekAnalyzer] No transfers in response, initializing empty array');
-        result.transfers = [];
-      }
+        console.log('[GameweekAnalyzer] Parsing AI response...');
+        let result;
+        try {
+          result = JSON.parse(messageContent);
+        } catch (parseError) {
+          console.error('[GameweekAnalyzer] Failed to parse AI response as JSON:', parseError);
+          console.error('[GameweekAnalyzer] Response content preview:', messageContent.substring(0, 500));
+          throw new Error('AI returned invalid response format. Please try again.');
+        }
+        console.log('[GameweekAnalyzer] AI response parsed successfully');
+        
+        // Validate required fields
+        if (!result.captain_id || !result.vice_captain_id) {
+          console.error('[GameweekAnalyzer] Missing required fields in AI response:', Object.keys(result));
+          throw new Error('AI response incomplete - missing captain selections. Please try again.');
+        }
+        
+        // Ensure transfers is an array (can be empty)
+        if (!Array.isArray(result.transfers)) {
+          console.log('[GameweekAnalyzer] No transfers in response, initializing empty array');
+          result.transfers = [];
+        }
 
-      return result as AIGameweekResponse;
-    } catch (error) {
-      console.error('[GameweekAnalyzer] AI API error:', error);
-      throw new Error(`AI analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        return result as AIGameweekResponse;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Unknown error');
+        
+        // Don't retry for non-token-limit errors
+        if (!(error instanceof Error && error.message.includes('too long'))) {
+          break;
+        }
+      }
     }
+    
+    // If we get here, all retries failed
+    console.error('[GameweekAnalyzer] AI API error after retries:', lastError);
+    throw new Error(`AI analysis failed: ${lastError?.message || 'Unknown error'}`);
   }
 
   private async validateFPLRules(

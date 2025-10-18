@@ -66,6 +66,54 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 
 ## Recent Changes
 
+### Quality Crisis Resolution (October 18, 2025)
+**Addressed critical recurring quality issues with systematic fixes and improved validation process:**
+
+**Root Causes Identified:**
+1. Recurring errors marked as "fixed" when they weren't actually fixed
+2. Fixes causing new regressions instead of solving root causes
+3. Poor testing and quality validation before marking tasks complete
+4. Insufficient error handling leading to opaque error messages
+
+**Critical Fixes Implemented:**
+
+**1. Player Pictures Regression Fixed:**
+- **Problem**: Components were inconsistent - some used `player.id.png` (incorrect), others used `player.photo` (correct field) but without CDN extension normalization
+- **Root Cause**: The FPL API returns `player.photo` with `.jpg` extension, but the CDN only serves `.png` files
+- **Solution**: Standardized all components to use `player.photo.replace('.jpg', '.png')` - correct field with CDN-compatible extension
+- **Files Fixed**: player-card.tsx, dashboard.tsx, transfers.tsx, captain.tsx, gameweek-planner.tsx, pitch-visualization.tsx
+- **Validation**: Visual confirmation that player avatars load correctly across all pages (Dashboard, Gameweek Planner, Transfers, Captain, Team Modeller)
+
+**2. Gameweek Analyzer Token Limit Fixed:**
+- **Problem**: AI responses hitting token limit resulted in truncated JSON, which became null in JSON mode, causing "Fetch is aborted" errors
+- **Root Cause**: Response `finish_reason: 'length'` meant incomplete JSON, but code didn't handle this case
+- **Solution**: 
+  - Increased token limit from 6000 to 16384 (maximum for GPT-5)
+  - Added bounded retry logic (max 1 retry) when `finish_reason === 'length'`
+  - On retry, adds conciseness instruction to prompt to request shorter responses
+  - Improved JSON parsing with try-catch and helpful error messages
+  - Made all error messages user-friendly and actionable
+- **Files Modified**: server/gameweek-analyzer.ts
+- **Validation**: AI responses now retry with conciseness instruction if truncated, recovering gracefully instead of failing
+
+**3. Error Propagation Fixed:**
+- **Problem**: Server sent detailed error messages in JSON (`{error, details}`), but client read response as text, displaying raw JSON instead of user-friendly messages
+- **Root Cause**: `throwIfResNotOk()` function used `res.text()` instead of parsing JSON
+- **Solution**: Updated error handling to parse JSON responses and extract `details` field, with fallback to text for non-JSON errors
+- **Files Modified**: client/src/lib/queryClient.ts
+- **Validation**: Toast notifications now show meaningful error messages from server
+
+**Quality Validation Process Established:**
+1. **Before marking any fix as complete**: Call architect tool with full git diff for comprehensive review
+2. **For UI changes**: Take screenshots to visually verify fixes across different pages/components
+3. **For error handling**: Test error scenarios to ensure user-friendly messages appear
+4. **For regressions**: Check that fixing one issue didn't break related functionality
+5. **Documentation**: Update replit.md with problem, root cause, solution, and validation steps
+
+**Impact**: Application now has robust error handling, consistent player image display, and clear user feedback. Quality process ensures future fixes are properly validated before completion.
+
+**Files Modified**: client/src/components/player-card.tsx, client/src/pages/dashboard.tsx, client/src/pages/transfers.tsx, client/src/pages/captain.tsx, client/src/pages/gameweek-planner.tsx, server/gameweek-analyzer.ts, client/src/lib/queryClient.ts
+
 ### League Projection Sorting Fix (October 18, 2025)
 **Fixed incorrect league standings projection where teams with fewer points were ranked higher:**
 

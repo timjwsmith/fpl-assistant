@@ -887,7 +887,7 @@ export default function GameweekPlanner() {
                     </tr>
                   </thead>
                   <tbody>
-                    {leagueProjection.standings.slice(0, 15).map((standing: any) => (
+                    {leagueProjection.standings.map((standing: any) => (
                       <tr 
                         key={standing.managerId} 
                         className={`border-b ${standing.isUser ? 'bg-primary/10 font-medium' : ''}`}

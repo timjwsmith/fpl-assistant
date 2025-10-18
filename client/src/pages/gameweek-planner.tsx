@@ -37,6 +37,24 @@ interface PlanData extends GameweekPlan {
   strategicInsights?: string[];
 }
 
+interface LeagueAnalysis {
+  userRank: number;
+  gapToFirst: number;
+  averageLeaguePoints: number;
+  leadersAnalysis?: any[];
+  commonPicks?: any[];
+  differentials?: any[];
+  strategicInsights?: string[];
+}
+
+interface LeagueProjection {
+  gameweek: number;
+  leagueId: number;
+  standings: any[];
+  insights?: string[];
+  winStrategy?: string[];
+}
+
 export default function GameweekPlanner() {
   const userId = 1;
   const { toast } = useToast();
@@ -59,7 +77,7 @@ export default function GameweekPlanner() {
 
   const currentGameweek = (gameweeks as FPLGameweek[] | undefined)?.find((gw: FPLGameweek) => gw.is_current) || (gameweeks as FPLGameweek[] | undefined)?.[0];
 
-  const { data: leagueAnalysis } = useQuery({
+  const { data: leagueAnalysis } = useQuery<LeagueAnalysis>({
     queryKey: ["/api/league-analysis", userId, currentGameweek?.id],
     queryFn: async () => {
       const url = `/api/league-analysis/${userId}?gameweek=${currentGameweek?.id}`;
@@ -70,7 +88,7 @@ export default function GameweekPlanner() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: leagueProjection, isLoading: loadingProjection } = useQuery({
+  const { data: leagueProjection, isLoading: loadingProjection } = useQuery<LeagueProjection>({
     queryKey: ["/api/league-projection", userId, currentGameweek?.id],
     queryFn: async () => {
       const url = `/api/league-projection/${userId}?gameweek=${currentGameweek?.id}`;

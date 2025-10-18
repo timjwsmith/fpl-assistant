@@ -553,15 +553,37 @@ CRITICAL REQUIREMENTS:
 - Every recommendation must include specific stats and numbers but written naturally into sentences`;
 
     try {
+      console.log('[GameweekAnalyzer] Calling OpenAI API with model: gpt-5');
       const response = await openai.chat.completions.create({
         model: "gpt-5",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
-        max_completion_tokens: 6000,
+        max_completion_tokens: 8192,
       });
 
-      const result = JSON.parse(response.choices[0].message.content || '{}');
-      console.log('[GameweekAnalyzer] AI response:', JSON.stringify(result, null, 2));
+      console.log('[GameweekAnalyzer] OpenAI response received. Finish reason:', response.choices[0].finish_reason);
+      
+      const messageContent = response.choices[0].message.content;
+      if (!messageContent) {
+        console.error('[GameweekAnalyzer] Empty AI response content');
+        throw new Error('AI returned empty response');
+      }
+
+      console.log('[GameweekAnalyzer] Parsing AI response...');
+      const result = JSON.parse(messageContent);
+      console.log('[GameweekAnalyzer] AI response parsed successfully');
+      
+      // Validate required fields
+      if (!result.captain_id || !result.vice_captain_id) {
+        console.error('[GameweekAnalyzer] Missing required fields in AI response:', Object.keys(result));
+        throw new Error('AI response missing required fields (captain_id, vice_captain_id)');
+      }
+      
+      // Ensure transfers is an array (can be empty)
+      if (!Array.isArray(result.transfers)) {
+        console.log('[GameweekAnalyzer] No transfers in response, initializing empty array');
+        result.transfers = [];
+      }
 
       return result as AIGameweekResponse;
     } catch (error) {

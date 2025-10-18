@@ -1114,14 +1114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "No league standings found" });
       }
 
-      const topEntries = entries.slice(0, 10);
-      const userEntry = entries.find((e: any) => e.entry === userSettings.manager_id);
-      
-      let competitorIds = topEntries.map((e: any) => e.entry);
-      
-      if (userEntry && !competitorIds.includes(userSettings.manager_id)) {
-        competitorIds.push(userSettings.manager_id);
-      }
+      const competitorIds = entries.map((e: any) => e.entry);
 
       console.log(`[LEAGUE PROJECTION] Predicting points for ${competitorIds.length} competitors`);
       const predictions = await competitorPredictor.predictCompetitorPoints(

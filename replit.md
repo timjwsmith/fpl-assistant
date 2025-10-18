@@ -66,6 +66,20 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 
 ## Recent Changes
 
+### League Projection Sorting Fix (October 18, 2025)
+**Fixed incorrect league standings projection where teams with fewer points were ranked higher:**
+
+**Problem**: League projection was only predicting points for top 10 managers + user (11 total), but displaying all 20 league members. Teams without predictions received 0 predicted GW points, causing incorrect sorting where lower-ranked teams with higher current points were displayed below the user.
+
+**Solution**: Changed prediction logic to predict points for ALL league members instead of just top 10:
+- Modified `server/routes.ts` league projection endpoint to predict for all `entries` instead of `topEntries.slice(0, 10)`
+- Removed limit on competitor IDs: `const competitorIds = entries.map((e: any) => e.entry);`
+- Fixed TypeScript Set iteration issue in `server/league-projection.ts` using `Array.from()` instead of spread operator
+
+**Impact**: All 20 league members now receive predicted GW points, resulting in accurate projected standings sorted by total projected points (current + predicted). The league standings table now correctly displays all members in proper rank order.
+
+**Files Modified**: server/routes.ts, server/league-projection.ts, client/src/pages/gameweek-planner.tsx
+
 ### Sync Data Refresh Fix (October 17, 2025)
 **Fixed team sync not updating displayed data across the app:**
 

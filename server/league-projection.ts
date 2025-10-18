@@ -213,7 +213,7 @@ class LeagueProjectionService {
         .filter(Boolean);
       
       if (topCaptains.length > 0) {
-        const uniqueCaptains = [...new Set(topCaptains)];
+        const uniqueCaptains = Array.from(new Set(topCaptains));
         strategy.push(
           `👑 Top managers are captaining: ${uniqueCaptains.slice(0, 2).join(', ')}. Consider if a differential captain could give you an edge.`
         );

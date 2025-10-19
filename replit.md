@@ -76,6 +76,49 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 
 **Files Modified**: server/routes.ts, server/gameweek-analyzer.ts, client/src/pages/gameweek-planner.tsx
 
+### Strategic AI Overhaul - Multi-Gameweek Planning & ROI Analysis (October 19, 2025)
+**Major AI improvement to enable forward-thinking, strategic recommendations:**
+
+**Problem**: AI was overly conservative, avoiding point hits and only considering current gameweek. It wouldn't recommend premium players like Haaland even when mathematically beneficial long-term.
+
+**Root Cause Analysis**:
+1. Prompt stated: "You CANNOT recommend transfers that exceed this constraint" (blocking multi-transfer plans)
+2. Risk tolerance descriptions emphasized "avoid hits" instead of "calculate ROI"
+3. No instructions to consider fixture runs beyond current gameweek
+4. No requirement to analyze premium players proactively
+
+**Solution**:
+1. **Removed Conservative Budget Blocks**: Changed from blocking multi-transfers to explaining how to calculate budget for 2-3 transfer plans
+2. **Added ROI Mindset**: "Point hits are strategic investments" - explicitly calculate if -8 hit NOW is worth it for +27 net points over 6 gameweeks
+3. **Strategic Planning Mindset Section**: 
+   - Think long-term (next 6+ gameweeks)
+   - Calculate ROI on hits (expected gain vs cost)
+   - Premium players often justify multi-transfer plans
+   - Identify fixture swings and team structure improvements
+4. **Multi-Gameweek ROI Analysis Requirement**: AI must analyze if premium players (Haaland, Salah, Son, Palmer) justify point hits based on their next 6 fixtures
+5. **Proactive Premium Player Check**: Before finalizing recommendations, AI MUST check if any £12m+ players have excellent fixture runs and recommend multi-transfer plans with full ROI calculations
+6. **Updated Risk Tolerance**:
+   - Conservative: Take hits when long-term ROI is clear
+   - Balanced: Take hits when return exceeds cost over 3-4 GWs
+   - Aggressive: Accept larger hits for high upside
+
+**Impact**: AI now proactively recommends strategic multi-transfer plans (like getting Haaland) when the math shows clear long-term benefit. Focuses on 6-gameweek fixture analysis instead of just current week. Shows full ROI calculations: "Haaland will score 90pts over 6 GWs vs current player 36pts = +54 gain, minus -8 hit = +46 net benefit."
+
+**Files Modified**: server/gameweek-analyzer.ts
+
+### Added Team Badge Graphics to UI (October 19, 2025)
+**Visual enhancement to match official FPL app:**
+
+**Implementation**:
+1. Added `code` field to FPLTeam schema (used for badge URL construction)
+2. Added team badge images to transfer recommendations using official FPL CDN: `https://resources.premierleague.com/premierleague/badges/t{code}.png`
+3. Badges display next to team name for both "Transfer OUT" and "Transfer IN" players
+4. Graceful error handling: badges hide if image fails to load
+
+**User Experience**: Transfer recommendations now show official team badges/crests next to player names, matching the visual style of the official FPL app.
+
+**Files Modified**: shared/schema.ts, client/src/pages/gameweek-planner.tsx
+
 ### Fixed "Unknown Player" Bug - AI Using Wrong Player IDs (October 19, 2025)
 **Critical fix for AI recommendations showing "Unknown" players with £0.0m prices:**
 

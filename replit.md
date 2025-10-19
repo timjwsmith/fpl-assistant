@@ -49,6 +49,33 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 
 ## Recent Changes
 
+### Added "Get Haaland" Feature - Optimal Multi-Transfer Planning (October 19, 2025)
+**New one-click feature to get efficient transfer plans for acquiring expensive premium players:**
+
+**Implementation**:
+1. **Backend Parameter**: Added optional `targetPlayerId` query parameter to `/api/automation/analyze/:userId` endpoint
+2. **Service Updates**: Modified `analyzeGameweek()` and `generateAIRecommendations()` to accept optional `targetPlayerId`
+3. **AI Prompt Enhancement**: When `targetPlayerId` is specified, AI receives special instructions:
+   - Primary objective: Create MOST EFFICIENT multi-transfer plan to acquire target player
+   - Show EXACT players to transfer out with selling prices
+   - Calculate PRECISE budget availability after each transfer
+   - Prioritize CHEAPEST downgrade options to free funds
+   - MINIMIZE point hits (aim for 1-2 transfers if possible)
+   - Provide CLEAR STEP-BY-STEP transfer sequence
+   - Show TOTAL cost in point hits
+   - Explain WHY this is the most efficient path
+4. **UI Button**: Added "Get Haaland" button in Gameweek Planner that:
+   - Dynamically finds Haaland's player ID from loaded FPL data
+   - Triggers specialized analysis focused on acquiring Haaland
+   - Shows clear loading state ("Getting Haaland...")
+   - Provides success/error feedback via toast notifications
+
+**User Experience**: Click "Get Haaland" button → AI analyzes current squad → Provides optimal multi-transfer plan showing which players to downgrade, exact budget calculations, and minimal point hits needed to bring Haaland into the team.
+
+**Future Enhancement**: The `targetPlayerId` parameter is reusable for any player, enabling future "Get [Player Name]" shortcuts for other premium assets like Salah, Palmer, etc.
+
+**Files Modified**: server/routes.ts, server/gameweek-analyzer.ts, client/src/pages/gameweek-planner.tsx
+
 ### Fixed "Unknown Player" Bug - AI Using Wrong Player IDs (October 19, 2025)
 **Critical fix for AI recommendations showing "Unknown" players with £0.0m prices:**
 

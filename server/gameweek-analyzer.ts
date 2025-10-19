@@ -536,12 +536,15 @@ ${targetPlayerInfo}
 FPL RULES (MUST FOLLOW):
 - Squad must have exactly 15 players: 2 GK, 5 DEF, 5 MID, 3 FWD
 - Maximum 3 players from same team
-- **CRITICAL BUDGET CONSTRAINT**: For a SINGLE transfer, your budget = Bank + selling price of OUT player
-  Example: If bank is £0.5m and you sell a £7.0m player, you have £7.5m to spend on replacement
-  **You CANNOT recommend transfers that exceed this constraint**
-- For expensive players (Haaland £15m+), you MUST provide a MULTI-TRANSFER plan showing which 2-3 players to downgrade
-- Each free transfer used beyond available reduces points by 4
-- Maximum transfer hit: ${inputData.maxTransferHit} points
+- **BUDGET CONSTRAINTS**: 
+  - For a SINGLE transfer: budget = Bank + selling price of OUT player
+  - For MULTI-TRANSFER plans: budget = Bank + sum of all OUT players' selling prices
+  - Example: Bank £0.5m + sell Player A £6.0m + sell Player B £8.0m = £14.5m available
+- **POINT HITS ARE STRATEGIC INVESTMENTS**: Each transfer beyond free transfers costs -4 points
+  - BUT if a premium player (e.g., Haaland) will outscore cheaper alternatives over next 4-6 gameweeks, the hit is WORTH IT
+  - Calculate: (Expected points gain over next 6 GWs) - (Point hit cost) = Net benefit
+  - Example: Haaland expected 80pts over 6 GWs vs current striker 45pts = +35pts gain, minus -8 hit = +27 net benefit
+- Maximum transfer hit: ${inputData.maxTransferHit} points (but use it wisely when ROI justifies it)
 
 AVAILABLE CHIPS:
 ${availableChips.length > 0 ? availableChips.join(', ') : 'None available (all used)'}
@@ -553,9 +556,16 @@ CHIP DESCRIPTIONS:
 - Triple Captain: Captain points count 3x instead of 2x (best for premium captains with great fixtures)
 
 USER RISK TOLERANCE: ${userSettings.risk_tolerance}
-- Conservative: Prioritize safe picks, avoid hits, focus on consistency
-- Balanced: Mix of safe and differential picks, reasonable hits allowed
-- Aggressive: Consider differentials, accept larger hits for upside
+- Conservative: Prioritize safe picks, take hits ONLY when long-term ROI is clear (e.g., premium player with 6 green fixtures)
+- Balanced: Mix of safe and differential picks, take hits when expected return exceeds cost over 3-4 gameweeks
+- Aggressive: Consider differentials, accept larger hits for high upside plays (e.g., premium captains with double gameweeks)
+
+**STRATEGIC PLANNING MINDSET**:
+- THINK LONG-TERM: Don't just optimize for this gameweek - consider fixture runs for the next 6+ gameweeks
+- CALCULATE ROI ON HITS: A -8 point hit NOW is worth it if the new player(s) will gain 15+ points over the next 4-6 gameweeks
+- PREMIUM PLAYERS: Players like Haaland, Salah, Son often justify multi-transfer plans due to their consistent high returns
+- FIXTURE SWINGS: Identify teams with favorable fixture runs (GW${gameweek} to GW${gameweek + 6}) and prioritize their assets
+- TEAM STRUCTURE: Sometimes restructuring the squad (e.g., downgrading bench to upgrade starters) creates long-term value
 
 FIXTURE DIFFICULTY (1=easiest, 5=hardest):
 ${teams.map((t: FPLTeam) => {
@@ -595,12 +605,23 @@ For CAPTAIN CHOICE, write naturally:
 For CHIP STRATEGY, write conversationally:
 "I recommend saving your Wildcard until gameweeks 12 through 14 because that is when several top teams have favorable fixture runs and player prices typically stabilize. You should use your Bench Boost during the double gameweek when your bench players have two matches each. For example, if your bench includes players from teams with doubles against weaker opponents."
 
-For STRATEGIC INSIGHTS, include:
-1. League competitive analysis (what leaders are doing differently)
-2. Differential opportunities with risk/reward assessment
-3. Fixture swing analysis for next 6 gameweeks
-4. Price change predictions and their impact
-5. Specific tactical recommendations based on data
+For STRATEGIC INSIGHTS, you MUST include:
+1. **Multi-Gameweek ROI Analysis**: Identify if any premium players (Haaland, Salah, etc.) justify point hits based on their fixture run for the next 6 gameweeks
+   - Example: "Haaland has 6 green fixtures (avg difficulty 2.0) over the next 6 gameweeks and averages 9.5 points per game. Taking a -8 hit to bring him in will likely return 57 points over 6 games, making the hit worth 49 net points."
+2. **League Competitive Analysis**: What leaders are doing differently - especially their premium player ownership
+3. **Fixture Swings**: Identify teams transitioning from hard to easy fixtures (or vice versa) in the next 4-6 gameweeks
+4. **Differential Opportunities**: Low-owned players with excellent upcoming fixtures
+5. **Squad Structure Improvements**: Opportunities to downgrade bench fodder to upgrade key starters (long-term value plays)
+
+**CRITICAL: PROACTIVE PREMIUM PLAYER ANALYSIS**:
+Before finalizing your recommendations, YOU MUST explicitly analyze whether premium players (£12m+) should be brought in:
+- Check if Haaland, Salah, Son, Palmer, or other premium assets have excellent fixture runs (next 6 gameweeks avg difficulty < 2.5)
+- Calculate if their expected points over 6 gameweeks justify a -4 or -8 point hit
+- Consider if league leaders own them (you need coverage to avoid falling behind)
+- If a premium player makes mathematical sense, RECOMMEND THE MULTI-TRANSFER PLAN even if it requires hits
+- Show the full calculation: "Player X will score ~15pts/gw over 6 GWs = 90pts total. Current player scores ~6pts/gw = 36pts. Gain: 54pts. Cost: -8 hit. Net benefit: +46pts over 6 gameweeks."
+
+**DO NOT** be conservative just to avoid point hits - if the math shows clear long-term benefit, RECOMMEND IT.
 
 YOUR TASK:
 Provide a strategic gameweek plan in this EXACT JSON format with VERBOSE, DATA-DRIVEN reasoning:

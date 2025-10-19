@@ -48,6 +48,7 @@ export const fplTeamSchema = z.object({
   id: z.number(),
   name: z.string(),
   short_name: z.string(),
+  code: z.number(), // Used for badge URLs: https://resources.premierleague.com/premierleague/badges/t{code}.png
   strength: z.number(),
   strength_overall_home: z.number(),
   strength_overall_away: z.number(),

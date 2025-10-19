@@ -473,6 +473,16 @@ export default function GameweekPlanner() {
                                 <p className="text-xs text-muted-foreground mb-1">Out</p>
                                 <p className="font-semibold truncate">{playerOut?.web_name || 'Unknown'}</p>
                                 <div className="flex items-center gap-2 mt-1">
+                                  {teamOut?.code && (
+                                    <img 
+                                      src={`https://resources.premierleague.com/premierleague/badges/t${teamOut.code}.png`}
+                                      alt={teamOut.short_name}
+                                      className="h-4 w-4 object-contain"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                      }}
+                                    />
+                                  )}
                                   <p className="text-xs text-muted-foreground">
                                     {teamOut?.short_name} • {positionNames[playerOut?.element_type || 0]}
                                   </p>
@@ -498,6 +508,16 @@ export default function GameweekPlanner() {
                                 <p className="text-xs text-muted-foreground mb-1">In</p>
                                 <p className="font-semibold truncate">{playerIn?.web_name || 'Unknown'}</p>
                                 <div className="flex items-center gap-2 mt-1">
+                                  {teamIn?.code && (
+                                    <img 
+                                      src={`https://resources.premierleague.com/premierleague/badges/t${teamIn.code}.png`}
+                                      alt={teamIn.short_name}
+                                      className="h-4 w-4 object-contain"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                      }}
+                                    />
+                                  )}
                                   <p className="text-xs text-muted-foreground">
                                     {teamIn?.short_name} • {positionNames[playerIn?.element_type || 0]}
                                   </p>

@@ -134,6 +134,32 @@ export default function GameweekPlanner() {
     },
   });
 
+  const getHaalandMutation = useMutation({
+    mutationFn: async () => {
+      const haaland = (players as FPLPlayer[] | undefined)?.find(
+        p => p.web_name === "Haaland" || p.web_name === "Håland"
+      );
+      if (!haaland) {
+        throw new Error("Could not find Haaland in player database");
+      }
+      return apiRequest("POST", `/api/automation/analyze/${userId}?targetPlayerId=${haaland.id}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/automation/plan", userId] });
+      toast({
+        title: "Haaland Plan Generated",
+        description: "Multi-transfer plan to get Haaland has been generated.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate Haaland plan. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const applyPlanMutation = useMutation({
     mutationFn: async () => {
       if (!plan?.id) {
@@ -256,23 +282,43 @@ export default function GameweekPlanner() {
               <p className="text-2xl font-bold">GW {currentGameweek.id}</p>
             </div>
           )}
-          <Button
-            onClick={() => generatePlanMutation.mutate()}
-            disabled={generatePlanMutation.isPending || !settings?.manager_id}
-            data-testid="button-generate-plan"
-          >
-            {generatePlanMutation.isPending ? (
-              <>
-                <Sparkles className="h-4 w-4 mr-2 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4 mr-2" />
-                Generate New Plan
-              </>
-            )}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => getHaalandMutation.mutate()}
+              disabled={getHaalandMutation.isPending || !settings?.manager_id || !players}
+              variant="outline"
+              data-testid="button-get-haaland"
+            >
+              {getHaalandMutation.isPending ? (
+                <>
+                  <Zap className="h-4 w-4 mr-2 animate-spin" />
+                  Getting Haaland...
+                </>
+              ) : (
+                <>
+                  <Zap className="h-4 w-4 mr-2" />
+                  Get Haaland
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={() => generatePlanMutation.mutate()}
+              disabled={generatePlanMutation.isPending || !settings?.manager_id}
+              data-testid="button-generate-plan"
+            >
+              {generatePlanMutation.isPending ? (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Generate New Plan
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 

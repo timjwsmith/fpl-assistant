@@ -49,6 +49,27 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 
 ## Recent Changes
 
+### Fixed "Unknown Player" Bug - AI Using Wrong Player IDs (October 19, 2025)
+**Critical fix for AI recommendations showing "Unknown" players with £0.0m prices:**
+
+**Problem**: AI was inventing fake player IDs (1012, 2001, etc.) instead of using actual FPL database IDs. This caused the UI to display "Unknown" for all transfer recommendations because it couldn't find those players in the database.
+
+**Root Cause**: The AI could see the current squad's player IDs but had NO LIST of available players to choose from when making transfer recommendations. So when it wanted to suggest "David Raya" or "Cole Palmer", it made up IDs like 2001, 2002.
+
+**Solution**:
+1. **Added Top Players Database**: Provide AI with top 100 players by position (20 GK, 30 DEF, 30 MID, 20 FWD) sorted by total points
+2. **Include Actual Player IDs**: Each player shown with format "ID:220 Raya (ARS) £5.5m PPG:4.2 Form:3.8"
+3. **Explicit ID Instructions**: Added critical requirement: "You MUST use ACTUAL PLAYER IDs from the lists provided. NEVER MAKE UP OR INVENT PLAYER IDs"
+4. **Server-Side ID Validation & Correction**: Added intelligent validation that:
+   - Checks if AI-provided player IDs actually exist in the database
+   - If fake IDs detected (e.g., 2001, 3001), extracts player names from reasoning text
+   - Automatically looks up correct player IDs by matching names to FPL database
+   - Logs all fixes for debugging: "Fixed player_in_id to 220 (Raya)"
+
+**Impact**: AI transfer recommendations now display correctly in UI. Even if AI invents fake IDs, the server automatically corrects them by matching player names from the reasoning to actual database IDs. "Unknown £0.0m" bug is completely resolved.
+
+**Files Modified**: server/gameweek-analyzer.ts
+
 ### Budget Constraint Fix for AI Recommendations (October 19, 2025)
 **Fixed unrealistic transfer recommendations that didn't consider budget constraints:**
 

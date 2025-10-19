@@ -357,7 +357,7 @@ export class GameweekAnalyzerService {
   private async generateAIRecommendations(userId: number, inputData: any, gameweek: number): Promise<AIGameweekResponse> {
     const { currentTeam, allPlayers, teams, upcomingFixtures, userSettings, chipsUsed, freeTransfers, budget, setPieceTakers, dreamTeam, leagueInsights, leagueProjectionData } = inputData;
 
-    // Get current squad details
+    // Get current squad details WITH PLAYER IDS
     const squadDetails = currentTeam.players
       .map((pick: any) => {
         const player = allPlayers.find((p: FPLPlayer) => p.id === pick.player_id);
@@ -395,6 +395,25 @@ export class GameweekAnalyzerService {
         };
       })
       .filter(Boolean);
+
+    // Build top players list by position for AI to choose from (top 100 by total points)
+    const topPlayersByPosition = {
+      GK: allPlayers.filter((p: FPLPlayer) => p.element_type === 1).sort((a: FPLPlayer, b: FPLPlayer) => b.total_points - a.total_points).slice(0, 20),
+      DEF: allPlayers.filter((p: FPLPlayer) => p.element_type === 2).sort((a: FPLPlayer, b: FPLPlayer) => b.total_points - a.total_points).slice(0, 30),
+      MID: allPlayers.filter((p: FPLPlayer) => p.element_type === 3).sort((a: FPLPlayer, b: FPLPlayer) => b.total_points - a.total_points).slice(0, 30),
+      FWD: allPlayers.filter((p: FPLPlayer) => p.element_type === 4).sort((a: FPLPlayer, b: FPLPlayer) => b.total_points - a.total_points).slice(0, 20),
+    };
+
+    const topPlayersInfo = Object.entries(topPlayersByPosition).map(([position, players]) => {
+      const playerList = players.map((p: FPLPlayer) => {
+        const team = teams.find((t: FPLTeam) => t.id === p.team);
+        return `ID:${p.id} ${p.web_name} (${team?.short_name}) £${(p.now_cost / 10).toFixed(1)}m PPG:${p.points_per_game} Form:${p.form}`;
+      }).join('\n');
+      return `${position}:\n${playerList}`;
+    }).join('\n\n');
+    
+    console.log(`[GameweekAnalyzer] Generated top players list: ${topPlayersInfo.length} characters`);
+    console.log(`[GameweekAnalyzer] Sample - First 500 chars:`, topPlayersInfo.substring(0, 500));
 
     // Get available chips
     const availableChips = ['wildcard', 'freehit', 'benchboost', 'triplecaptain'].filter(
@@ -473,8 +492,8 @@ ${leagueProjectionData.insights?.map((insight: string) => `- ${insight}`).join('
 
 CURRENT GAMEWEEK: ${gameweek}
 
-CURRENT SQUAD (15 players):
-${squadDetails.map((p: any, i: number) => `${p.name} (${p.position}) - ${p.team}
+CURRENT SQUAD (15 players WITH THEIR IDS):
+${squadDetails.map((p: any, i: number) => `ID:${p.id} ${p.name} (${p.position}) - ${p.team}
    Price: £${p.price}m | Form: ${p.form.toFixed(1)} | PPG: ${p.ppg}
    Total Points: ${p.total_points} | Selected: ${p.selected_by}%
    Status: ${p.status}${p.chance_of_playing !== null ? ` (${p.chance_of_playing}% chance)` : ''}
@@ -482,6 +501,9 @@ ${squadDetails.map((p: any, i: number) => `${p.name} (${p.position}) - ${p.team}
    xG: ${p.xG.toFixed(2)} | xA: ${p.xA.toFixed(2)} | ICT: ${p.ict.toFixed(1)}
    Fixtures: ${p.fixtures}
 `).join('\n')}
+
+TOP AVAILABLE PLAYERS BY POSITION (with PLAYER IDS you MUST use):
+${topPlayersInfo}
 
 BUDGET & TRANSFERS:
 - Bank Balance: £${(inputData.currentTeam.bank / 10).toFixed(1)}m (CASH AVAILABLE NOW)
@@ -586,7 +608,11 @@ Provide a strategic gameweek plan in this EXACT JSON format with VERBOSE, DATA-D
 }
 
 CRITICAL REQUIREMENTS:
-- In the JSON response: "player_out_id", "player_in_id", "captain_id", "vice_captain_id" MUST be NUMERIC PLAYER IDs (integers)
+- **PLAYER IDS**: You MUST use the ACTUAL PLAYER IDs from the "CURRENT SQUAD" and "TOP AVAILABLE PLAYERS BY POSITION" lists above
+  - For player_out_id: Use the ID from your CURRENT SQUAD list (e.g., if removing "ID:469 Leno", use player_out_id: 469)
+  - For player_in_id: Use the ID from the TOP AVAILABLE PLAYERS list (e.g., if bringing in "ID:220 Raya", use player_in_id: 220)
+  - For captain_id/vice_captain_id: Use IDs from your CURRENT SQUAD ONLY
+  - **NEVER MAKE UP OR INVENT PLAYER IDs** - always use the exact IDs provided in the lists above
 - In ALL "reasoning" and "strategic_insights" text fields: ALWAYS use PLAYER NAMES, NEVER use IDs or numbers to refer to players
 - ALL reasoning text must be PURE NATURAL LANGUAGE - no parentheses, no abbreviations, no technical formatting
 - Write reasoning like you're talking to a friend - clear conversational sentences with data woven naturally
@@ -681,6 +707,52 @@ CRITICAL REQUIREMENTS:
         if (!Array.isArray(result.transfers)) {
           console.log('[GameweekAnalyzer] No transfers in response, initializing empty array');
           result.transfers = [];
+        }
+        
+        // CRITICAL: Validate and correct player IDs
+        // The AI sometimes invents fake IDs, so we need to verify them against actual players
+        console.log('[GameweekAnalyzer] Validating player IDs in transfers...');
+        for (const transfer of result.transfers) {
+          let fixed = false;
+          
+          // Check if player_out_id exists in current squad
+          const outPlayerExists = currentTeam.players.some((p: any) => p.player_id === transfer.player_out_id);
+          if (!outPlayerExists) {
+            console.warn(`[GameweekAnalyzer] Invalid player_out_id: ${transfer.player_out_id} - attempting to fix from reasoning`);
+            // Extract player name from reasoning (it should mention the player being sold)
+            const reasoning = transfer.reasoning || '';
+            // Try to find squad player mentioned in reasoning
+            for (const pick of currentTeam.players) {
+              const player = allPlayers.find((p: FPLPlayer) => p.id === pick.player_id);
+              if (player && reasoning.includes(player.web_name)) {
+                transfer.player_out_id = player.id;
+                console.log(`[GameweekAnalyzer] Fixed player_out_id to ${player.id} (${player.web_name})`);
+                fixed = true;
+                break;
+              }
+            }
+          }
+          
+          // Check if player_in_id exists in all players
+          const inPlayerExists = allPlayers.some((p: FPLPlayer) => p.id === transfer.player_in_id);
+          if (!inPlayerExists) {
+            console.warn(`[GameweekAnalyzer] Invalid player_in_id: ${transfer.player_in_id} - attempting to fix from reasoning`);
+            // Extract player name from reasoning
+            const reasoning = transfer.reasoning || '';
+            // Try to find player by searching reasoning for player names
+            for (const player of allPlayers) {
+              if (reasoning.includes(player.web_name) && !currentTeam.players.some((p: any) => p.player_id === player.id)) {
+                transfer.player_in_id = player.id;
+                console.log(`[GameweekAnalyzer] Fixed player_in_id to ${player.id} (${player.web_name})`);
+                fixed = true;
+                break;
+              }
+            }
+          }
+          
+          if (!fixed && (!outPlayerExists || !inPlayerExists)) {
+            console.error(`[GameweekAnalyzer] Could not fix invalid player IDs for transfer:`, transfer);
+          }
         }
 
         return result as AIGameweekResponse;

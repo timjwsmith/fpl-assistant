@@ -170,29 +170,21 @@ class FPLAuthService {
     let browser;
     
     try {
-      // Check if we should use remote browser service (for iOS/mobile users)
-      const browserlessEndpoint = process.env.BROWSERLESS_ENDPOINT;
-      
-      if (browserlessEndpoint) {
-        // Use remote browser service (e.g., Browserless.io)
-        console.log(`[FPL Auth] Connecting to remote browser service...`);
-        browser = await chromium.connectOverCDP(browserlessEndpoint);
-        console.log(`[FPL Auth] Connected to remote browser successfully`);
-      } else {
-        // Use local Playwright (may not work in all environments)
-        console.log(`[FPL Auth] Launching local headless browser...`);
-        browser = await chromium.launch({
-          headless: true,
-          executablePath: '/home/runner/workspace/.cache/ms-playwright/chromium-1194/chrome-linux/chrome',
-          args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-blink-features=AutomationControlled',
-          ],
-        });
-        console.log(`[FPL Auth] Local browser launched successfully`);
-      }
+      // Try local Playwright with enhanced stealth (better for FPL's bot detection)
+      console.log(`[FPL Auth] Launching local headless browser with stealth mode...`);
+      browser = await chromium.launch({
+        headless: true,
+        executablePath: '/home/runner/workspace/.cache/ms-playwright/chromium-1194/chrome-linux/chrome',
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-blink-features=AutomationControlled',
+          '--disable-web-security',
+          '--disable-features=IsolateOrigins,site-per-process',
+        ],
+      });
+      console.log(`[FPL Auth] Local browser launched successfully`);
 
       const context = await browser.newContext({
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',

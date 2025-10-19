@@ -24,11 +24,15 @@ export async function apiRequest<T>(
   console.log('[API] Starting request:', method, url);
   
   // Use AbortController for timeout on long-running AI requests
+  // Use 2 minutes for automation/analyze endpoints, 60s for others
+  const isLongRunning = url.includes('/automation/analyze');
+  const timeoutMs = isLongRunning ? 120000 : 60000;
+  
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
-    console.log('[API] Request timeout after 60s for', url);
+    console.log(`[API] Request timeout after ${timeoutMs/1000}s for`, url);
     controller.abort();
-  }, 60000); // 60 second timeout for AI requests
+  }, timeoutMs);
 
   try {
     console.log('[API] Sending fetch request to', url);

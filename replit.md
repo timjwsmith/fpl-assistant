@@ -1,7 +1,7 @@
 # FPL Assistant - AI-Powered Fantasy Premier League Tool
 
 ## Overview
-An intelligent Fantasy Premier League assistant that helps users optimize their team selection, transfers, captain choices, and chip strategy. The project aims to provide AI-powered predictions and real-time FPL data analysis, enabling users to automatically apply optimal FPL changes each gameweek with minimal intervention. This includes transfer recommendations, captain selection, chip timing, and formation optimization, all while validating against FPL rules. The project also focuses on predicting league standings and providing strategic insights to help users win their mini-leagues.
+The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier League team selection, transfers, captain choices, and chip strategy. It provides AI-powered predictions and real-time FPL data analysis to help users make optimal FPL decisions with minimal intervention. The project's ambition is to automate transfer recommendations, captain selection, chip timing, and formation optimization, all while adhering to FPL rules. It also focuses on predicting league standings and offering strategic insights to aid users in winning their mini-leagues.
 
 ## User Preferences
 - Default theme: Dark mode
@@ -37,145 +37,18 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 - **Asynchronous AI Processing**: Database-backed async polling system for managing long-running AI predictions.
 - **FPL API Integration**: Backend proxy with 5-minute caching for official FPL API requests.
 - **Comprehensive Player Stats**: AI models leverage 20+ additional player metrics for enhanced prediction accuracy.
-- **Cookie Management**: Cookies are automatically URL-decoded, with a debug endpoint for verification.
+- **Cookie Management**: Cookies are automatically URL-decoded.
 - **Verbose AI Reasoning**: AI provides data-backed, natural language explanations without technical jargon.
-- **AI Impact Analysis & Learning System**: Tracks AI performance, compares predicted vs. actual points (with and without AI), learns from past mistakes, and incorporates feedback into future recommendations.
+- **AI Impact Analysis & Learning System**: Tracks AI performance, compares predicted vs. actual points, learns from past mistakes, and incorporates feedback into future recommendations.
+- **Strategic AI Overhaul**: AI now performs multi-gameweek planning and ROI analysis, considering long-term benefits and justifying point hits for premium players. It proactively recommends strategic multi-transfer plans based on 6-gameweek fixture analysis and full ROI calculations.
+- **Authentication**: Supports direct email/password login using Playwright for automated cookie extraction, eliminating manual cookie management.
+- **"Get Haaland" Feature**: Implements a one-click feature for optimal multi-transfer planning to acquire expensive premium players, with AI focused on efficiency, budget calculation, and minimizing point hits.
+- **AI Player ID Validation**: Server-side validation and correction of AI-provided player IDs to ensure accuracy in recommendations, preventing "Unknown Player" issues.
+- **Budget Constraint Fixes**: AI recommendations now adhere to realistic budget constraints for single and multi-transfers, providing clear financial calculations.
+- **Visual Enhancements**: Integration of team badge graphics into the UI for a more authentic FPL experience.
 
 ## External Dependencies
 - **Official FPL API**: For all Fantasy Premier League game data.
 - **OpenAI GPT-5**: Utilized via Replit AI Integrations for all AI-powered predictions and analysis.
 - **PostgreSQL**: Primary database for persistent storage.
 - **@dnd-kit**: For drag-and-drop functionality in the Team Modeller.
-
-## Recent Changes
-
-### Added Inspect Browser Instructions for iOS Cookie Extraction (October 19, 2025)
-**Enhanced cookie authentication setup for iPhone users:**
-
-**Implementation**:
-1. **New iPhone Instructions Section**: Added dedicated purple-highlighted guide for Inspect Browser app users
-2. **Step-by-Step Process**: Clear 8-step guide showing how to:
-   - Open Inspect Browser on iPhone
-   - Navigate to FPL and login
-   - Access DevTools Storage tab
-   - Extract the 3 required cookies (sessionid, csrftoken, pl_profile)
-   - Format cookies correctly for pasting
-3. **Pro Tips**: Included suggestion to use Notes app for combining cookie values
-4. **Reorganized UI**: Separated iPhone (Inspect Browser) and Desktop browser instructions for clarity
-
-**User Experience**: iPhone users can now extract FPL cookies directly from their device using the paid Inspect Browser app, eliminating the need for a computer. This enables full FPL automation from iOS devices.
-
-**Background**: The cookie authentication system already existed, but instructions only covered desktop browsers. This update makes the process accessible to iOS users with developer tools.
-
-**Files Modified**: client/src/pages/settings.tsx
-
-### Added "Get Haaland" Feature - Optimal Multi-Transfer Planning (October 19, 2025)
-**New one-click feature to get efficient transfer plans for acquiring expensive premium players:**
-
-**Implementation**:
-1. **Backend Parameter**: Added optional `targetPlayerId` query parameter to `/api/automation/analyze/:userId` endpoint
-2. **Service Updates**: Modified `analyzeGameweek()` and `generateAIRecommendations()` to accept optional `targetPlayerId`
-3. **AI Prompt Enhancement**: When `targetPlayerId` is specified, AI receives special instructions:
-   - Primary objective: Create MOST EFFICIENT multi-transfer plan to acquire target player
-   - Show EXACT players to transfer out with selling prices
-   - Calculate PRECISE budget availability after each transfer
-   - Prioritize CHEAPEST downgrade options to free funds
-   - MINIMIZE point hits (aim for 1-2 transfers if possible)
-   - Provide CLEAR STEP-BY-STEP transfer sequence
-   - Show TOTAL cost in point hits
-   - Explain WHY this is the most efficient path
-4. **UI Button**: Added "Get Haaland" button in Gameweek Planner that:
-   - Dynamically finds Haaland's player ID from loaded FPL data
-   - Triggers specialized analysis focused on acquiring Haaland
-   - Shows clear loading state ("Getting Haaland...")
-   - Provides success/error feedback via toast notifications
-
-**User Experience**: Click "Get Haaland" button → AI analyzes current squad → Provides optimal multi-transfer plan showing which players to downgrade, exact budget calculations, and minimal point hits needed to bring Haaland into the team.
-
-**Future Enhancement**: The `targetPlayerId` parameter is reusable for any player, enabling future "Get [Player Name]" shortcuts for other premium assets like Salah, Palmer, etc.
-
-**Files Modified**: server/routes.ts, server/gameweek-analyzer.ts, client/src/pages/gameweek-planner.tsx
-
-### Strategic AI Overhaul - Multi-Gameweek Planning & ROI Analysis (October 19, 2025)
-**Major AI improvement to enable forward-thinking, strategic recommendations:**
-
-**Problem**: AI was overly conservative, avoiding point hits and only considering current gameweek. It wouldn't recommend premium players like Haaland even when mathematically beneficial long-term.
-
-**Root Cause Analysis**:
-1. Prompt stated: "You CANNOT recommend transfers that exceed this constraint" (blocking multi-transfer plans)
-2. Risk tolerance descriptions emphasized "avoid hits" instead of "calculate ROI"
-3. No instructions to consider fixture runs beyond current gameweek
-4. No requirement to analyze premium players proactively
-
-**Solution**:
-1. **Removed Conservative Budget Blocks**: Changed from blocking multi-transfers to explaining how to calculate budget for 2-3 transfer plans
-2. **Added ROI Mindset**: "Point hits are strategic investments" - explicitly calculate if -8 hit NOW is worth it for +27 net points over 6 gameweeks
-3. **Strategic Planning Mindset Section**: 
-   - Think long-term (next 6+ gameweeks)
-   - Calculate ROI on hits (expected gain vs cost)
-   - Premium players often justify multi-transfer plans
-   - Identify fixture swings and team structure improvements
-4. **Multi-Gameweek ROI Analysis Requirement**: AI must analyze if premium players (Haaland, Salah, Son, Palmer) justify point hits based on their next 6 fixtures
-5. **Proactive Premium Player Check**: Before finalizing recommendations, AI MUST check if any £12m+ players have excellent fixture runs and recommend multi-transfer plans with full ROI calculations
-6. **Updated Risk Tolerance**:
-   - Conservative: Take hits when long-term ROI is clear
-   - Balanced: Take hits when return exceeds cost over 3-4 GWs
-   - Aggressive: Accept larger hits for high upside
-
-**Impact**: AI now proactively recommends strategic multi-transfer plans (like getting Haaland) when the math shows clear long-term benefit. Focuses on 6-gameweek fixture analysis instead of just current week. Shows full ROI calculations: "Haaland will score 90pts over 6 GWs vs current player 36pts = +54 gain, minus -8 hit = +46 net benefit."
-
-**Files Modified**: server/gameweek-analyzer.ts
-
-### Added Team Badge Graphics to UI (October 19, 2025)
-**Visual enhancement to match official FPL app:**
-
-**Implementation**:
-1. Added `code` field to FPLTeam schema (used for badge URL construction)
-2. Added team badge images to transfer recommendations using official FPL CDN: `https://resources.premierleague.com/premierleague/badges/t{code}.png`
-3. Badges display next to team name for both "Transfer OUT" and "Transfer IN" players
-4. Graceful error handling: badges hide if image fails to load
-
-**User Experience**: Transfer recommendations now show official team badges/crests next to player names, matching the visual style of the official FPL app.
-
-**Files Modified**: shared/schema.ts, client/src/pages/gameweek-planner.tsx
-
-### Fixed "Unknown Player" Bug - AI Using Wrong Player IDs (October 19, 2025)
-**Critical fix for AI recommendations showing "Unknown" players with £0.0m prices:**
-
-**Problem**: AI was inventing fake player IDs (1012, 2001, etc.) instead of using actual FPL database IDs. This caused the UI to display "Unknown" for all transfer recommendations because it couldn't find those players in the database.
-
-**Root Cause**: The AI could see the current squad's player IDs but had NO LIST of available players to choose from when making transfer recommendations. So when it wanted to suggest "David Raya" or "Cole Palmer", it made up IDs like 2001, 2002.
-
-**Solution**:
-1. **Added Top Players Database**: Provide AI with top 100 players by position (20 GK, 30 DEF, 30 MID, 20 FWD) sorted by total points
-2. **Include Actual Player IDs**: Each player shown with format "ID:220 Raya (ARS) £5.5m PPG:4.2 Form:3.8"
-3. **Explicit ID Instructions**: Added critical requirement: "You MUST use ACTUAL PLAYER IDs from the lists provided. NEVER MAKE UP OR INVENT PLAYER IDs"
-4. **Server-Side ID Validation & Correction**: Added intelligent validation that:
-   - Checks if AI-provided player IDs actually exist in the database
-   - If fake IDs detected (e.g., 2001, 3001), extracts player names from reasoning text
-   - Automatically looks up correct player IDs by matching names to FPL database
-   - Logs all fixes for debugging: "Fixed player_in_id to 220 (Raya)"
-
-**Impact**: AI transfer recommendations now display correctly in UI. Even if AI invents fake IDs, the server automatically corrects them by matching player names from the reasoning to actual database IDs. "Unknown £0.0m" bug is completely resolved.
-
-**Files Modified**: server/gameweek-analyzer.ts
-
-### Budget Constraint Fix for AI Recommendations (October 19, 2025)
-**Fixed unrealistic transfer recommendations that didn't consider budget constraints:**
-
-**Problem**: AI was recommending expensive players like Haaland (£15m+) without explaining how to afford them. It was seeing total team value and thinking any player was affordable, ignoring that for a SINGLE transfer you only have: Bank + selling price of OUT player.
-
-**Solution**:
-1. **Clarified Budget Display**: Changed prompt to show "Bank Balance" with clear label "CASH AVAILABLE NOW"
-2. **Added Critical Budget Constraint**: Explicit rule in AI prompt stating single-transfer budget limits
-3. **Multi-Transfer Requirement**: If recommending expensive players (£15m+), AI MUST provide a MULTI-TRANSFER plan showing which 2-3 players to downgrade
-4. **Mandatory Budget Calculations**: AI must explicitly state in EVERY transfer:
-   - OUT player's selling price
-   - Current bank balance
-   - Available funds calculation (bank + selling price)
-   - IN player's cost
-   - Confirmation the transfer is affordable
-
-**Impact**: AI now gives realistic single-transfer recommendations that fit within budget, OR provides step-by-step multi-transfer plans when expensive assets require squad restructuring.
-
-**Files Modified**: server/gameweek-analyzer.ts

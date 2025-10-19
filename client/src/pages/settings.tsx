@@ -156,6 +156,33 @@ export default function Settings() {
     },
     onError: (error: any) => {
       toast({
+        title: "Cookie authentication failed",
+        description: error.message || "Failed to authenticate with provided cookies.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const emailPasswordLoginMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/fpl-auth/login", {
+        userId,
+        email: fplEmail,
+        password: fplPassword,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fpl-auth/status", userId] });
+      refetchAuthStatus();
+      setFplEmail("");
+      setFplPassword("");
+      toast({
+        title: "Login successful",
+        description: "Successfully authenticated with FPL! Cookies extracted and stored securely.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
         title: "Login failed",
         description: error.message || "Failed to authenticate with FPL. Please check your cookies.",
         variant: "destructive",
@@ -318,6 +345,18 @@ export default function Settings() {
     cookieLoginMutation.mutate();
   };
 
+  const handleEmailPasswordLogin = () => {
+    if (!fplEmail || !fplPassword) {
+      toast({
+        title: "Missing credentials",
+        description: "Please enter both email and password.",
+        variant: "destructive",
+      });
+      return;
+    }
+    emailPasswordLoginMutation.mutate();
+  };
+
   const handleSaveAutomationSettings = () => {
     const settings: Partial<AutomationSettings> = {
       autoSyncEnabled,
@@ -430,10 +469,83 @@ export default function Settings() {
               </div>
 
               {!isFPLAuthenticated ? (
-                <Tabs defaultValue="cookies" className="w-full">
-                  <TabsList className="grid w-full grid-cols-1">
-                    <TabsTrigger value="cookies">Cookie Authentication</TabsTrigger>
+                <Tabs defaultValue="email" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="email">Email/Password (Easiest!)</TabsTrigger>
+                    <TabsTrigger value="cookies">Manual Cookies</TabsTrigger>
                   </TabsList>
+                  
+                  <TabsContent value="email" className="space-y-4 mt-4">
+                    <div className="space-y-4 bg-green-500/10 border border-green-500/20 p-4 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <div className="bg-green-500/20 p-2 rounded-lg">
+                          <svg className="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-sm text-green-300 mb-2">✅ Recommended - Works on ALL Devices!</p>
+                          <p className="text-sm text-muted-foreground">
+                            Just enter your FPL login credentials. Our server securely logs in and extracts cookies automatically. No browser tools needed!
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="fpl-email-direct">FPL Email</Label>
+                      <Input
+                        id="fpl-email-direct"
+                        type="email"
+                        placeholder="tim@smiffs.com.au"
+                        value={fplEmail}
+                        onChange={(e) => setFplEmail(e.target.value)}
+                        data-testid="input-fpl-email-direct"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="fpl-password-direct">FPL Password</Label>
+                      <Input
+                        id="fpl-password-direct"
+                        type="password"
+                        placeholder="••••••••"
+                        value={fplPassword}
+                        onChange={(e) => setFplPassword(e.target.value)}
+                        data-testid="input-fpl-password-direct"
+                      />
+                    </div>
+
+                    <Button
+                      onClick={handleEmailPasswordLogin}
+                      disabled={emailPasswordLoginMutation.isPending || !fplEmail || !fplPassword}
+                      className="w-full"
+                      data-testid="button-email-password-login"
+                    >
+                      {emailPasswordLoginMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Logging in and extracting cookies...
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="h-4 w-4 mr-2" />
+                          Login with Email & Password
+                        </>
+                      )}
+                    </Button>
+
+                    <div className="space-y-2 bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg">
+                      <p className="text-xs text-blue-200/90">
+                        <strong>🔒 How it works:</strong> Your credentials are sent securely to our server, which uses browser automation to log into FPL and extract session cookies. Your password is encrypted and stored securely for automatic cookie refresh every 7 days.
+                      </p>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Lock className="h-3 w-3" />
+                      Your credentials are encrypted with AES-256-GCM encryption
+                    </p>
+                  </TabsContent>
                   
                   <TabsContent value="cookies" className="space-y-4 mt-4">
                     <div className="space-y-4 bg-green-500/10 border border-green-500/20 p-4 rounded-lg">

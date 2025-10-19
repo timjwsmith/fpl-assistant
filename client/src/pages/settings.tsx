@@ -452,17 +452,43 @@ export default function Settings() {
                       </div>
                     </div>
 
+                    <div className="space-y-4 bg-purple-500/10 border border-purple-500/20 p-4 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <div className="bg-purple-500/20 p-2 rounded-lg">
+                          <svg className="h-5 w-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-sm text-purple-300 mb-2">📱 iPhone with Inspect Browser (Easiest!)</p>
+                          <div className="text-sm text-muted-foreground space-y-2">
+                            <p><strong>If you have Inspect Browser app on your iPhone:</strong></p>
+                            <ol className="list-decimal list-inside space-y-1.5 ml-2">
+                              <li>Open <strong>Inspect Browser</strong> app on iPhone</li>
+                              <li>Go to <a href="https://fantasy.premierleague.com" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline">fantasy.premierleague.com</a> and log in</li>
+                              <li>Tap the <strong>Inspect icon</strong> (bottom toolbar) to open DevTools</li>
+                              <li>Go to <strong>Storage</strong> tab → <strong>Cookies</strong> → fantasy.premierleague.com</li>
+                              <li>Find and tap each cookie: <code className="bg-muted px-1 py-0.5 rounded">sessionid</code>, <code className="bg-muted px-1 py-0.5 rounded">csrftoken</code>, <code className="bg-muted px-1 py-0.5 rounded">pl_profile</code></li>
+                              <li>Copy the <strong>Value</strong> of each cookie (tap and hold to copy)</li>
+                              <li>Format as: <code className="bg-muted px-1 py-0.5 rounded text-xs">sessionid=value1; csrftoken=value2; pl_profile=value3</code></li>
+                              <li>Paste below ⬇️</li>
+                            </ol>
+                            <p className="mt-2 text-xs bg-purple-500/10 p-2 rounded">✨ <strong>Pro tip:</strong> Copy each cookie value to Notes app first, then combine them into the correct format before pasting here!</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="space-y-4 bg-blue-500/10 border border-blue-500/20 p-4 rounded-lg">
                       <div className="flex items-start gap-3">
                         <div className="bg-blue-500/20 p-2 rounded-lg">
                           <svg className="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                           </svg>
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-sm text-blue-300 mb-2">📱 Quick Setup Guide (Works on iOS!)</p>
+                          <p className="font-medium text-sm text-blue-300 mb-2">💻 Desktop Browser (Chrome/Safari/Edge)</p>
                           <div className="text-sm text-muted-foreground space-y-2">
-                            <p><strong>You need a computer or iPad in Desktop mode once:</strong></p>
                             <ol className="list-decimal list-inside space-y-1 ml-2">
                               <li>Open <a href="https://fantasy.premierleague.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">fantasy.premierleague.com</a> and log in</li>
                               <li>Press <kbd className="bg-muted px-1.5 py-0.5 rounded text-xs">F12</kbd> (or right-click → Inspect)</li>
@@ -470,7 +496,6 @@ export default function Settings() {
                               <li>Copy these 3 cookies: <code className="bg-muted px-1 py-0.5 rounded">sessionid</code>, <code className="bg-muted px-1 py-0.5 rounded">csrftoken</code>, <code className="bg-muted px-1 py-0.5 rounded">pl_profile</code></li>
                               <li>Paste them below in the format shown</li>
                             </ol>
-                            <p className="mt-2 text-xs">💡 <strong>Tip:</strong> Ask a friend/family member to do this if you don't have access to a computer!</p>
                           </div>
                         </div>
                       </div>

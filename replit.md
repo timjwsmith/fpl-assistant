@@ -49,6 +49,26 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 
 ## Recent Changes
 
+### Added Inspect Browser Instructions for iOS Cookie Extraction (October 19, 2025)
+**Enhanced cookie authentication setup for iPhone users:**
+
+**Implementation**:
+1. **New iPhone Instructions Section**: Added dedicated purple-highlighted guide for Inspect Browser app users
+2. **Step-by-Step Process**: Clear 8-step guide showing how to:
+   - Open Inspect Browser on iPhone
+   - Navigate to FPL and login
+   - Access DevTools Storage tab
+   - Extract the 3 required cookies (sessionid, csrftoken, pl_profile)
+   - Format cookies correctly for pasting
+3. **Pro Tips**: Included suggestion to use Notes app for combining cookie values
+4. **Reorganized UI**: Separated iPhone (Inspect Browser) and Desktop browser instructions for clarity
+
+**User Experience**: iPhone users can now extract FPL cookies directly from their device using the paid Inspect Browser app, eliminating the need for a computer. This enables full FPL automation from iOS devices.
+
+**Background**: The cookie authentication system already existed, but instructions only covered desktop browsers. This update makes the process accessible to iOS users with developer tools.
+
+**Files Modified**: client/src/pages/settings.tsx
+
 ### Added "Get Haaland" Feature - Optimal Multi-Transfer Planning (October 19, 2025)
 **New one-click feature to get efficient transfer plans for acquiring expensive premium players:**
 

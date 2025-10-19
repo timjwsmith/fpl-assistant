@@ -484,15 +484,17 @@ ${squadDetails.map((p: any, i: number) => `${p.name} (${p.position}) - ${p.team}
 `).join('\n')}
 
 BUDGET & TRANSFERS:
-- Budget Available: £${budget.toFixed(1)}m
+- Bank Balance: £${(inputData.currentTeam.bank / 10).toFixed(1)}m (CASH AVAILABLE NOW)
 - Free Transfers: ${freeTransfers}
-- Team Value: £${(inputData.currentTeam.teamValue / 10).toFixed(1)}m
-- Bank: £${(inputData.currentTeam.bank / 10).toFixed(1)}m
+- Team Value: £${(inputData.currentTeam.teamValue / 10).toFixed(1)}m (total squad value)
 
 FPL RULES (MUST FOLLOW):
 - Squad must have exactly 15 players: 2 GK, 5 DEF, 5 MID, 3 FWD
 - Maximum 3 players from same team
-- Must stay within budget (selling price = min of purchase price and current price)
+- **CRITICAL BUDGET CONSTRAINT**: For a SINGLE transfer, your budget = Bank + selling price of OUT player
+  Example: If bank is £0.5m and you sell a £7.0m player, you have £7.5m to spend on replacement
+  **You CANNOT recommend transfers that exceed this constraint**
+- For expensive players (Haaland £15m+), you MUST provide a MULTI-TRANSFER plan showing which 2-3 players to downgrade
 - Each free transfer used beyond available reduces points by 4
 - Maximum transfer hit: ${inputData.maxTransferHit} points
 
@@ -533,7 +535,14 @@ ${projectionInfo}
 Write ALL reasoning in PURE NATURAL LANGUAGE - like you're explaining to a friend. NO parentheses, NO abbreviations, NO technical formatting. Just clear, conversational sentences with data woven naturally into the narrative.
 
 For EACH TRANSFER, write a natural paragraph like:
-"I recommend transferring out [Player Name] because he has only averaged 2.1 points per game which is well below the squad average of 3.5. His upcoming fixtures are difficult with matches against Tottenham and Manchester City where the average difficulty rating is 4.5 out of 5. His price is also falling by 0.1 million. Instead, bring in [Player Name] who is in excellent form with 8.2 points in recent matches. His next six fixtures are favorable with an average difficulty of just 2.1, he takes penalties for his team, and 65 percent of league leaders already own him."
+"I recommend transferring out [Player Name] who costs 6.5 million because he has only averaged 2.1 points per game which is well below the squad average of 3.5. His upcoming fixtures are difficult with matches against Tottenham and Manchester City where the average difficulty rating is 4.5 out of 5. His price is also falling by 0.1 million. Instead, bring in [Player Name] who costs 7.0 million. With your current bank of 0.5 million plus selling [Out Player] for 6.5 million, you will have exactly 7.0 million available which covers the cost. He is in excellent form with 8.2 points in recent matches, his next six fixtures are favorable with an average difficulty of just 2.1, he takes penalties for his team, and 65 percent of league leaders already own him."
+
+**CRITICAL FOR TRANSFERS**: You MUST explicitly calculate and state the budget in EVERY transfer reasoning:
+- State OUT player's selling price
+- State current bank balance  
+- Calculate available funds (bank + selling price)
+- State IN player's cost
+- Confirm the transfer is affordable OR if recommending expensive players like Haaland, provide a MULTI-STEP plan showing which 2-3 additional players need downgrading
 
 For CAPTAIN CHOICE, write naturally:
 "Captain [Player Name] this week. He is playing at home against Bournemouth who have conceded an average of 2.3 goals per game recently. His expected goals rate over the last five matches is 0.8 per game and he has scored in four out of his last five appearances. Importantly, 80 percent of league leaders are also captaining him. Last season against Bournemouth he scored 12 points."

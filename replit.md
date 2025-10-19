@@ -46,3 +46,25 @@ An intelligent Fantasy Premier League assistant that helps users optimize their 
 - **OpenAI GPT-5**: Utilized via Replit AI Integrations for all AI-powered predictions and analysis.
 - **PostgreSQL**: Primary database for persistent storage.
 - **@dnd-kit**: For drag-and-drop functionality in the Team Modeller.
+
+## Recent Changes
+
+### Budget Constraint Fix for AI Recommendations (October 19, 2025)
+**Fixed unrealistic transfer recommendations that didn't consider budget constraints:**
+
+**Problem**: AI was recommending expensive players like Haaland (£15m+) without explaining how to afford them. It was seeing total team value and thinking any player was affordable, ignoring that for a SINGLE transfer you only have: Bank + selling price of OUT player.
+
+**Solution**:
+1. **Clarified Budget Display**: Changed prompt to show "Bank Balance" with clear label "CASH AVAILABLE NOW"
+2. **Added Critical Budget Constraint**: Explicit rule in AI prompt stating single-transfer budget limits
+3. **Multi-Transfer Requirement**: If recommending expensive players (£15m+), AI MUST provide a MULTI-TRANSFER plan showing which 2-3 players to downgrade
+4. **Mandatory Budget Calculations**: AI must explicitly state in EVERY transfer:
+   - OUT player's selling price
+   - Current bank balance
+   - Available funds calculation (bank + selling price)
+   - IN player's cost
+   - Confirmation the transfer is affordable
+
+**Impact**: AI now gives realistic single-transfer recommendations that fit within budget, OR provides step-by-step multi-transfer plans when expensive assets require squad restructuring.
+
+**Files Modified**: server/gameweek-analyzer.ts

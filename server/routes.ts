@@ -667,9 +667,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? parseInt(req.query.gameweek as string) 
         : (await fplApi.getGameweeks()).find(gw => gw.is_current)?.id || 1;
 
-      console.log(`[Automation Analyze Route] Starting analysis for user ${userId}, gameweek ${gameweek}`);
+      const targetPlayerId = req.query.targetPlayerId 
+        ? parseInt(req.query.targetPlayerId as string) 
+        : undefined;
 
-      const plan = await gameweekAnalyzer.analyzeGameweek(userId, gameweek);
+      console.log(`[Automation Analyze Route] Starting analysis for user ${userId}, gameweek ${gameweek}${targetPlayerId ? `, target player: ${targetPlayerId}` : ''}`);
+
+      const plan = await gameweekAnalyzer.analyzeGameweek(userId, gameweek, targetPlayerId);
       
       console.log(`[Automation Analyze Route] Analysis complete for user ${userId}, plan ID: ${plan.id}`);
       res.json(plan);

@@ -48,15 +48,15 @@ interface AIGameweekResponse {
 }
 
 export class GameweekAnalyzerService {
-  async analyzeGameweek(userId: number, gameweek: number): Promise<GameweekPlan> {
+  async analyzeGameweek(userId: number, gameweek: number, targetPlayerId?: number): Promise<GameweekPlan> {
     try {
-      console.log(`[GameweekAnalyzer] Starting analysis for user ${userId}, gameweek ${gameweek}`);
+      console.log(`[GameweekAnalyzer] Starting analysis for user ${userId}, gameweek ${gameweek}${targetPlayerId ? `, target player: ${targetPlayerId}` : ''}`);
 
       // 1. Collect all input data
       const inputData = await this.collectInputData(userId, gameweek);
 
       // 2. Generate AI recommendations
-      const aiResponse = await this.generateAIRecommendations(userId, inputData, gameweek);
+      const aiResponse = await this.generateAIRecommendations(userId, inputData, gameweek, targetPlayerId);
 
       // 3. Validate FPL rules
       const validation = await this.validateFPLRules(
@@ -354,8 +354,31 @@ export class GameweekAnalyzerService {
     return (bank + totalCurrentValue) / 10;
   }
 
-  private async generateAIRecommendations(userId: number, inputData: any, gameweek: number): Promise<AIGameweekResponse> {
+  private async generateAIRecommendations(userId: number, inputData: any, gameweek: number, targetPlayerId?: number): Promise<AIGameweekResponse> {
     const { currentTeam, allPlayers, teams, upcomingFixtures, userSettings, chipsUsed, freeTransfers, budget, setPieceTakers, dreamTeam, leagueInsights, leagueProjectionData } = inputData;
+    
+    // Get target player details if specified
+    let targetPlayerInfo = '';
+    if (targetPlayerId) {
+      const targetPlayer = allPlayers.find((p: FPLPlayer) => p.id === targetPlayerId);
+      if (targetPlayer) {
+        const team = teams.find((t: FPLTeam) => t.id === targetPlayer.team);
+        targetPlayerInfo = `\n\n🎯 SPECIAL REQUEST: GET ${targetPlayer.web_name.toUpperCase()} INTO THE TEAM
+Target Player: ID:${targetPlayer.id} ${targetPlayer.web_name} (${team?.short_name})
+Position: ${targetPlayer.element_type === 1 ? 'GK' : targetPlayer.element_type === 2 ? 'DEF' : targetPlayer.element_type === 3 ? 'MID' : 'FWD'}
+Price: £${(targetPlayer.now_cost / 10).toFixed(1)}m
+Form: ${targetPlayer.form} | PPG: ${targetPlayer.points_per_game} | Total: ${targetPlayer.total_points}pts
+
+**YOUR PRIMARY OBJECTIVE**: Create the MOST EFFICIENT multi-transfer plan to bring ${targetPlayer.web_name} into the squad.
+- Show EXACTLY which players to transfer out (with their selling prices)
+- Calculate PRECISELY how much budget is available after each transfer
+- Prioritize the CHEAPEST downgrade options to free up funds
+- MINIMIZE point hits - aim for 1-2 transfers if possible
+- Provide a CLEAR STEP-BY-STEP transfer sequence
+- Show the TOTAL cost in points hits
+- Explain WHY this is the most efficient path to get ${targetPlayer.web_name}\n`;
+      }
+    }
 
     // Get current squad details WITH PLAYER IDS
     const squadDetails = currentTeam.players
@@ -509,7 +532,7 @@ BUDGET & TRANSFERS:
 - Bank Balance: £${(inputData.currentTeam.bank / 10).toFixed(1)}m (CASH AVAILABLE NOW)
 - Free Transfers: ${freeTransfers}
 - Team Value: £${(inputData.currentTeam.teamValue / 10).toFixed(1)}m (total squad value)
-
+${targetPlayerInfo}
 FPL RULES (MUST FOLLOW):
 - Squad must have exactly 15 players: 2 GK, 5 DEF, 5 MID, 3 FWD
 - Maximum 3 players from same team

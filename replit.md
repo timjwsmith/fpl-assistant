@@ -3,6 +3,8 @@
 ## Overview
 The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier League team selection, transfers, captain choices, and chip strategy. It provides AI-powered predictions and real-time FPL data analysis to help users make optimal FPL decisions with minimal intervention. The project's ambition is to automate transfer recommendations, captain selection, chip timing, and formation optimization, all while adhering to FPL rules. It also focuses on predicting league standings and offering strategic insights to aid users in winning their mini-leagues.
 
+**Mobile-First Design:** Fully responsive PWA (Progressive Web App) optimized for iOS devices with bottom tab navigation, touch-friendly interactions, and installable on iPhone home screen.
+
 ## User Preferences
 - Default theme: Dark mode
 - Default formation: 4-4-2
@@ -23,6 +25,10 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - **Fonts:** Inter (primary), JetBrains Mono (monospace)
 - **Dark Mode:** FPL Deep Purple (#38003c) background - default
 - **Colors (Official FPL Palette):** Deep Purple, Magenta Pink, Cyan Blue, Neon Green, Bright Yellow, White.
+- **Responsive Design:** Mobile-first with Tailwind breakpoints (sm: 640px, md: 768px, lg: 1024px, xl: 1280px)
+- **Navigation:** Desktop sidebar (≥768px), Mobile bottom tab bar with 5 tabs (Dashboard, Team, Transfers, Planner, Settings)
+- **Touch Optimization:** 44px minimum tap targets, iOS safe area support for notch/home indicator
+- **PWA Features:** Installable on iOS home screen, standalone mode, offline support, FPL-themed app icon and splash screen
 
 ### Core Features
 - **Dashboard**: Real-time FPL stats, AI recommendations, squad preview, upcoming fixtures.

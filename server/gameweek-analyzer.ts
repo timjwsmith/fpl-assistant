@@ -55,38 +55,86 @@ export class GameweekAnalyzerService {
       // 1. Collect all input data
       const inputData = await this.collectInputData(userId, gameweek);
 
-      // 2. Generate AI recommendations
-      const aiResponse = await this.generateAIRecommendations(userId, inputData, gameweek, targetPlayerId);
+      // 2-5. Generate AI recommendations with retry logic (max 3 attempts)
+      const maxAttempts = 3;
+      let aiResponse: AIGameweekResponse | null = null;
+      let validation: SquadValidation | null = null;
+      let chipValidation: SquadValidation | null = null;
+      let transferCost = 0;
+      let allValidationErrors: string[] = [];
 
-      // 3. Validate FPL rules
-      const validation = await this.validateFPLRules(
-        inputData.currentTeam,
-        aiResponse.transfers,
-        inputData.allPlayers,
-        inputData.budget,
-        inputData.freeTransfers
-      );
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        console.log(`[GameweekAnalyzer] Attempt ${attempt}/${maxAttempts} to generate valid plan`);
 
-      // 4. Calculate transfer costs
-      const transferCost = this.calculateTransferCost(
-        aiResponse.transfers.length,
-        inputData.freeTransfers,
-        inputData.maxTransferHit
-      );
+        try {
+          // 2. Generate AI recommendations
+          aiResponse = await this.generateAIRecommendations(userId, inputData, gameweek, targetPlayerId);
 
-      // 5. Validate chip usage
-      const chipValidation = await this.validateChipUsage(
-        userId,
-        aiResponse.chip_to_play as 'wildcard' | 'freehit' | 'benchboost' | 'triplecaptain' | null,
-        inputData.chipsUsed
-      );
+          // 3. Validate FPL rules
+          validation = await this.validateFPLRules(
+            inputData.currentTeam,
+            aiResponse.transfers,
+            inputData.allPlayers,
+            inputData.budget,
+            inputData.freeTransfers
+          );
 
-      // 6. Prepare strategic insights with validation results
+          // 4. Calculate transfer costs
+          transferCost = this.calculateTransferCost(
+            aiResponse.transfers.length,
+            inputData.freeTransfers,
+            inputData.maxTransferHit
+          );
+
+          // 5. Validate chip usage
+          chipValidation = await this.validateChipUsage(
+            userId,
+            aiResponse.chip_to_play as 'wildcard' | 'freehit' | 'benchboost' | 'triplecaptain' | null,
+            inputData.chipsUsed
+          );
+
+          // Check if validation passed
+          const allErrors = [...validation.errors, ...chipValidation.errors];
+          if (validation.isValid && chipValidation.isValid) {
+            console.log(`[GameweekAnalyzer] Validation passed on attempt ${attempt}`);
+            break; // Success! Exit retry loop
+          } else {
+            // Validation failed
+            allValidationErrors = allErrors;
+            console.error(`[GameweekAnalyzer] Validation failed on attempt ${attempt}:`, allErrors);
+            
+            if (attempt === maxAttempts) {
+              // This was the last attempt - throw error
+              throw new Error(
+                `Failed to generate valid gameweek plan after ${maxAttempts} attempts. Validation errors: ${allErrors.join('; ')}`
+              );
+            } else {
+              // Retry with the same inputs
+              console.log(`[GameweekAnalyzer] Retrying...`);
+            }
+          }
+        } catch (error) {
+          // If this is a validation error on the last attempt, re-throw it
+          if (attempt === maxAttempts || (error instanceof Error && error.message.includes('Failed to generate valid gameweek plan'))) {
+            throw error;
+          }
+          // Otherwise log and retry
+          console.error(`[GameweekAnalyzer] Error on attempt ${attempt}:`, error);
+          if (attempt === maxAttempts) {
+            throw error;
+          }
+        }
+      }
+
+      // If we got here without a valid response, something went wrong
+      if (!aiResponse || !validation || !chipValidation) {
+        throw new Error('Failed to generate gameweek plan - internal error');
+      }
+
+      // At this point, validation has passed
+      // 6. Prepare strategic insights with validation results (only warnings, no errors)
       const strategicInsights = [
         ...aiResponse.strategic_insights,
-        // Add validation errors with clear formatting so users know these are rule violations
-        ...validation.errors.map(err => `⚠️ RULE VIOLATION: ${err}`),
-        ...chipValidation.errors.map(err => `⚠️ RULE VIOLATION: ${err}`),
         ...validation.warnings,
         ...chipValidation.warnings,
       ];
@@ -536,18 +584,42 @@ BUDGET & TRANSFERS:
 - Free Transfers: ${freeTransfers}
 - Team Value: £${(inputData.currentTeam.teamValue / 10).toFixed(1)}m (total squad value)
 ${targetPlayerInfo}
-FPL RULES (MUST FOLLOW):
-- Squad must have exactly 15 players: 2 GK, 5 DEF, 5 MID, 3 FWD
-- Maximum 3 players from same team
-- **BUDGET CONSTRAINTS**: 
-  - For a SINGLE transfer: budget = Bank + selling price of OUT player
-  - For MULTI-TRANSFER plans: budget = Bank + sum of all OUT players' selling prices
-  - Example: Bank £0.5m + sell Player A £6.0m + sell Player B £8.0m = £14.5m available
-- **POINT HITS ARE STRATEGIC INVESTMENTS**: Each transfer beyond free transfers costs -4 points
-  - BUT if a premium player (e.g., Haaland) will outscore cheaper alternatives over next 4-6 gameweeks, the hit is WORTH IT
-  - Calculate: (Expected points gain over next 6 GWs) - (Point hit cost) = Net benefit
-  - Example: Haaland expected 80pts over 6 GWs vs current striker 45pts = +35pts gain, minus -8 hit = +27 net benefit
-- Maximum transfer hit: ${inputData.maxTransferHit} points (but use it wisely when ROI justifies it)
+
+═══════════════════════════════════════════════════════════════════════
+🚨🚨🚨 CRITICAL - THESE ARE HARD CONSTRAINTS THAT MUST BE FOLLOWED 🚨🚨🚨
+═══════════════════════════════════════════════════════════════════════
+
+⛔ YOUR RESPONSE WILL BE REJECTED IF YOU VIOLATE ANY OF THESE RULES ⛔
+
+1. ✅ SQUAD COMPOSITION (EXACT NUMBERS REQUIRED):
+   - Must have EXACTLY 15 players total
+   - Must have EXACTLY 2 Goalkeepers (GK)
+   - Must have EXACTLY 5 Defenders (DEF)
+   - Must have EXACTLY 5 Midfielders (MID)
+   - Must have EXACTLY 3 Forwards (FWD)
+   
+2. 🔴 MAXIMUM 3 PLAYERS FROM SAME TEAM 🔴
+   ⚠️ THIS IS THE MOST COMMONLY VIOLATED RULE - DOUBLE CHECK YOUR SQUAD ⚠️
+   - After ALL transfers are complete, NO TEAM can have more than 3 players
+   - Count players by team AFTER applying all your recommended transfers
+   - If you recommend multiple transfers, verify the FINAL squad composition
+   
+3. 💰 BUDGET CONSTRAINTS ARE HARD LIMITS 💰
+   - For a SINGLE transfer: Available budget = Bank + selling price of OUT player
+   - For MULTI-TRANSFER plans: Available budget = Bank + sum of ALL OUT players' selling prices
+   - Example: Bank £0.5m + sell Player A £6.0m + sell Player B £8.0m = £14.5m total available
+   - You CANNOT exceed the available budget under any circumstances
+   - If a transfer plan doesn't fit the budget, you MUST find cheaper alternatives
+   
+4. 📊 TRANSFER HIT LIMITS:
+   - Each transfer beyond free transfers costs -4 points
+   - Maximum transfer hit allowed: ${inputData.maxTransferHit} points
+   - Point hits ARE strategic investments if long-term ROI justifies it
+   - Calculate: (Expected points gain over next 6 GWs) - (Point hit cost) = Net benefit
+   
+═══════════════════════════════════════════════════════════════════════
+⚠️ VALIDATION WILL FAIL IF ANY OF THESE RULES ARE BROKEN ⚠️
+═══════════════════════════════════════════════════════════════════════
 
 AVAILABLE CHIPS:
 ${availableChips.length > 0 ? availableChips.join(', ') : 'None available (all used)'}

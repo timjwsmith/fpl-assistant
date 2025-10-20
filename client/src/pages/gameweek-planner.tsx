@@ -134,7 +134,7 @@ export default function GameweekPlanner() {
     },
   });
 
-  const getHaalandMutation = useMutation({
+  const buildAroundPlayerMutation = useMutation({
     mutationFn: async () => {
       const haaland = (players as FPLPlayer[] | undefined)?.find(
         p => p.web_name === "Haaland" || p.web_name === "Håland"
@@ -147,14 +147,14 @@ export default function GameweekPlanner() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/automation/plan", userId] });
       toast({
-        title: "Haaland Plan Generated",
-        description: "Multi-transfer plan to get Haaland has been generated.",
+        title: "Team Plan Generated",
+        description: "Multi-transfer plan to build around your target player has been generated.",
       });
     },
     onError: (error: Error) => {
       toast({
         title: "Generation Failed",
-        description: error.message || "Failed to generate Haaland plan. Please try again.",
+        description: error.message || "Failed to generate team plan. Please try again.",
         variant: "destructive",
       });
     },
@@ -284,20 +284,38 @@ export default function GameweekPlanner() {
           )}
           <div className="flex gap-2">
             <Button
-              onClick={() => getHaalandMutation.mutate()}
-              disabled={getHaalandMutation.isPending || !settings?.manager_id || !players}
+              onClick={() => syncTeamMutation.mutate()}
+              disabled={syncTeamMutation.isPending || !settings?.manager_id}
               variant="outline"
-              data-testid="button-get-haaland"
+              data-testid="button-sync-team"
             >
-              {getHaalandMutation.isPending ? (
+              {syncTeamMutation.isPending ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Sync Latest Team
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={() => buildAroundPlayerMutation.mutate()}
+              disabled={buildAroundPlayerMutation.isPending || !settings?.manager_id || !players}
+              variant="outline"
+              data-testid="button-build-around-player"
+            >
+              {buildAroundPlayerMutation.isPending ? (
                 <>
                   <Zap className="h-4 w-4 mr-2 animate-spin" />
-                  Getting Haaland...
+                  Building Plan...
                 </>
               ) : (
                 <>
                   <Zap className="h-4 w-4 mr-2" />
-                  Get Haaland
+                  Build Around Player
                 </>
               )}
             </Button>
@@ -314,7 +332,7 @@ export default function GameweekPlanner() {
               ) : (
                 <>
                   <Sparkles className="h-4 w-4 mr-2" />
-                  Generate New Plan
+                  Generate Plan
                 </>
               )}
             </Button>

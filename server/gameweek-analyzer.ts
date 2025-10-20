@@ -84,6 +84,9 @@ export class GameweekAnalyzerService {
       // 6. Prepare strategic insights with validation results
       const strategicInsights = [
         ...aiResponse.strategic_insights,
+        // Add validation errors with clear formatting so users know these are rule violations
+        ...validation.errors.map(err => `⚠️ RULE VIOLATION: ${err}`),
+        ...chipValidation.errors.map(err => `⚠️ RULE VIOLATION: ${err}`),
         ...validation.warnings,
         ...chipValidation.warnings,
       ];

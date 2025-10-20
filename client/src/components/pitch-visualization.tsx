@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Plus, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getPlayerShirtUrl } from "@/lib/utils";
 import { type FPLPlayer } from "@shared/schema";
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent, closestCenter } from "@dnd-kit/core";
 import { useState } from "react";
@@ -12,6 +12,7 @@ export interface PitchSlot {
   position: number;
   isCaptain: boolean;
   isViceCaptain: boolean;
+  teamCode?: number;
 }
 
 interface PitchVisualizationProps {
@@ -71,7 +72,10 @@ function DraggablePlayerSlot({ slot, onRemove }: DraggablePlayerSlotProps) {
       <div className="relative flex flex-col items-center gap-1 hover-elevate active-elevate-2 rounded-lg p-2 -m-2">
         <div className="relative">
           <Avatar className="h-14 w-14 border-2 border-background ring-2 ring-primary/50">
-            <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${slot.player.photo}`} />
+            <AvatarImage 
+              src={slot.teamCode ? getPlayerShirtUrl(slot.teamCode, 110) : undefined}
+              alt={`${slot.player.web_name} shirt`}
+            />
             <AvatarFallback className="text-xs font-semibold bg-primary/20">
               {slot.player.web_name.substring(0, 2).toUpperCase()}
             </AvatarFallback>

@@ -17,7 +17,7 @@ import {
 
 interface PlayerSearchPanelProps {
   players: FPLPlayer[];
-  teams: { id: number; name: string; short_name: string }[];
+  teams: { id: number; name: string; short_name: string; code: number }[];
   positions: { id: number; singular_name: string }[];
   onPlayerSelect: (player: FPLPlayer) => void;
   budgetRemaining: number;
@@ -138,6 +138,7 @@ export function PlayerSearchPanel({
                     key={player.id}
                     player={player}
                     teamName={team?.short_name}
+                    teamCode={team?.code}
                     positionName={position?.singular_name}
                     onClick={() => onPlayerSelect(player)}
                     showStats={true}

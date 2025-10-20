@@ -3,11 +3,12 @@ import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { TrendingUp, TrendingDown, Minus, AlertCircle } from "lucide-react";
 import { type FPLPlayer } from "@shared/schema";
-import { cn } from "@/lib/utils";
+import { cn, getPlayerShirtUrl } from "@/lib/utils";
 
 interface PlayerCardProps {
   player: FPLPlayer;
   teamName?: string;
+  teamCode?: number;
   positionName?: string;
   onClick?: () => void;
   selected?: boolean;
@@ -19,6 +20,7 @@ interface PlayerCardProps {
 export function PlayerCard({
   player,
   teamName,
+  teamCode,
   positionName,
   onClick,
   selected = false,
@@ -56,7 +58,10 @@ export function PlayerCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 flex-1">
           <Avatar className="h-12 w-12 border-2 border-border">
-            <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player.photo?.replace('.jpg', '.png')}`} />
+            <AvatarImage 
+              src={teamCode ? getPlayerShirtUrl(teamCode, 110) : undefined} 
+              alt={`${player.web_name} shirt`}
+            />
             <AvatarFallback className="text-xs font-semibold">
               {player.web_name.substring(0, 2).toUpperCase()}
             </AvatarFallback>

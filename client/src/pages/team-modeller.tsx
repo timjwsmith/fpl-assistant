@@ -36,6 +36,7 @@ interface TeamSlot {
   position: number;
   isCaptain: boolean;
   isViceCaptain: boolean;
+  teamCode?: number;
 }
 
 export default function TeamModeller() {
@@ -48,6 +49,7 @@ export default function TeamModeller() {
       position: i + 1,
       isCaptain: false,
       isViceCaptain: false,
+      teamCode: undefined,
     }))
   );
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
@@ -309,22 +311,27 @@ export default function TeamModeller() {
 
   // Load saved team when data is available
   useEffect(() => {
-    if (savedTeamData && players) {
+    if (savedTeamData && players && teams) {
       const playerMap = new Map((players as FPLPlayer[]).map(p => [p.id, p]));
+      const teamMap = new Map((teams as { id: number; code: number }[]).map(t => [t.id, t.code]));
       
-      const loadedSlots = savedTeamData.players.map((slotData: any) => ({
-        player: slotData.player_id ? playerMap.get(slotData.player_id) || null : null,
-        position: slotData.position,
-        isCaptain: slotData.is_captain,
-        isViceCaptain: slotData.is_vice_captain,
-      }));
+      const loadedSlots = savedTeamData.players.map((slotData: any) => {
+        const player = slotData.player_id ? playerMap.get(slotData.player_id) || null : null;
+        return {
+          player,
+          position: slotData.position,
+          isCaptain: slotData.is_captain,
+          isViceCaptain: slotData.is_vice_captain,
+          teamCode: player ? teamMap.get(player.team) : undefined,
+        };
+      });
 
       if (loadedSlots.length === 15) {
         setSlots(loadedSlots);
         setSavedTeam(savedTeamData);
       }
     }
-  }, [savedTeamData, players]);
+  }, [savedTeamData, players, teams]);
 
   const handlePlayerSwap = (fromPosition: number, toPosition: number) => {
     setSlots(prev => {
@@ -463,8 +470,9 @@ export default function TeamModeller() {
       }
     }
 
+    const team = (teams as { id: number; code: number }[])?.find(t => t.id === player.team);
     setSlots(prev => prev.map(s => 
-      s.position === selectedSlot ? { ...s, player } : s
+      s.position === selectedSlot ? { ...s, player, teamCode: team?.code } : s
     ));
     setSelectedSlot(null);
 
@@ -479,7 +487,7 @@ export default function TeamModeller() {
     
     if (slot?.player) {
       setSlots(prev => prev.map(s => 
-        s.position === position ? { ...s, player: null, isCaptain: false, isViceCaptain: false } : s
+        s.position === position ? { ...s, player: null, isCaptain: false, isViceCaptain: false, teamCode: undefined } : s
       ));
       toast({
         title: "Player removed",
@@ -495,7 +503,7 @@ export default function TeamModeller() {
     if (!slot?.player) return;
 
     setSlots(prev => prev.map(s => 
-      s.position === position ? { ...s, player: null, isCaptain: false, isViceCaptain: false } : s
+      s.position === position ? { ...s, player: null, isCaptain: false, isViceCaptain: false, teamCode: undefined } : s
     ));
     
     toast({
@@ -510,6 +518,7 @@ export default function TeamModeller() {
       position: i + 1,
       isCaptain: false,
       isViceCaptain: false,
+      teamCode: undefined,
     })));
     setSelectedSlot(null);
     toast({
@@ -697,7 +706,7 @@ export default function TeamModeller() {
 
           <PlayerSearchPanel
             players={(players as FPLPlayer[]) || []}
-            teams={(teams as { id: number; name: string; short_name: string }[]) || []}
+            teams={(teams as { id: number; name: string; short_name: string; code: number }[]) || []}
             positions={(positions as { id: number; singular_name: string }[]) || []}
             onPlayerSelect={handlePlayerSelect}
             budgetRemaining={budgetRemaining}

@@ -29,23 +29,21 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - **Interactive Team Modeller**: Visual football pitch with drag-and-drop, auto-sync, formation selector, budget tracking, live AI predictions, and transfer application.
 - **Gameweek Planner (Consolidated Hub)**: Centralized interface for all recommendations including Transfer Analyzer, Fixture Planner, Captain Selector, Chip Advisor, and League Projection & Competitor Analysis.
 - **Performance Analysis**: Compares predicted vs. actual points and tracks AI prediction accuracy.
-- **Settings**: FPL Manager ID connection, risk tolerance, preferred formation, and notification preferences.
-- **Full Automation System**: End-to-end automation for applying optimal FPL changes each gameweek, including FPL Authentication, AI Gameweek Analyzer, One-Click Apply, Automated Scheduler, Zero Intervention Mode, and Change History.
+- **Settings**: FPL Manager ID connection, risk tolerance, and preferred formation preferences.
 
 ### System Design Choices
 - **AI Prediction Pipeline**: User input processed by Context Builder, then GPT-5 for analysis, returning structured and natural language responses. AI services cover player points prediction, transfer recommendations, captain selection, chip strategy, and team analysis.
 - **Asynchronous AI Processing**: Database-backed async polling system for managing long-running AI predictions.
 - **FPL API Integration**: Backend proxy with 5-minute caching for official FPL API requests.
 - **Comprehensive Player Stats**: AI models leverage 20+ additional player metrics for enhanced prediction accuracy.
-- **Cookie Management**: Cookies are automatically URL-decoded.
 - **Verbose AI Reasoning**: AI provides data-backed, natural language explanations without technical jargon.
 - **AI Impact Analysis & Learning System**: Tracks AI performance, compares predicted vs. actual points, learns from past mistakes, and incorporates feedback into future recommendations.
 - **Strategic AI Overhaul**: AI now performs multi-gameweek planning and ROI analysis, considering long-term benefits and justifying point hits for premium players. It proactively recommends strategic multi-transfer plans based on 6-gameweek fixture analysis and full ROI calculations.
-- **Authentication**: Supports direct email/password login using Playwright for automated cookie extraction, eliminating manual cookie management.
-- **"Get Haaland" Feature**: Implements a one-click feature for optimal multi-transfer planning to acquire expensive premium players, with AI focused on efficiency, budget calculation, and minimizing point hits.
+- **Manual Workflow**: AI provides comprehensive recommendations for transfers, captain selection, and chip strategy. Users manually apply these recommendations in the official FPL app/website, maintaining full control over their team.
+- **"Get Haaland" Feature**: Implements optimal multi-transfer planning to acquire expensive premium players, with AI focused on efficiency, budget calculation, and minimizing point hits.
 - **AI Player ID Validation**: Server-side validation and correction of AI-provided player IDs to ensure accuracy in recommendations, preventing "Unknown Player" issues.
 - **Budget Constraint Fixes**: AI recommendations now adhere to realistic budget constraints for single and multi-transfers, providing clear financial calculations.
-- **Visual Enhancements**: Integration of team badge graphics into the UI for a more authentic FPL experience.
+- **Visual Enhancements**: Integration of team badge and player shirt graphics into the UI for a more authentic FPL experience, matching the official app design.
 
 ## External Dependencies
 - **Official FPL API**: For all Fantasy Premier League game data.

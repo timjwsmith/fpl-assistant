@@ -3,10 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-import { Settings as SettingsIcon, Save, RefreshCw, Lock, Unlock, Loader2, Zap } from "lucide-react";
+import { Settings as SettingsIcon, Save, RefreshCw } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -20,33 +17,10 @@ import { LoadingScreen } from "@/components/loading-screen";
 import { ErrorState } from "@/components/error-state";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
 import type { UserSettings } from "@shared/schema";
-
-interface FPLAuthStatus {
-  authenticated: boolean;
-  cookieExpiry: string | null;
-  daysUntilExpiry: number | null;
-  expiryWarning: boolean;
-}
-
-interface AutomationSettings {
-  autoSyncEnabled: boolean;
-  autoApplyTransfers: boolean;
-  autoApplyCaptain: boolean;
-  autoApplyChips: boolean;
-  maxTransferHit: number;
-  notificationEnabled: boolean;
-}
-
-interface GameweekPlan {
-  id: number;
-  gameweek: number;
-}
 
 export default function Settings() {
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
   const userId = 1;
 
   const { data: settings, isLoading, error, refetch } = useQuery<UserSettings>({
@@ -59,17 +33,6 @@ export default function Settings() {
   const [riskTolerance, setRiskTolerance] = useState<"conservative" | "balanced" | "aggressive">("balanced");
   const [formation, setFormation] = useState("4-4-2");
 
-  const [fplEmail, setFplEmail] = useState("");
-  const [fplPassword, setFplPassword] = useState("");
-  const [fplCookies, setFplCookies] = useState("");
-
-  const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
-  const [autoApplyTransfers, setAutoApplyTransfers] = useState(false);
-  const [autoApplyCaptain, setAutoApplyCaptain] = useState(false);
-  const [autoApplyChips, setAutoApplyChips] = useState(false);
-  const [maxTransferHit, setMaxTransferHit] = useState(8);
-  const [notificationEnabled, setNotificationEnabled] = useState(true);
-
   useEffect(() => {
     if (settings) {
       setManagerId(settings.manager_id?.toString() || "");
@@ -78,142 +41,6 @@ export default function Settings() {
       setFormation(settings.preferred_formation || "4-4-2");
     }
   }, [settings]);
-
-  const { data: authStatus, refetch: refetchAuthStatus } = useQuery<FPLAuthStatus>({
-    queryKey: ["/api/fpl-auth/status", userId],
-    queryFn: async () => {
-      const response = await apiRequest("GET", `/api/fpl-auth/status/${userId}`) as FPLAuthStatus;
-      return response;
-    },
-    staleTime: 30 * 1000,
-  });
-
-  const { data: automationSettings, refetch: refetchAutomationSettings } = useQuery<AutomationSettings>({
-    queryKey: ["/api/automation/settings", userId],
-    queryFn: async () => {
-      const response = await apiRequest("GET", `/api/automation/settings/${userId}`) as AutomationSettings;
-      return response;
-    },
-    enabled: authStatus?.authenticated === true,
-    staleTime: 60 * 1000,
-  });
-
-  useEffect(() => {
-    if (automationSettings) {
-      setAutoSyncEnabled(automationSettings.autoSyncEnabled || false);
-      setAutoApplyTransfers(automationSettings.autoApplyTransfers || false);
-      setAutoApplyCaptain(automationSettings.autoApplyCaptain || false);
-      setAutoApplyChips(automationSettings.autoApplyChips || false);
-      setMaxTransferHit(automationSettings.maxTransferHit || 8);
-      setNotificationEnabled(automationSettings.notificationEnabled ?? true);
-    }
-  }, [automationSettings]);
-
-  const loginMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("POST", "/api/fpl-auth/login", {
-        userId,
-        email: fplEmail,
-        password: fplPassword,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/fpl-auth/status", userId] });
-      refetchAuthStatus();
-      setFplPassword("");
-      toast({
-        title: "Login successful",
-        description: "You are now authenticated with FPL.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Login failed",
-        description: error.message || "Failed to authenticate with FPL. Please check your credentials.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const cookieLoginMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("POST", "/api/fpl-auth/login-with-cookies", {
-        userId,
-        cookies: fplCookies,
-        email: fplEmail || undefined,
-        password: fplPassword || undefined,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/fpl-auth/status", userId] });
-      refetchAuthStatus();
-      setFplCookies("");
-      setFplPassword("");
-      toast({
-        title: "Login successful",
-        description: "You are now authenticated with FPL using cookies.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Cookie authentication failed",
-        description: error.message || "Failed to authenticate with provided cookies.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const emailPasswordLoginMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("POST", "/api/fpl-auth/login", {
-        userId,
-        email: fplEmail,
-        password: fplPassword,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/fpl-auth/status", userId] });
-      refetchAuthStatus();
-      setFplEmail("");
-      setFplPassword("");
-      toast({
-        title: "Login successful",
-        description: "Successfully authenticated with FPL! Cookies extracted and stored securely.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Login failed",
-        description: error.message || "Failed to authenticate with FPL. Please check your cookies.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const logoutMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("POST", `/api/fpl-auth/logout/${userId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/fpl-auth/status", userId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/automation/settings", userId] });
-      refetchAuthStatus();
-      setFplEmail("");
-      setFplPassword("");
-      setFplCookies("");
-      toast({
-        title: "Logged out",
-        description: "Your FPL credentials have been removed.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Logout failed",
-        description: error.message || "Failed to logout.",
-        variant: "destructive",
-      });
-    },
-  });
 
   const saveSettings = useMutation({
     mutationFn: async (newSettings: UserSettings) => {
@@ -230,46 +57,6 @@ export default function Settings() {
       toast({
         title: "Error",
         description: "Failed to save settings. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const saveAutomationSettings = useMutation({
-    mutationFn: async (settings: Partial<AutomationSettings>) => {
-      return apiRequest("POST", `/api/automation/settings/${userId}`, settings);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/automation/settings", userId] });
-      toast({
-        title: "Automation settings saved",
-        description: "Your automation preferences have been updated.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save automation settings.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const analyzeGameweek = useMutation({
-    mutationFn: async () => {
-      return apiRequest("POST", `/api/automation/analyze/${userId}`) as Promise<GameweekPlan>;
-    },
-    onSuccess: (data: GameweekPlan) => {
-      toast({
-        title: "Gameweek plan generated",
-        description: "Your AI-powered gameweek plan is ready to view.",
-      });
-      setLocation("/gameweek-planner");
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Analysis failed",
-        description: error.message || "Failed to generate gameweek plan. Please try again.",
         variant: "destructive",
       });
     },
@@ -321,54 +108,6 @@ export default function Settings() {
     syncTeam.mutate(managerId);
   };
 
-  const handleFPLLogin = () => {
-    if (!fplEmail || !fplPassword) {
-      toast({
-        title: "Missing credentials",
-        description: "Please enter both email and password.",
-        variant: "destructive",
-      });
-      return;
-    }
-    loginMutation.mutate();
-  };
-
-  const handleCookieLogin = () => {
-    if (!fplCookies) {
-      toast({
-        title: "Missing cookies",
-        description: "Please paste your FPL session cookies.",
-        variant: "destructive",
-      });
-      return;
-    }
-    cookieLoginMutation.mutate();
-  };
-
-  const handleEmailPasswordLogin = () => {
-    if (!fplEmail || !fplPassword) {
-      toast({
-        title: "Missing credentials",
-        description: "Please enter both email and password.",
-        variant: "destructive",
-      });
-      return;
-    }
-    emailPasswordLoginMutation.mutate();
-  };
-
-  const handleSaveAutomationSettings = () => {
-    const settings: Partial<AutomationSettings> = {
-      autoSyncEnabled,
-      autoApplyTransfers,
-      autoApplyCaptain,
-      autoApplyChips,
-      maxTransferHit,
-      notificationEnabled,
-    };
-    saveAutomationSettings.mutate(settings);
-  };
-
   if (isLoading) {
     return <LoadingScreen message="Loading settings..." />;
   }
@@ -378,7 +117,6 @@ export default function Settings() {
   }
 
   const isConnected = settings?.manager_id !== null && settings?.manager_id !== undefined;
-  const isFPLAuthenticated = authStatus?.authenticated === true;
 
   return (
     <div className="space-y-8" data-testid="page-settings">
@@ -455,457 +193,25 @@ export default function Settings() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              {isFPLAuthenticated ? <Unlock className="h-5 w-5" /> : <Lock className="h-5 w-5" />}
-              Automation
+              <SettingsIcon className="h-5 w-5" />
+              AI Preferences
             </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-medium mb-3">FPL Login</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Required for automation features
-                </p>
-              </div>
-
-              {!isFPLAuthenticated ? (
-                <Tabs defaultValue="email" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="email">Email/Password (Easiest!)</TabsTrigger>
-                    <TabsTrigger value="cookies">Manual Cookies</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="email" className="space-y-4 mt-4">
-                    <div className="space-y-4 bg-green-500/10 border border-green-500/20 p-4 rounded-lg">
-                      <div className="flex items-start gap-3">
-                        <div className="bg-green-500/20 p-2 rounded-lg">
-                          <svg className="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-sm text-green-300 mb-2">✅ Recommended - Works on ALL Devices!</p>
-                          <p className="text-sm text-muted-foreground">
-                            Just enter your FPL login credentials. Our server securely logs in and extracts cookies automatically. No browser tools needed!
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="fpl-email-direct">FPL Email</Label>
-                      <Input
-                        id="fpl-email-direct"
-                        type="email"
-                        placeholder="tim@smiffs.com.au"
-                        value={fplEmail}
-                        onChange={(e) => setFplEmail(e.target.value)}
-                        data-testid="input-fpl-email-direct"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="fpl-password-direct">FPL Password</Label>
-                      <Input
-                        id="fpl-password-direct"
-                        type="password"
-                        placeholder="••••••••"
-                        value={fplPassword}
-                        onChange={(e) => setFplPassword(e.target.value)}
-                        data-testid="input-fpl-password-direct"
-                      />
-                    </div>
-
-                    <Button
-                      onClick={handleEmailPasswordLogin}
-                      disabled={emailPasswordLoginMutation.isPending || !fplEmail || !fplPassword}
-                      className="w-full"
-                      data-testid="button-email-password-login"
-                    >
-                      {emailPasswordLoginMutation.isPending ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Logging in and extracting cookies...
-                        </>
-                      ) : (
-                        <>
-                          <Lock className="h-4 w-4 mr-2" />
-                          Login with Email & Password
-                        </>
-                      )}
-                    </Button>
-
-                    <div className="space-y-2 bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg">
-                      <p className="text-xs text-blue-200/90">
-                        <strong>🔒 How it works:</strong> Your credentials are sent securely to our server, which uses browser automation to log into FPL and extract session cookies. Your password is encrypted and stored securely for automatic cookie refresh every 7 days.
-                      </p>
-                    </div>
-
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Lock className="h-3 w-3" />
-                      Your credentials are encrypted with AES-256-GCM encryption
-                    </p>
-                  </TabsContent>
-                  
-                  <TabsContent value="cookies" className="space-y-4 mt-4">
-                    <div className="space-y-4 bg-green-500/10 border border-green-500/20 p-4 rounded-lg">
-                      <div className="flex items-start gap-3">
-                        <div className="bg-green-500/20 p-2 rounded-lg">
-                          <svg className="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-sm text-green-300 mb-2">✅ Recommended Authentication Method</p>
-                          <p className="text-sm text-muted-foreground">
-                            Cookie authentication works on all devices including iOS! Set it up once, and automation runs for 7 days.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4 bg-purple-500/10 border border-purple-500/20 p-4 rounded-lg">
-                      <div className="flex items-start gap-3">
-                        <div className="bg-purple-500/20 p-2 rounded-lg">
-                          <svg className="h-5 w-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-sm text-purple-300 mb-2">📱 iPhone with Inspect Browser (Easiest!)</p>
-                          <div className="text-sm text-muted-foreground space-y-2">
-                            <p><strong>If you have Inspect Browser app on your iPhone:</strong></p>
-                            <ol className="list-decimal list-inside space-y-1.5 ml-2">
-                              <li>Open <strong>Inspect Browser</strong> app on iPhone</li>
-                              <li>Go to <a href="https://fantasy.premierleague.com" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline">fantasy.premierleague.com</a> and log in</li>
-                              <li>Tap the <strong>Inspect icon</strong> (bottom toolbar) to open DevTools</li>
-                              <li>Go to <strong>Storage</strong> tab → <strong>Cookies</strong> → fantasy.premierleague.com</li>
-                              <li>Find and tap each cookie: <code className="bg-muted px-1 py-0.5 rounded">sessionid</code>, <code className="bg-muted px-1 py-0.5 rounded">csrftoken</code>, <code className="bg-muted px-1 py-0.5 rounded">pl_profile</code></li>
-                              <li>Copy the <strong>Value</strong> of each cookie (tap and hold to copy)</li>
-                              <li>Format as: <code className="bg-muted px-1 py-0.5 rounded text-xs">sessionid=value1; csrftoken=value2; pl_profile=value3</code></li>
-                              <li>Paste below ⬇️</li>
-                            </ol>
-                            <p className="mt-2 text-xs bg-purple-500/10 p-2 rounded">✨ <strong>Pro tip:</strong> Copy each cookie value to Notes app first, then combine them into the correct format before pasting here!</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4 bg-blue-500/10 border border-blue-500/20 p-4 rounded-lg">
-                      <div className="flex items-start gap-3">
-                        <div className="bg-blue-500/20 p-2 rounded-lg">
-                          <svg className="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-sm text-blue-300 mb-2">💻 Desktop Browser (Chrome/Safari/Edge)</p>
-                          <div className="text-sm text-muted-foreground space-y-2">
-                            <ol className="list-decimal list-inside space-y-1 ml-2">
-                              <li>Open <a href="https://fantasy.premierleague.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">fantasy.premierleague.com</a> and log in</li>
-                              <li>Press <kbd className="bg-muted px-1.5 py-0.5 rounded text-xs">F12</kbd> (or right-click → Inspect)</li>
-                              <li>Go to <strong>Application</strong> tab → <strong>Cookies</strong> → fantasy.premierleague.com</li>
-                              <li>Copy these 3 cookies: <code className="bg-muted px-1 py-0.5 rounded">sessionid</code>, <code className="bg-muted px-1 py-0.5 rounded">csrftoken</code>, <code className="bg-muted px-1 py-0.5 rounded">pl_profile</code></li>
-                              <li>Paste them below in the format shown</li>
-                            </ol>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="fpl-cookies">Paste FPL Session Cookies</Label>
-                      <Textarea
-                        id="fpl-cookies"
-                        placeholder="sessionid=abc123; csrftoken=def456; pl_profile=ghi789"
-                        value={fplCookies}
-                        onChange={(e) => setFplCookies(e.target.value)}
-                        data-testid="input-fpl-cookies"
-                        className="font-mono text-xs min-h-[100px]"
-                      />
-                      <div className="text-xs text-muted-foreground space-y-1">
-                        <p><strong>Example format:</strong></p>
-                        <code className="bg-muted px-2 py-1 rounded block">sessionid=abc123; csrftoken=def456; pl_profile=ghi789</code>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4 border-t pt-4">
-                      <div className="flex items-start gap-3">
-                        <Zap className="h-5 w-5 text-green-400 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium mb-2">⚡ Enable Auto-Refresh (Recommended for True Automation)</p>
-                          <p className="text-xs text-muted-foreground mb-3">
-                            Provide your FPL email/password so the system can <strong>automatically refresh cookies</strong> when they expire. 
-                            No more manual updates!
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="fpl-email-auto">FPL Email (Optional - for auto-refresh)</Label>
-                        <Input
-                          id="fpl-email-auto"
-                          type="email"
-                          placeholder="your@email.com"
-                          value={fplEmail}
-                          onChange={(e) => setFplEmail(e.target.value)}
-                          data-testid="input-fpl-email-auto"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="fpl-password-auto">FPL Password (Optional - for auto-refresh)</Label>
-                        <Input
-                          id="fpl-password-auto"
-                          type="password"
-                          placeholder="••••••••"
-                          value={fplPassword}
-                          onChange={(e) => setFplPassword(e.target.value)}
-                          data-testid="input-fpl-password-auto"
-                        />
-                      </div>
-
-                      <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded">
-                        <p>ℹ️ <strong>How it works:</strong> When cookies expire, the system will attempt to automatically get fresh cookies using your credentials. 
-                        If FPL's security blocks this (unlikely but possible), you'll be notified to manually refresh.</p>
-                      </div>
-                    </div>
-
-                    <Button
-                      onClick={handleCookieLogin}
-                      disabled={cookieLoginMutation.isPending}
-                      className="w-full"
-                      data-testid="button-cookie-login"
-                    >
-                      {cookieLoginMutation.isPending ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Authenticating...
-                        </>
-                      ) : (
-                        <>
-                          <Lock className="h-4 w-4 mr-2" />
-                          Connect {fplEmail && fplPassword ? 'with Auto-Refresh' : 'with Cookies'}
-                        </>
-                      )}
-                    </Button>
-
-                    <div className="space-y-2 bg-green-500/10 border border-green-500/20 p-3 rounded-lg">
-                      <p className="text-xs text-green-200/90">
-                        <strong>✅ {fplEmail && fplPassword ? 'Full Automation Enabled!' : 'Manual Refresh Required'}</strong> {fplEmail && fplPassword ? 'Your cookies will auto-refresh when they expire.' : 'Add email/password above to enable automatic cookie refresh.'}
-                      </p>
-                    </div>
-
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Lock className="h-3 w-3" />
-                      Your FPL cookies are encrypted and stored securely
-                    </p>
-                  </TabsContent>
-                </Tabs>
-              ) : (
-                <div className="space-y-4">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <Label>Authentication Status</Label>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="default" className="flex items-center gap-1">
-                            <Unlock className="h-3 w-3" />
-                            Connected
-                          </Badge>
-                          {authStatus?.daysUntilExpiry !== null && (
-                            <span className="text-xs text-muted-foreground">
-                              ({authStatus.daysUntilExpiry} days left)
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <Button
-                        onClick={() => logoutMutation.mutate()}
-                        disabled={logoutMutation.isPending}
-                        variant="outline"
-                        size="sm"
-                        data-testid="button-fpl-logout"
-                      >
-                        {logoutMutation.isPending ? "Logging out..." : "Logout"}
-                      </Button>
-                    </div>
-
-                    {authStatus?.expiryWarning && (
-                      <div className="bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-lg">
-                        <div className="flex items-start gap-2">
-                          <svg className="h-5 w-5 text-yellow-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                          </svg>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-yellow-200">⚠️ Cookies Expiring Soon</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Your FPL authentication will expire in {authStatus.daysUntilExpiry} day{authStatus.daysUntilExpiry !== 1 ? 's' : ''}. 
-                              Please re-authenticate soon to maintain automation.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="border-t pt-4 space-y-4">
-                    <div>
-                      <h3 className="font-medium mb-3">Automation Settings</h3>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="auto-sync">Enable Auto-Sync</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Automatically sync your team data
-                        </p>
-                      </div>
-                      <Switch
-                        id="auto-sync"
-                        checked={autoSyncEnabled}
-                        onCheckedChange={setAutoSyncEnabled}
-                        data-testid="switch-auto-sync"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="auto-transfers">Auto-Apply Transfers</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Automatically apply recommended transfers
-                        </p>
-                      </div>
-                      <Switch
-                        id="auto-transfers"
-                        checked={autoApplyTransfers}
-                        onCheckedChange={setAutoApplyTransfers}
-                        data-testid="switch-auto-transfers"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="auto-captain">Auto-Apply Captain Selection</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Automatically select captain based on AI
-                        </p>
-                      </div>
-                      <Switch
-                        id="auto-captain"
-                        checked={autoApplyCaptain}
-                        onCheckedChange={setAutoApplyCaptain}
-                        data-testid="switch-auto-captain"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="auto-chips">Auto-Apply Chips</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Automatically play chips when optimal
-                        </p>
-                      </div>
-                      <Switch
-                        id="auto-chips"
-                        checked={autoApplyChips}
-                        onCheckedChange={setAutoApplyChips}
-                        data-testid="switch-auto-chips"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="max-transfer-hit">Max Transfer Hit (points)</Label>
-                      <Input
-                        id="max-transfer-hit"
-                        type="number"
-                        min="0"
-                        max="16"
-                        value={maxTransferHit}
-                        onChange={(e) => setMaxTransferHit(parseInt(e.target.value) || 8)}
-                        data-testid="input-max-transfer-hit"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Maximum points hit allowed for transfers (default: 8)
-                      </p>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="notifications">Enable Notifications</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Get notified about automation actions
-                        </p>
-                      </div>
-                      <Switch
-                        id="notifications"
-                        checked={notificationEnabled}
-                        onCheckedChange={setNotificationEnabled}
-                        data-testid="switch-notifications"
-                      />
-                    </div>
-
-                    <Button
-                      onClick={handleSaveAutomationSettings}
-                      disabled={saveAutomationSettings.isPending}
-                      className="w-full"
-                      data-testid="button-save-automation"
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      {saveAutomationSettings.isPending ? "Saving..." : "Save Automation Settings"}
-                    </Button>
-                  </div>
-
-                  <div className="border-t pt-4 space-y-4">
-                    <div>
-                      <h3 className="font-medium mb-3">Quick Actions</h3>
-                    </div>
-
-                    <Button
-                      onClick={() => analyzeGameweek.mutate()}
-                      disabled={analyzeGameweek.isPending}
-                      className="w-full"
-                      variant="default"
-                      data-testid="button-generate-plan"
-                    >
-                      {analyzeGameweek.isPending ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Analyzing...
-                        </>
-                      ) : (
-                        <>
-                          <Zap className="h-4 w-4 mr-2" />
-                          Generate Gameweek Plan
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>AI Preferences</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="risk">Risk Tolerance</Label>
-              <Select value={riskTolerance} onValueChange={(v: any) => setRiskTolerance(v)}>
-                <SelectTrigger id="risk" data-testid="select-risk">
+              <Label htmlFor="risk-tolerance">Risk Tolerance</Label>
+              <Select value={riskTolerance} onValueChange={(value: any) => setRiskTolerance(value)}>
+                <SelectTrigger id="risk-tolerance" data-testid="select-risk-tolerance">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="conservative">Conservative</SelectItem>
-                  <SelectItem value="balanced">Balanced</SelectItem>
-                  <SelectItem value="aggressive">Aggressive</SelectItem>
+                  <SelectItem value="conservative">Conservative - Safe picks, minimal risks</SelectItem>
+                  <SelectItem value="balanced">Balanced - Mix of safe and differential picks</SelectItem>
+                  <SelectItem value="aggressive">Aggressive - High-risk, high-reward strategy</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Affects differential player recommendations and chip timing
+                Affects AI recommendations for transfers, captain picks, and chip timing
               </p>
             </div>
 
@@ -925,46 +231,22 @@ export default function Settings() {
                   <SelectItem value="5-4-1">5-4-1</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                Your default formation preference for AI team recommendations
+              </p>
             </div>
+
+            <Button 
+              onClick={handleSave} 
+              className="w-full" 
+              disabled={saveSettings.isPending}
+              data-testid="button-save"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {saveSettings.isPending ? "Saving..." : "Save Preferences"}
+            </Button>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Notifications</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Transfer Deadline Reminders</p>
-                <p className="text-sm text-muted-foreground">
-                  Get notified 1 hour before deadline
-                </p>
-              </div>
-              <Badge variant="outline">Coming Soon</Badge>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Price Change Alerts</p>
-                <p className="text-sm text-muted-foreground">
-                  Alert when players in your team change price
-                </p>
-              </div>
-              <Badge variant="outline">Coming Soon</Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Button 
-          className="w-full" 
-          onClick={handleSave} 
-          disabled={saveSettings.isPending}
-          data-testid="button-save-settings"
-        >
-          <Save className="h-4 w-4 mr-2" />
-          {saveSettings.isPending ? "Saving..." : "Save Settings"}
-        </Button>
       </div>
     </div>
   );

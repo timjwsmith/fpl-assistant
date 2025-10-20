@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AppSidebar } from "@/components/app-sidebar";
 import { MobileNav } from "@/components/mobile-nav";
+import { Trophy } from "lucide-react";
 
 import Dashboard from "@/pages/dashboard";
 import TeamModeller from "@/pages/team-modeller";
@@ -54,8 +55,8 @@ export default function App() {
                     <SidebarTrigger data-testid="button-sidebar-toggle" className="hover-elevate active-elevate-2" />
                   </div>
                   <div className="flex md:hidden items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-amber-500 to-yellow-600 p-0.5">
-                      <img src="/fpl-trophy.jpeg" alt="FPL Trophy" className="h-full w-full object-contain rounded" />
+                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-amber-500 to-yellow-600">
+                      <Trophy className="h-5 w-5 text-white" />
                     </div>
                     <h1 className="text-lg font-semibold">FPL Assistant</h1>
                   </div>

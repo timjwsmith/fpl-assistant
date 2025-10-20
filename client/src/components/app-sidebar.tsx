@@ -1,4 +1,4 @@
-import { Home, Users, Repeat, Calendar, Settings, BarChart3 } from "lucide-react";
+import { Home, Users, Repeat, Calendar, Settings, BarChart3, Trophy } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -59,8 +59,8 @@ export function AppSidebar() {
     <Sidebar data-testid="sidebar-app">
       <SidebarHeader className="p-6 pb-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md overflow-hidden">
-            <img src="/fpl-trophy.jpeg" alt="FPL Trophy" className="h-full w-full object-cover" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-gradient-to-br from-amber-500 to-yellow-600">
+            <Trophy className="h-6 w-6 text-white" />
           </div>
           <div>
             <h2 className="text-lg font-semibold">FPL Assistant</h2>

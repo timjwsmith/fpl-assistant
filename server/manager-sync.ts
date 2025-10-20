@@ -19,13 +19,19 @@ export class ManagerSyncService {
   async syncManagerTeam(managerId: number, userId: number): Promise<SyncResult> {
     try {
       const currentGameweek = await fplApi.getCurrentGameweek();
+      const nextGameweek = await fplApi.getNextGameweek();
       
-      if (!currentGameweek) {
+      // Use next gameweek if current is finished, otherwise use current
+      const targetGameweek = currentGameweek && !currentGameweek.finished 
+        ? currentGameweek 
+        : nextGameweek;
+      
+      if (!targetGameweek) {
         throw new Error("Unable to determine current gameweek");
       }
 
       const managerDetails = await fplApi.getManagerDetails(managerId);
-      const picks = await fplApi.getManagerPicks(managerId, currentGameweek.id);
+      const picks = await fplApi.getManagerPicks(managerId, targetGameweek.id);
       const allPlayers = await fplApi.getPlayers();
 
       const players = picks.picks.map(pick => ({
@@ -43,14 +49,14 @@ export class ManagerSyncService {
       const lastDeadlineBank = managerDetails.last_deadline_bank;
 
       const freeTransfers = this.calculateFreeTransfers(
-        currentGameweek.id,
+        targetGameweek.id,
         lastDeadlineBank,
         transfersMade
       );
 
       const teamData: InsertUserTeam = {
         userId,
-        gameweek: currentGameweek.id,
+        gameweek: targetGameweek.id,
         players,
         formation,
         teamValue,
@@ -71,7 +77,7 @@ export class ManagerSyncService {
         playerCount: players.length,
         captainId: captainPick?.element || null,
         viceCaptainId: viceCaptainPick?.element || null,
-        gameweek: currentGameweek.id,
+        gameweek: targetGameweek.id,
         formation,
         lastSyncTime: new Date().toISOString(),
       };
@@ -95,19 +101,25 @@ export class ManagerSyncService {
   async getManagerStatus(managerId: number, userId: number): Promise<SyncResult | null> {
     try {
       const currentGameweek = await fplApi.getCurrentGameweek();
+      const nextGameweek = await fplApi.getNextGameweek();
       
-      if (!currentGameweek) {
+      // Use next gameweek if current is finished, otherwise use current
+      const targetGameweek = currentGameweek && !currentGameweek.finished 
+        ? currentGameweek 
+        : nextGameweek;
+      
+      if (!targetGameweek) {
         return null;
       }
 
-      const team = await storage.getTeam(userId, currentGameweek.id);
+      const team = await storage.getTeam(userId, targetGameweek.id);
       
       if (!team) {
         return null;
       }
 
       const freeTransfers = this.calculateFreeTransfers(
-        currentGameweek.id,
+        targetGameweek.id,
         team.lastDeadlineBank,
         team.transfersMade
       );

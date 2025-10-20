@@ -10,6 +10,10 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - Default formation: 4-4-2
 - Default risk tolerance: Balanced
 
+## Recent Changes
+- **2025-10-20**: Fixed team sync issue where app was showing previous gameweek data after a gameweek finished. Manager sync now correctly detects when a gameweek has finished and fetches the next gameweek's team instead.
+- **2025-10-20**: Enhanced AI validation with retry mechanism (max 3 attempts) to ensure all recommendations comply with FPL rules (max 3 players per team, correct squad composition, budget limits).
+
 ## System Architecture
 
 ### Technology Stack

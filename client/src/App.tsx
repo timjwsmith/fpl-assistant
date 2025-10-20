@@ -54,8 +54,8 @@ export default function App() {
                     <SidebarTrigger data-testid="button-sidebar-toggle" className="hover-elevate active-elevate-2" />
                   </div>
                   <div className="flex md:hidden items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
-                      <span className="text-xl">🏆</span>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-amber-500 to-yellow-600 p-0.5">
+                      <img src="/fpl-trophy.jpeg" alt="FPL Trophy" className="h-full w-full object-contain rounded" />
                     </div>
                     <h1 className="text-lg font-semibold">FPL Assistant</h1>
                   </div>

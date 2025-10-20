@@ -1,9 +1,11 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Settings as SettingsIcon, Save, RefreshCw } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Settings as SettingsIcon, Save, RefreshCw, Lock, Unlock, Loader2, AlertCircle, Info } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -19,6 +21,13 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import type { UserSettings } from "@shared/schema";
 
+interface FPLAuthStatus {
+  authenticated: boolean;
+  cookieExpiry: string | null;
+  daysUntilExpiry: number | null;
+  expiryWarning: boolean;
+}
+
 export default function Settings() {
   const { toast } = useToast();
   const userId = 1;
@@ -32,6 +41,9 @@ export default function Settings() {
   const [primaryLeagueId, setPrimaryLeagueId] = useState("");
   const [riskTolerance, setRiskTolerance] = useState<"conservative" | "balanced" | "aggressive">("balanced");
   const [formation, setFormation] = useState("4-4-2");
+  const [fplEmail, setFplEmail] = useState("");
+  const [fplPassword, setFplPassword] = useState("");
+  const [fplCookies, setFplCookies] = useState("");
 
   useEffect(() => {
     if (settings) {
@@ -41,6 +53,15 @@ export default function Settings() {
       setFormation(settings.preferred_formation || "4-4-2");
     }
   }, [settings]);
+
+  const { data: authStatus, refetch: refetchAuthStatus } = useQuery<FPLAuthStatus>({
+    queryKey: ["/api/fpl-auth/status", userId],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/fpl-auth/status/${userId}`) as FPLAuthStatus;
+      return response;
+    },
+    staleTime: 30 * 1000,
+  });
 
   const saveSettings = useMutation({
     mutationFn: async (newSettings: UserSettings) => {
@@ -80,6 +101,75 @@ export default function Settings() {
         title: "Sync failed",
         description: error.message || "Failed to sync team. Please check your Manager ID and try again.",
         variant: "destructive",
+      });
+    },
+  });
+
+  const emailPasswordLoginMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/fpl-auth/login", {
+        userId,
+        email: fplEmail,
+        password: fplPassword,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fpl-auth/status", userId] });
+      refetchAuthStatus();
+      setFplEmail("");
+      setFplPassword("");
+      toast({
+        title: "Login successful",
+        description: "Successfully authenticated with FPL!",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Login failed",
+        description: error.message || "Failed to authenticate with FPL. This may be due to security restrictions.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const cookieLoginMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/fpl-auth/login-with-cookies", {
+        userId,
+        cookies: fplCookies,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fpl-auth/status", userId] });
+      refetchAuthStatus();
+      setFplCookies("");
+      toast({
+        title: "Authentication successful",
+        description: "Successfully authenticated with FPL using cookies.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Authentication failed",
+        description: error.message || "Failed to authenticate with provided cookies.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/fpl-auth/logout/${userId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fpl-auth/status", userId] });
+      refetchAuthStatus();
+      setFplEmail("");
+      setFplPassword("");
+      setFplCookies("");
+      toast({
+        title: "Logged out",
+        description: "Your FPL credentials have been removed.",
       });
     },
   });
@@ -245,6 +335,149 @@ export default function Settings() {
               <Save className="h-4 w-4 mr-2" />
               {saveSettings.isPending ? "Saving..." : "Save Preferences"}
             </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {authStatus?.authenticated ? <Unlock className="h-5 w-5 text-green-500" /> : <Lock className="h-5 w-5" />}
+              FPL Authentication
+            </CardTitle>
+            <CardDescription>
+              Optional: Authenticate to fetch your current team automatically
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Note:</strong> Your current team can be fetched publicly using your Manager ID without authentication. 
+                Authentication is only needed for advanced features like automatic team syncing.
+              </AlertDescription>
+            </Alert>
+
+            {authStatus?.authenticated ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-green-500/20 p-2 rounded-lg">
+                      <Unlock className="h-5 w-5 text-green-400" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-green-300">Authenticated</p>
+                      <p className="text-sm text-muted-foreground">
+                        {authStatus.daysUntilExpiry !== null && authStatus.daysUntilExpiry > 0
+                          ? `Expires in ${authStatus.daysUntilExpiry} days`
+                          : "Active session"}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => logoutMutation.mutate()}
+                    variant="outline"
+                    size="sm"
+                    disabled={logoutMutation.isPending}
+                  >
+                    Logout
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm">Login with Email & Password</h4>
+                  <div className="space-y-2">
+                    <Label htmlFor="fpl-email">FPL Email</Label>
+                    <Input
+                      id="fpl-email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={fplEmail}
+                      onChange={(e) => setFplEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="fpl-password">FPL Password</Label>
+                    <Input
+                      id="fpl-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={fplPassword}
+                      onChange={(e) => setFplPassword(e.target.value)}
+                    />
+                  </div>
+                  <Button
+                    onClick={() => emailPasswordLoginMutation.mutate()}
+                    disabled={emailPasswordLoginMutation.isPending || !fplEmail || !fplPassword}
+                    className="w-full"
+                  >
+                    {emailPasswordLoginMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Authenticating...
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="h-4 w-4 mr-2" />
+                        Login with Email & Password
+                      </>
+                    )}
+                  </Button>
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      <strong>Known Issue:</strong> FPL uses Datadome bot protection which may block automated logins. 
+                      If login fails, use the "Sync Team" button with your Manager ID instead - it works without authentication.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">Or</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm">Login with Session Cookies</h4>
+                  <div className="space-y-2">
+                    <Label htmlFor="fpl-cookies">FPL Session Cookies</Label>
+                    <Textarea
+                      id="fpl-cookies"
+                      placeholder="Paste your cookies here (sessionid, csrftoken, pl_profile)"
+                      value={fplCookies}
+                      onChange={(e) => setFplCookies(e.target.value)}
+                      rows={3}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Extract cookies from your browser's developer tools while logged into FPL
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => cookieLoginMutation.mutate()}
+                    disabled={cookieLoginMutation.isPending || !fplCookies}
+                    className="w-full"
+                    variant="outline"
+                  >
+                    {cookieLoginMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Authenticating...
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="h-4 w-4 mr-2" />
+                        Login with Cookies
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

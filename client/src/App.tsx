@@ -7,6 +7,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AppSidebar } from "@/components/app-sidebar";
+import { MobileNav } from "@/components/mobile-nav";
 
 import Dashboard from "@/pages/dashboard";
 import TeamModeller from "@/pages/team-modeller";
@@ -44,19 +45,30 @@ export default function App() {
         <TooltipProvider>
           <SidebarProvider style={style}>
             <div className="flex h-screen w-full">
-              <AppSidebar />
+              <div className="hidden md:flex">
+                <AppSidebar />
+              </div>
               <div className="flex flex-col flex-1 overflow-hidden">
-                <header className="flex items-center justify-between p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-                  <SidebarTrigger data-testid="button-sidebar-toggle" className="hover-elevate active-elevate-2" />
+                <header className="flex items-center justify-between p-3 md:p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 safe-top">
+                  <div className="hidden md:block">
+                    <SidebarTrigger data-testid="button-sidebar-toggle" className="hover-elevate active-elevate-2" />
+                  </div>
+                  <div className="flex md:hidden items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
+                      <span className="text-xl">🏆</span>
+                    </div>
+                    <h1 className="text-lg font-semibold">FPL Assistant</h1>
+                  </div>
                   <ThemeToggle />
                 </header>
-                <main className="flex-1 overflow-auto">
-                  <div className="container max-w-7xl mx-auto p-8">
+                <main className="flex-1 overflow-auto pb-0 md:pb-0">
+                  <div className="container max-w-7xl mx-auto p-4 md:p-8 pb-20 md:pb-8">
                     <Router />
                   </div>
                 </main>
               </div>
             </div>
+            <MobileNav />
           </SidebarProvider>
           <Toaster />
         </TooltipProvider>

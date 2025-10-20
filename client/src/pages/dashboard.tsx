@@ -70,15 +70,15 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-8" data-testid="page-dashboard">
+    <div className="space-y-6 md:space-y-8" data-testid="page-dashboard">
       <div>
-        <h1 className="text-4xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground mt-2">
+        <h1 className="text-2xl md:text-4xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-sm md:text-base text-muted-foreground mt-2">
           Welcome back! Here's your FPL performance overview.
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:gap-6 grid-cols-2 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Current Gameweek"
           value={`GW ${currentGameweek?.id || '-'}`}
@@ -158,29 +158,29 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent className="space-y-4">
           {!settings?.manager_id ? (
-            <div className="flex items-start gap-4">
+            <div className="flex flex-col md:flex-row items-start gap-3 md:gap-4">
               <div className="flex-1">
-                <h4 className="font-semibold mb-1">Get Started</h4>
-                <p className="text-sm text-muted-foreground">
+                <h4 className="font-semibold mb-1 text-sm md:text-base">Get Started</h4>
+                <p className="text-xs md:text-sm text-muted-foreground">
                   Connect your FPL account in settings to receive personalized AI recommendations
                   for transfers, captain picks, and chip strategy.
                 </p>
               </div>
-              <Link href="/settings">
-                <Button size="sm" data-testid="button-view-settings">Settings</Button>
+              <Link href="/settings" className="w-full md:w-auto">
+                <Button size="sm" data-testid="button-view-settings" className="w-full md:w-auto touch-target">Settings</Button>
               </Link>
             </div>
           ) : (
-            <div className="flex items-start gap-4">
+            <div className="flex flex-col md:flex-row items-start gap-3 md:gap-4">
               <div className="flex-1">
-                <h4 className="font-semibold mb-1">Team Modeller</h4>
-                <p className="text-sm text-muted-foreground">
+                <h4 className="font-semibold mb-1 text-sm md:text-base">Team Modeller</h4>
+                <p className="text-xs md:text-sm text-muted-foreground">
                   Use our AI-powered team builder to create and optimize your squad with
                   real-time predictions and fixture analysis.
                 </p>
               </div>
-              <Link href="/team-modeller">
-                <Button size="sm" variant="outline" data-testid="button-view-team">
+              <Link href="/team-modeller" className="w-full md:w-auto">
+                <Button size="sm" variant="outline" data-testid="button-view-team" className="w-full md:w-auto touch-target">
                   Build Team
                 </Button>
               </Link>
@@ -190,10 +190,10 @@ export default function Dashboard() {
       </Card>
 
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-semibold">Top Players</h2>
+        <div className="flex items-center justify-between mb-3 md:mb-4">
+          <h2 className="text-xl md:text-2xl font-semibold">Top Players</h2>
           <Link href="/team-modeller">
-            <Button variant="outline" data-testid="button-edit-team">
+            <Button variant="outline" size="sm" data-testid="button-edit-team" className="touch-target">
               Build Team
             </Button>
           </Link>
@@ -232,15 +232,15 @@ export default function Dashboard() {
       </div>
 
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-semibold">Upcoming Fixtures</h2>
+        <div className="flex items-center justify-between mb-3 md:mb-4">
+          <h2 className="text-xl md:text-2xl font-semibold">Upcoming Fixtures</h2>
           <Link href="/fixtures">
-            <Button variant="outline" data-testid="button-view-fixtures">
+            <Button variant="outline" size="sm" data-testid="button-view-fixtures" className="touch-target">
               View All
             </Button>
           </Link>
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-3 md:gap-4 grid-cols-1 md:grid-cols-2">
           {upcomingFixtures.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">

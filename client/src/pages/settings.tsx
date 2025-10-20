@@ -209,15 +209,15 @@ export default function Settings() {
   const isConnected = settings?.manager_id !== null && settings?.manager_id !== undefined;
 
   return (
-    <div className="space-y-8" data-testid="page-settings">
+    <div className="space-y-6 md:space-y-8" data-testid="page-settings">
       <div>
-        <h1 className="text-4xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground mt-2">
+        <h1 className="text-2xl md:text-4xl font-bold tracking-tight">Settings</h1>
+        <p className="text-sm md:text-base text-muted-foreground mt-2">
           Manage your FPL account and app preferences.
         </p>
       </div>
 
-      <div className="grid gap-6 max-w-2xl">
+      <div className="grid gap-4 md:gap-6 max-w-2xl">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -228,7 +228,7 @@ export default function Settings() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="manager-id">Manager ID</Label>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Input
                   id="manager-id"
                   placeholder="Enter your FPL Manager ID"
@@ -242,8 +242,9 @@ export default function Settings() {
                   disabled={!managerId || syncTeam.isPending}
                   data-testid="button-sync-team"
                   variant="outline"
+                  className="touch-target w-full sm:w-auto"
                 >
-                  <RefreshCw className={`h-4 w-4 ${syncTeam.isPending ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`h-4 w-4 mr-2 ${syncTeam.isPending ? 'animate-spin' : ''}`} />
                   {syncTeam.isPending ? 'Syncing...' : 'Sync Team'}
                 </Button>
               </div>
@@ -328,7 +329,7 @@ export default function Settings() {
 
             <Button 
               onClick={handleSave} 
-              className="w-full" 
+              className="w-full touch-target" 
               disabled={saveSettings.isPending}
               data-testid="button-save"
             >

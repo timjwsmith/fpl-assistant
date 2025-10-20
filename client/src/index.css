@@ -261,6 +261,18 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
+
+  html, body, #root {
+    overflow-x: hidden;
+    width: 100%;
+  }
+
+  @supports (padding: max(0px)) {
+    body {
+      padding-left: max(0px, env(safe-area-inset-left));
+      padding-right: max(0px, env(safe-area-inset-right));
+    }
+  }
 }
 
 /* FPL Utility Classes */
@@ -396,5 +408,28 @@
   .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
+  }
+
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .pb-safe-bottom {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  @media (max-width: 767px) {
+    .mobile-bottom-nav-spacer {
+      height: calc(4rem + env(safe-area-inset-bottom, 0px));
+    }
   }
 }

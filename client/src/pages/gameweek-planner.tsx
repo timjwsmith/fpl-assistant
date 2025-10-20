@@ -267,22 +267,22 @@ export default function GameweekPlanner() {
   };
 
   return (
-    <div className="space-y-8" data-testid="page-gameweek-planner">
-      <div className="flex items-start justify-between">
+    <div className="space-y-6 md:space-y-8" data-testid="page-gameweek-planner">
+      <div className="flex flex-col md:flex-row items-start md:items-start justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-bold tracking-tight">Gameweek Planner</h1>
-          <p className="text-muted-foreground mt-2">
+          <h1 className="text-2xl md:text-4xl font-bold tracking-tight">Gameweek Planner</h1>
+          <p className="text-sm md:text-base text-muted-foreground mt-2">
             AI-powered gameweek analysis and recommendations
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full md:w-auto">
           {currentGameweek && (
-            <div className="text-right">
+            <div className="text-left sm:text-right">
               <p className="text-sm text-muted-foreground">Current Gameweek</p>
               <p className="text-2xl font-bold">GW {currentGameweek.id}</p>
             </div>
           )}
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <Button
               onClick={() => syncTeamMutation.mutate()}
               disabled={syncTeamMutation.isPending || !settings?.manager_id}

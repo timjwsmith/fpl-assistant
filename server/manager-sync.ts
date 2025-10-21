@@ -31,7 +31,24 @@ export class ManagerSyncService {
       }
 
       const managerDetails = await fplApi.getManagerDetails(managerId);
-      const picks = await fplApi.getManagerPicks(managerId, targetGameweek.id);
+      
+      // Try to fetch picks for target gameweek, fall back to current if not available
+      let picks;
+      let actualGameweek = targetGameweek;
+      
+      try {
+        picks = await fplApi.getManagerPicks(managerId, targetGameweek.id);
+      } catch (error) {
+        // If next gameweek picks aren't available yet (e.g., GW hasn't started),
+        // fall back to current gameweek
+        if (currentGameweek && targetGameweek.id !== currentGameweek.id) {
+          console.log(`Picks not available for GW${targetGameweek.id}, falling back to GW${currentGameweek.id}`);
+          picks = await fplApi.getManagerPicks(managerId, currentGameweek.id);
+          actualGameweek = currentGameweek;
+        } else {
+          throw error;
+        }
+      }
       const allPlayers = await fplApi.getPlayers();
 
       const players = picks.picks.map(pick => ({
@@ -49,14 +66,14 @@ export class ManagerSyncService {
       const lastDeadlineBank = managerDetails.last_deadline_bank;
 
       const freeTransfers = this.calculateFreeTransfers(
-        targetGameweek.id,
+        actualGameweek.id,
         lastDeadlineBank,
         transfersMade
       );
 
       const teamData: InsertUserTeam = {
         userId,
-        gameweek: targetGameweek.id,
+        gameweek: actualGameweek.id,
         players,
         formation,
         teamValue,
@@ -77,7 +94,7 @@ export class ManagerSyncService {
         playerCount: players.length,
         captainId: captainPick?.element || null,
         viceCaptainId: viceCaptainPick?.element || null,
-        gameweek: targetGameweek.id,
+        gameweek: actualGameweek.id,
         formation,
         lastSyncTime: new Date().toISOString(),
       };
@@ -112,14 +129,19 @@ export class ManagerSyncService {
         return null;
       }
 
-      const team = await storage.getTeam(userId, targetGameweek.id);
+      // Try to get team for target gameweek, fall back to current if not found
+      let team = await storage.getTeam(userId, targetGameweek.id);
+      
+      if (!team && currentGameweek && targetGameweek.id !== currentGameweek.id) {
+        team = await storage.getTeam(userId, currentGameweek.id);
+      }
       
       if (!team) {
         return null;
       }
 
       const freeTransfers = this.calculateFreeTransfers(
-        targetGameweek.id,
+        team.gameweek,
         team.lastDeadlineBank,
         team.transfersMade
       );

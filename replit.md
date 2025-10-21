@@ -3,7 +3,7 @@
 ## Overview
 The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier League team selection, transfers, captain choices, and chip strategy. It provides AI-powered predictions and real-time FPL data analysis to help users make optimal FPL decisions with minimal intervention. The project's ambition is to automate transfer recommendations, captain selection, chip timing, and formation optimization, all while adhering to FPL rules. It also focuses on predicting league standings and offering strategic insights to aid users in winning their mini-leagues.
 
-**Mobile-First Design:** Fully responsive PWA (Progressive Web App) optimized for iOS devices with bottom tab navigation, touch-friendly interactions, and installable on iPhone home screen.
+**Mobile-First Design:** Fully responsive PWA (Progressive Web App) optimized for iOS devices with bottom tab navigation, touch-friendly interactions. PWA home screen installation requires deployment (see Replit Platform Limitations below).
 
 ## User Preferences
 - Default theme: Dark mode
@@ -11,6 +11,7 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - Default risk tolerance: Balanced
 
 ## Recent Changes
+- **2025-10-21**: Architect review identified critical documentation gaps. Added Replit Platform Limitations section and Pre-Release Checklist to prevent recurring platform-specific mistakes.
 - **2025-10-21**: Added fallback logic to handle transition period between gameweeks. When a gameweek finishes but the next gameweek's team picks aren't available yet in the FPL API, the sync now gracefully falls back to showing the most recent available data instead of failing.
 - **2025-10-20**: Fixed team sync issue where app was showing previous gameweek data after a gameweek finished. Manager sync now correctly detects when a gameweek has finished and fetches the next gameweek's team instead.
 - **2025-10-20**: Enhanced AI validation with retry mechanism (max 3 attempts) to ensure all recommendations comply with FPL rules (max 3 players per team, correct squad composition, budget limits).
@@ -33,7 +34,7 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - **Responsive Design:** Mobile-first with Tailwind breakpoints (sm: 640px, md: 768px, lg: 1024px, xl: 1280px)
 - **Navigation:** Desktop sidebar (≥768px), Mobile bottom tab bar with 5 tabs (Dashboard, Team, Transfers, Planner, Settings)
 - **Touch Optimization:** 44px minimum tap targets, iOS safe area support for notch/home indicator
-- **PWA Features:** Installable on iOS home screen, standalone mode, offline support, FPL-themed app icon and splash screen
+- **PWA Features:** Standalone mode, offline support, FPL-themed app icon and splash screen. iOS home screen installation available after deployment only (blocked in development mode).
 
 ### Core Features
 - **Dashboard**: Real-time FPL stats, AI recommendations, squad preview, upcoming fixtures.
@@ -56,6 +57,49 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - **AI Player ID Validation**: Server-side validation and correction of AI-provided player IDs to ensure accuracy in recommendations, preventing "Unknown Player" issues.
 - **Budget Constraint Fixes**: AI recommendations now adhere to realistic budget constraints for single and multi-transfers, providing clear financial calculations.
 - **Visual Enhancements**: Integration of team badge and player shirt graphics into the UI for a more authentic FPL experience, matching the official app design.
+
+## Replit Platform Limitations
+
+### Development Mode Restrictions
+- **PWA Installation Blocked**: iOS "Add to Home Screen" does NOT work in development mode. Replit blocks external access to dev servers via PWA installations for security.
+  - ✅ **Works**: Replit webview/preview during development
+  - ❌ **Blocked**: Installing PWA to iPhone home screen in dev mode
+  - ✅ **Solution**: Deploy the app first, then install PWA from deployed URL
+
+- **Mobile Testing**: Development server accessible via:
+  - Replit mobile app webview
+  - QR code from Replit networking pane
+  - Direct `.replit.dev` URL in mobile browser
+  - NOT installable until deployed
+
+### Verification Requirements
+Before claiming any feature works on Replit:
+1. Test in Replit environment (not just general web dev knowledge)
+2. Search Replit documentation for platform-specific limitations
+3. Verify on actual target platform (iOS/Android/Desktop)
+4. Document any platform-specific behaviors in this file
+
+## Pre-Release Checklist
+
+### Platform Verification (Required Before Deployment)
+- [ ] PWA installation tested from deployed URL on iOS Safari
+- [ ] Mobile access verified via Replit webview and direct URL
+- [ ] All workflows running without errors
+- [ ] Development server allows external hosts (Vite config: `server.host: true`)
+
+### Functional Validations (Required Before Release)
+- [ ] AI recommendations comply with FPL rules (max 3 per team, budget, squad composition)
+- [ ] Gameweek sync handles all edge cases (finished GW, next GW not available, mid-season)
+- [ ] Manager sync fallback behavior tested when FPL API returns 404
+- [ ] Chip usage validation (can't use same chip twice, Wildcard timing rules)
+- [ ] Transfer cost calculations accurate (4 points per extra transfer)
+
+### Manual Test Steps
+1. **Manager Sync**: Connect FPL ID, verify team loads correctly
+2. **AI Transfers**: Generate recommendations, verify no rule violations (check team counts)
+3. **Gameweek Transition**: Test sync when GW just finished (should fallback gracefully)
+4. **PWA Install** (post-deployment): Add to iOS home screen, verify standalone mode works
+5. **Mobile Navigation**: Test all 5 bottom tabs on iPhone (tap targets ≥44px)
 
 ## External Dependencies
 - **Official FPL API**: For all Fantasy Premier League game data.

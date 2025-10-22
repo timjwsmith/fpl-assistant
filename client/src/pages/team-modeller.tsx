@@ -698,14 +698,6 @@ export default function TeamModeller() {
             isStreaming={analyzeMutation.isPending}
             streamingContent=""
           />
-
-          <PlayerSearchPanel
-            players={(players as FPLPlayer[]) || []}
-            teams={(teams as { id: number; name: string; short_name: string; code: number }[]) || []}
-            positions={(positions as { id: number; singular_name: string }[]) || []}
-            onPlayerSelect={handlePlayerSelect}
-            budgetRemaining={budgetRemaining}
-          />
         </div>
       </div>
 

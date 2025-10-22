@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PredictionPanelProps {
@@ -10,6 +10,8 @@ interface PredictionPanelProps {
   className?: string;
   isStreaming?: boolean;
   streamingContent?: string;
+  isLoading?: boolean;
+  hasData?: boolean;
 }
 
 export function PredictionPanel({
@@ -19,7 +21,33 @@ export function PredictionPanel({
   className,
   isStreaming = false,
   streamingContent = '',
+  isLoading = false,
+  hasData = false,
 }: PredictionPanelProps) {
+  const showLoadingState = isLoading || (predictedPoints === 0 && confidence === 0 && !hasData);
+  
+  if (showLoadingState && !hasData) {
+    return (
+      <Card className={cn("border-primary/50", className)} data-testid="panel-prediction">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Sparkles className="h-5 w-5 text-primary" />
+            AI Prediction
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center py-8 space-y-3">
+            <Loader2 className="h-8 w-8 text-primary animate-spin" />
+            <div className="text-center space-y-1">
+              <p className="text-sm font-medium text-primary">Analyzing your team...</p>
+              <p className="text-xs text-muted-foreground">This may take 30-45 seconds</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className={cn("border-primary/50", className)} data-testid="panel-prediction">
       <CardHeader className="pb-3">

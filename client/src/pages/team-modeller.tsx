@@ -692,14 +692,9 @@ export default function TeamModeller() {
           <PredictionPanel
             predictedPoints={aiPrediction?.predicted_points || 0}
             confidence={aiPrediction?.confidence || 0}
-            insights={
-              aiPrediction?.insights || 
-              (selectedPlayers.length === 0 
-                ? ["Select players to see AI predictions", "Build your team to get insights"]
-                : analyzeMutation.isPending
-                  ? ["🔄 AI is analyzing your team...", "This may take 30-45 seconds..."]
-                  : ["Select 11 players to get AI predictions"])
-            }
+            insights={aiPrediction?.insights || []}
+            isLoading={analyzeMutation.isPending}
+            hasData={!!aiPrediction}
             isStreaming={analyzeMutation.isPending}
             streamingContent=""
           />

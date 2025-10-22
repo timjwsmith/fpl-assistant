@@ -11,6 +11,7 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - Formation: Automatically determined by AI for each gameweek
 
 ## Recent Changes
+- **2025-10-22**: Enhanced differential strategy in AI recommendations. AI now actively incorporates differential opportunities into transfer recommendations based on league position: aggressive differentials when >50pts behind, balanced approach for 20-50pts gap, conservative template picks when <20pts behind. Differentials are now ACTIONABLE, not just informational.
 - **2025-10-22**: Removed manual formation selector from settings. AI now automatically determines the optimal formation for each gameweek based on squad composition, player form, and fixtures. Formation recommendation is displayed prominently in the planner with reasoning included in AI analysis.
 - **2025-10-21**: Architect review identified critical documentation gaps. Added Replit Platform Limitations section and Pre-Release Checklist to prevent recurring platform-specific mistakes.
 - **2025-10-21**: Added fallback logic to handle transition period between gameweeks. When a gameweek finishes but the next gameweek's team picks aren't available yet in the FPL API, the sync now gracefully falls back to showing the most recent available data instead of failing.

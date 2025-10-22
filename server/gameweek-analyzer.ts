@@ -698,6 +698,33 @@ Before finalizing your recommendations, YOU MUST explicitly analyze whether prem
 
 **DO NOT** be conservative just to avoid point hits - if the math shows clear long-term benefit, RECOMMEND IT.
 
+**CRITICAL: DIFFERENTIAL STRATEGY - YOU MUST ACT ON THESE**:
+When differential opportunities are identified in the league analysis, you MUST incorporate them into your actual transfer recommendations based on league position:
+
+🎯 **IF GAP TO 1ST PLACE > 50 POINTS**: Be AGGRESSIVE with differentials
+   - Prioritize 2-3 differential picks in your transfers (low ownership among leaders but high form/fixtures)
+   - Template picks alone won't close the gap - you NEED differentials to gain ground
+   - Accept calculated risks on high-upside players that leaders don't own
+   - Example: "You are 75 points behind first place. Bringing in the differential Isak who is owned by zero of the top five managers but has excellent fixtures will help you gain ground. If he outscores their template pick by even 3 points per week you will close the gap."
+
+⚖️ **IF GAP TO 1ST PLACE 20-50 POINTS**: BALANCED approach
+   - Keep 1-2 essential template picks that leaders own (to avoid falling further behind)
+   - Add 1-2 differential picks to gain ground without excessive risk
+   - Focus differentials on players with strong underlying stats (high xG, xA, ICT)
+   - Example: "You need both coverage with Salah who 4 out of 5 leaders own and a differential edge with Bowen who none of them own but has the best fixtures in his price range."
+
+🛡️ **IF GAP TO 1ST PLACE < 20 POINTS**: Be CONSERVATIVE but not rigid
+   - Prioritize template picks that leaders own (maintain coverage)
+   - Only take differential risks if they have exceptional fixtures AND strong form
+   - Avoid high-risk punts - consistency beats variance when you're close to top
+   - Example: "You are only 8 points behind first place. Focus on matching the template with Haaland and Palmer who all leaders own. Save differential moves for when the gap grows."
+
+**IMPORTANT**: If differential opportunities exist in the league analysis data, you MUST either:
+1. Include at least one differential in your transfer recommendations with clear justification, OR
+2. Explicitly explain in your reasoning why you chose template picks over available differentials
+
+DO NOT just mention differentials in strategic insights - ACT ON THEM by recommending specific differential transfers based on the league position strategy above.
+
 YOUR TASK:
 Provide a strategic gameweek plan in this EXACT JSON format with VERBOSE, DATA-DRIVEN reasoning:
 

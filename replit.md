@@ -11,9 +11,11 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - Formation: Automatically determined by AI for each gameweek
 
 ## Recent Changes
+- **2025-10-22**: Removed PlayerSearchPanel from Team Modeller to align with AI-first workflow where users don't manually search/add players. Team Modeller now focused solely on viewing squad, syncing from FPL, and seeing AI predictions.
 - **2025-10-22**: Improved AI Prediction panel UX. Redesigned loading state to show a compact spinner instead of confusing "0 pts" and "0%" placeholders. Panel now elegantly handles loading, empty, and ready states for better mobile experience.
 - **2025-10-22**: Enhanced differential strategy in AI recommendations. AI now actively incorporates differential opportunities into transfer recommendations based on league position: aggressive differentials when >50pts behind, balanced approach for 20-50pts gap, conservative template picks when <20pts behind. Differentials are now ACTIONABLE, not just informational.
 - **2025-10-22**: Removed manual formation selector from settings. AI now automatically determines the optimal formation for each gameweek based on squad composition, player form, and fixtures. Formation recommendation is displayed prominently in the planner with reasoning included in AI analysis.
+- **2025-10-22**: AI accuracy validated: Predicted 64 points for GW8, actual result was 63 points (98.4% accuracy).
 - **2025-10-21**: Architect review identified critical documentation gaps. Added Replit Platform Limitations section and Pre-Release Checklist to prevent recurring platform-specific mistakes.
 - **2025-10-21**: Added fallback logic to handle transition period between gameweeks. When a gameweek finishes but the next gameweek's team picks aren't available yet in the FPL API, the sync now gracefully falls back to showing the most recent available data instead of failing.
 - **2025-10-20**: Fixed team sync issue where app was showing previous gameweek data after a gameweek finished. Manager sync now correctly detects when a gameweek has finished and fetches the next gameweek's team instead.

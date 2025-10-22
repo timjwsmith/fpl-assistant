@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Calendar, TrendingUp, TrendingDown, ArrowRight, CheckCircle, XCircle, AlertCircle, Zap, Sparkles, Users, Shield, RefreshCw } from "lucide-react";
+import { Calendar, TrendingUp, TrendingDown, ArrowRight, CheckCircle, XCircle, AlertCircle, Zap, Sparkles, Users, Shield, RefreshCw, LayoutGrid } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -378,7 +378,18 @@ export default function GameweekPlanner() {
             {getStatusBadge(plan.status)}
           </div>
 
-          <div className="grid gap-6 md:grid-cols-4">
+          <div className="grid gap-6 md:grid-cols-5">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-muted-foreground">Formation</p>
+                  <LayoutGrid className="h-4 w-4 text-fpl-cyan" />
+                </div>
+                <p className="text-4xl font-bold font-mono text-fpl-cyan">{plan.formation}</p>
+                <p className="text-xs text-muted-foreground mt-2">AI Optimized</p>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-2">

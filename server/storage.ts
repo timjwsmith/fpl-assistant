@@ -146,7 +146,6 @@ export class PostgresStorage implements IStorage {
       manager_id: dbRow.managerId,
       primary_league_id: dbRow.primaryLeagueId ?? undefined,
       risk_tolerance: dbRow.riskTolerance,
-      preferred_formation: dbRow.preferredFormation ?? undefined,
       auto_captain: dbRow.autoCaptain,
       notifications_enabled: dbRow.notificationsEnabled ?? undefined,
     };
@@ -169,7 +168,6 @@ export class PostgresStorage implements IStorage {
       if (settings.hasOwnProperty('manager_id')) dbSettings.managerId = settings.manager_id;
       if (settings.hasOwnProperty('primary_league_id')) dbSettings.primaryLeagueId = settings.primary_league_id;
       if (settings.hasOwnProperty('risk_tolerance')) dbSettings.riskTolerance = settings.risk_tolerance;
-      if (settings.hasOwnProperty('preferred_formation')) dbSettings.preferredFormation = settings.preferred_formation;
       if (settings.hasOwnProperty('auto_captain')) dbSettings.autoCaptain = settings.auto_captain;
       if (settings.hasOwnProperty('notifications_enabled')) dbSettings.notificationsEnabled = settings.notifications_enabled;
 
@@ -184,7 +182,6 @@ export class PostgresStorage implements IStorage {
       // INSERT: Set all defaults + overrides for new records
       const dbSettings: Partial<typeof userSettingsTable.$inferInsert> = {
         riskTolerance: 'balanced',
-        preferredFormation: '4-4-2',
         autoCaptain: false,
         notificationsEnabled: false,
         managerId: null,
@@ -195,7 +192,6 @@ export class PostgresStorage implements IStorage {
       if (settings.hasOwnProperty('manager_id')) dbSettings.managerId = settings.manager_id;
       if (settings.hasOwnProperty('primary_league_id')) dbSettings.primaryLeagueId = settings.primary_league_id;
       if (settings.hasOwnProperty('risk_tolerance')) dbSettings.riskTolerance = settings.risk_tolerance;
-      if (settings.hasOwnProperty('preferred_formation')) dbSettings.preferredFormation = settings.preferred_formation;
       if (settings.hasOwnProperty('auto_captain')) dbSettings.autoCaptain = settings.auto_captain;
       if (settings.hasOwnProperty('notifications_enabled')) dbSettings.notificationsEnabled = settings.notifications_enabled;
 
@@ -212,7 +208,6 @@ export class PostgresStorage implements IStorage {
       manager_id: result.managerId,
       primary_league_id: result.primaryLeagueId ?? undefined,
       risk_tolerance: result.riskTolerance,
-      preferred_formation: result.preferredFormation ?? undefined,
       auto_captain: result.autoCaptain,
       notifications_enabled: result.notificationsEnabled,
     };

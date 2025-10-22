@@ -7,10 +7,11 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 
 ## User Preferences
 - Default theme: Dark mode
-- Default formation: 4-4-2
 - Default risk tolerance: Balanced
+- Formation: Automatically determined by AI for each gameweek
 
 ## Recent Changes
+- **2025-10-22**: Removed manual formation selector from settings. AI now automatically determines the optimal formation for each gameweek based on squad composition, player form, and fixtures. Formation recommendation is displayed prominently in the planner with reasoning included in AI analysis.
 - **2025-10-21**: Architect review identified critical documentation gaps. Added Replit Platform Limitations section and Pre-Release Checklist to prevent recurring platform-specific mistakes.
 - **2025-10-21**: Added fallback logic to handle transition period between gameweeks. When a gameweek finishes but the next gameweek's team picks aren't available yet in the FPL API, the sync now gracefully falls back to showing the most recent available data instead of failing.
 - **2025-10-20**: Fixed team sync issue where app was showing previous gameweek data after a gameweek finished. Manager sync now correctly detects when a gameweek has finished and fetches the next gameweek's team instead.

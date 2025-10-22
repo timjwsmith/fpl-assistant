@@ -997,7 +997,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({
           manager_id: null,
           risk_tolerance: "balanced",
-          preferred_formation: "4-4-2",
           auto_captain: false,
           notifications_enabled: false,
         });

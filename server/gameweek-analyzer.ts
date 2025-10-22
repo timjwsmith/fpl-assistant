@@ -810,6 +810,7 @@ CRITICAL REQUIREMENTS:
           messages: [{ role: "user", content: finalPrompt }],
           response_format: { type: "json_object" },
           max_completion_tokens: 16384,
+          temperature: 0, // Deterministic predictions for consistency
         });
 
         const finishReason = response.choices[0].finish_reason;

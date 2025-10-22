@@ -454,7 +454,14 @@ export default function GameweekPlanner() {
               <Collapsible open={expandedReasoning} onOpenChange={setExpandedReasoning}>
                 <CollapsibleContent className="space-y-2">
                   <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                    {plan.aiReasoning}
+                    {(() => {
+                      try {
+                        const parsed = JSON.parse(plan.aiReasoning);
+                        return parsed.reasoning || plan.aiReasoning;
+                      } catch {
+                        return plan.aiReasoning;
+                      }
+                    })()}
                   </p>
                 </CollapsibleContent>
                 <CollapsibleTrigger asChild>

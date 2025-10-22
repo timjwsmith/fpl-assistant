@@ -40,7 +40,6 @@ export default function Settings() {
   const [managerId, setManagerId] = useState("");
   const [primaryLeagueId, setPrimaryLeagueId] = useState("");
   const [riskTolerance, setRiskTolerance] = useState<"conservative" | "balanced" | "aggressive">("balanced");
-  const [formation, setFormation] = useState("4-4-2");
   const [fplEmail, setFplEmail] = useState("");
   const [fplPassword, setFplPassword] = useState("");
   const [fplCookies, setFplCookies] = useState("");
@@ -50,7 +49,6 @@ export default function Settings() {
       setManagerId(settings.manager_id?.toString() || "");
       setPrimaryLeagueId(settings.primary_league_id?.toString() || "");
       setRiskTolerance(settings.risk_tolerance || "balanced");
-      setFormation(settings.preferred_formation || "4-4-2");
     }
   }, [settings]);
 
@@ -179,7 +177,6 @@ export default function Settings() {
       manager_id: managerId ? parseInt(managerId) : null,
       primary_league_id: primaryLeagueId ? parseInt(primaryLeagueId) : null,
       risk_tolerance: riskTolerance,
-      preferred_formation: formation,
       auto_captain: false,
       notifications_enabled: false,
     };
@@ -306,26 +303,12 @@ export default function Settings() {
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="formation">Preferred Formation</Label>
-              <Select value={formation} onValueChange={setFormation}>
-                <SelectTrigger id="formation" data-testid="select-formation">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="3-4-3">3-4-3</SelectItem>
-                  <SelectItem value="3-5-2">3-5-2</SelectItem>
-                  <SelectItem value="4-3-3">4-3-3</SelectItem>
-                  <SelectItem value="4-4-2">4-4-2</SelectItem>
-                  <SelectItem value="4-5-1">4-5-1</SelectItem>
-                  <SelectItem value="5-3-2">5-3-2</SelectItem>
-                  <SelectItem value="5-4-1">5-4-1</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Your default formation preference for AI team recommendations
-              </p>
-            </div>
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                The AI automatically determines the optimal formation for your squad based on player quality, fixtures, and form.
+              </AlertDescription>
+            </Alert>
 
             <Button 
               onClick={handleSave} 

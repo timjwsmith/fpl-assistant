@@ -228,7 +228,6 @@ export type PerformanceComparison = z.infer<typeof performanceComparisonSchema>;
 export const userSettingsSchema = z.object({
   manager_id: z.number().nullable(),
   primary_league_id: z.number().nullable().optional(),
-  preferred_formation: z.string().optional(),
   risk_tolerance: z.enum(['conservative', 'balanced', 'aggressive']).default('balanced'),
   auto_captain: z.boolean().default(false),
   notifications_enabled: z.boolean().optional().default(false),
@@ -256,7 +255,6 @@ export const userSettingsTable = pgTable('user_settings', {
   managerId: integer('manager_id'),
   primaryLeagueId: integer('primary_league_id'),
   riskTolerance: text('risk_tolerance', { enum: ['conservative', 'balanced', 'aggressive'] }).default('balanced').notNull(),
-  preferredFormation: text('preferred_formation'),
   autoCaptain: boolean('auto_captain').default(false).notNull(),
   notificationsEnabled: boolean('notifications_enabled').default(false).notNull(),
 }, (table) => ({

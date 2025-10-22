@@ -11,6 +11,7 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - Formation: Automatically determined by AI for each gameweek
 
 ## Recent Changes
+- **2025-10-22**: Fixed AI prediction consistency by setting temperature: 0 on all OpenAI calls. This ensures the same team data always produces the same prediction, eliminating random variance (e.g., 64 pts vs 51 pts for identical teams). FPL data still refreshes every 5 minutes for injury/form updates.
 - **2025-10-22**: Removed PlayerSearchPanel from Team Modeller to align with AI-first workflow where users don't manually search/add players. Team Modeller now focused solely on viewing squad, syncing from FPL, and seeing AI predictions.
 - **2025-10-22**: Improved AI Prediction panel UX. Redesigned loading state to show a compact spinner instead of confusing "0 pts" and "0%" placeholders. Panel now elegantly handles loading, empty, and ready states for better mobile experience.
 - **2025-10-22**: Enhanced differential strategy in AI recommendations. AI now actively incorporates differential opportunities into transfer recommendations based on league position: aggressive differentials when >50pts behind, balanced approach for 20-50pts gap, conservative template picks when <20pts behind. Differentials are now ACTIONABLE, not just informational.

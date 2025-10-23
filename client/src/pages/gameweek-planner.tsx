@@ -373,6 +373,38 @@ export default function GameweekPlanner() {
 
       {plan && (
         <>
+          {plan.recommendationsChanged && plan.changeReasoning && (
+            <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
+              <AlertCircle className="h-5 w-5 text-amber-600" />
+              <AlertDescription className="ml-2">
+                <div className="space-y-2">
+                  <p className="font-semibold text-amber-900 dark:text-amber-100">
+                    📊 Recommendations Updated
+                  </p>
+                  <p className="text-sm text-amber-800 dark:text-amber-200">
+                    {plan.changeReasoning}
+                  </p>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {plan.recommendationsChanged === false && plan.changeReasoning && (
+            <Alert className="border-chart-2 bg-chart-2/10">
+              <CheckCircle className="h-5 w-5 text-chart-2" />
+              <AlertDescription className="ml-2">
+                <div className="space-y-2">
+                  <p className="font-semibold text-foreground">
+                    ✅ Plan Unchanged - Continuity Maintained
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {plan.changeReasoning}
+                  </p>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="flex items-center gap-3">
             <h2 className="text-2xl font-semibold">Plan Overview</h2>
             {getStatusBadge(plan.status)}

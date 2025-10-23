@@ -45,6 +45,9 @@ interface AIGameweekResponse {
   confidence: number;
   strategic_insights: string[];
   reasoning: string;
+  previous_plan_reviewed: boolean;
+  recommendations_changed: boolean;
+  change_reasoning: string;
 }
 
 export class GameweekAnalyzerService {
@@ -54,6 +57,19 @@ export class GameweekAnalyzerService {
 
       // 1. Collect all input data
       const inputData = await this.collectInputData(userId, gameweek);
+
+      // 1.5. Fetch previous plan for continuity awareness
+      let previousPlan = null;
+      try {
+        previousPlan = await storage.getGameweekPlan(userId, gameweek);
+        if (previousPlan) {
+          console.log(`[GameweekAnalyzer] Found previous plan for GW${gameweek}, created at ${previousPlan.createdAt}`);
+        } else {
+          console.log(`[GameweekAnalyzer] No previous plan found for GW${gameweek}`);
+        }
+      } catch (error) {
+        console.log(`[GameweekAnalyzer] Could not fetch previous plan:`, error instanceof Error ? error.message : 'Unknown error');
+      }
 
       // 2-5. Generate AI recommendations with retry logic (max 3 attempts)
       const maxAttempts = 3;
@@ -68,7 +84,7 @@ export class GameweekAnalyzerService {
 
         try {
           // 2. Generate AI recommendations
-          aiResponse = await this.generateAIRecommendations(userId, inputData, gameweek, targetPlayerId);
+          aiResponse = await this.generateAIRecommendations(userId, inputData, gameweek, targetPlayerId, previousPlan);
 
           // 3. Validate FPL rules
           validation = await this.validateFPLRules(
@@ -198,6 +214,8 @@ export class GameweekAnalyzerService {
         }),
         status: 'pending',
         originalTeamSnapshot,
+        recommendationsChanged: aiResponse.recommendations_changed,
+        changeReasoning: aiResponse.change_reasoning,
       });
 
       console.log(`[GameweekAnalyzer] Analysis complete, plan ID: ${plan.id}`);
@@ -405,7 +423,7 @@ export class GameweekAnalyzerService {
     return (bank + totalCurrentValue) / 10;
   }
 
-  private async generateAIRecommendations(userId: number, inputData: any, gameweek: number, targetPlayerId?: number): Promise<AIGameweekResponse> {
+  private async generateAIRecommendations(userId: number, inputData: any, gameweek: number, targetPlayerId?: number, previousPlan?: GameweekPlan | null): Promise<AIGameweekResponse> {
     const { currentTeam, allPlayers, teams, upcomingFixtures, userSettings, chipsUsed, freeTransfers, budget, setPieceTakers, dreamTeam, leagueInsights, leagueProjectionData } = inputData;
     
     // Get target player details if specified
@@ -429,6 +447,86 @@ Form: ${targetPlayer.form} | PPG: ${targetPlayer.points_per_game} | Total: ${tar
 - Show the TOTAL cost in points hits
 - Explain WHY this is the most efficient path to get ${targetPlayer.web_name}\n`;
       }
+    }
+
+    // Build previous plan context for continuity awareness
+    let previousPlanContext = '';
+    if (previousPlan) {
+      console.log(`[GameweekAnalyzer] Building previous plan context for continuity awareness`);
+      
+      const prevCaptain = allPlayers.find((p: FPLPlayer) => p.id === previousPlan.captainId);
+      const prevViceCaptain = allPlayers.find((p: FPLPlayer) => p.id === previousPlan.viceCaptainId);
+      
+      let prevTransfersText = 'None (keep current squad)';
+      if (previousPlan.transfers && Array.isArray(previousPlan.transfers) && previousPlan.transfers.length > 0) {
+        prevTransfersText = previousPlan.transfers.map((t: any) => {
+          const pOut = allPlayers.find((p: FPLPlayer) => p.id === t.player_out_id);
+          const pIn = allPlayers.find((p: FPLPlayer) => p.id === t.player_in_id);
+          return `  - OUT: ${pOut?.web_name || 'Unknown'} (ID:${t.player_out_id}) → IN: ${pIn?.web_name || 'Unknown'} (ID:${t.player_in_id}) [${t.priority} priority, +${t.expected_points_gain} pts]`;
+        }).join('\n');
+      }
+      
+      previousPlanContext = `\n\n═══════════════════════════════════════════════════════════════════════
+🔄 CONTINUITY AWARENESS - PREVIOUS PLAN REVIEW 🔄
+═══════════════════════════════════════════════════════════════════════
+
+**CRITICAL INSTRUCTION**: You previously generated a plan for this gameweek. Your new recommendations should maintain CONTINUITY unless there's a SIGNIFICANT change in the data.
+
+**PREVIOUS PLAN DETAILS** (GW${previousPlan.gameweek}):
+Formation: ${previousPlan.formation}
+Captain: ${prevCaptain?.web_name || 'Unknown'} (ID:${previousPlan.captainId})
+Vice Captain: ${prevViceCaptain?.web_name || 'Unknown'} (ID:${previousPlan.viceCaptainId})
+Chip: ${previousPlan.chipToPlay || 'None'}
+Predicted Points: ${previousPlan.predictedPoints}
+Confidence: ${previousPlan.confidence}%
+
+Transfers Recommended:
+${prevTransfersText}
+
+**CONTINUITY RULES** - READ CAREFULLY:
+1. ✅ MAINTAIN PREVIOUS RECOMMENDATIONS if data hasn't changed significantly
+   - Minor stat fluctuations (±0.1 form, ±0.05 xG) are NOT significant
+   - Small price changes (±0.1m) are NOT significant
+   - Normal ownership fluctuations (±2%) are NOT significant
+
+2. 🚨 ONLY CHANGE recommendations if there's a SIGNIFICANT data change:
+   - **Injury News**: Player status changed to 'injured' or 'doubtful' with <50% chance of playing
+   - **Suspensions**: Player received red card or accumulated yellow cards leading to ban
+   - **Major Form Shifts**: Player's form changed by ≥1.0 points (e.g., 4.5 → 5.5 or 6.0 → 5.0)
+   - **Fixture Changes**: Match postponed, rescheduled, or difficulty changed significantly
+   - **Team News**: Manager confirmed player is starting/benched, role changed (e.g., striker moved to wing)
+   - **Price Trends**: Player's price about to drop/rise affecting your budget significantly (±0.2m+)
+   - **League Strategy**: League leaders' ownership patterns changed dramatically (20%+ shift)
+
+3. 📝 EXPLICITLY STATE IN YOUR RESPONSE:
+   - Set "previous_plan_reviewed": true
+   - Set "recommendations_changed": true ONLY if you're making different recommendations
+   - In "change_reasoning", provide SPECIFIC DATA that changed (with before/after values)
+   
+   Examples of GOOD change reasoning:
+   ❌ BAD: "Form has changed slightly" 
+   ✅ GOOD: "Salah's status changed from 'available' to 'doubtful' with only 25% chance of playing this week due to hamstring injury reported on October 21st"
+   
+   ❌ BAD: "Better options available"
+   ✅ GOOD: "Haaland has returned from injury and played 90 minutes in last match scoring twice. His status changed from 'injured' to 'available' and his form jumped from 0.0 to 8.5 in one gameweek"
+   
+   ❌ BAD: "Stats updated"
+   ✅ GOOD: "Palmer's fixture difficulty for next 3 gameweeks dropped from average 4.2 to 2.1 due to opponent injuries. Chelsea now face Bournemouth (2), Luton (1), and Sheffield United (2)"
+
+4. 🎯 DEFAULT BEHAVIOR: If in doubt, MAINTAIN CONTINUITY
+   - The previous plan was carefully analyzed with the same data
+   - Changing recommendations frequently creates instability
+   - Users expect consistency unless something truly changed
+   - If you can't identify a SPECIFIC, SIGNIFICANT change → keep previous recommendations
+
+**YOUR TASK**: Analyze the current data and determine if any SIGNIFICANT changes warrant different recommendations.
+If no significant changes occurred → Recommend THE SAME transfers, captain, and chip as before.
+If significant changes occurred → Explain EXACTLY what changed (with specific before/after data) in "change_reasoning".
+
+═══════════════════════════════════════════════════════════════════════\n`;
+    } else {
+      console.log(`[GameweekAnalyzer] No previous plan exists - this is the first plan for GW${gameweek}`);
+      previousPlanContext = `\n\n**NOTE**: This is your FIRST plan for GW${gameweek}. No previous recommendations exist to maintain continuity with.\n`;
     }
 
     // Get current squad details WITH PLAYER IDS
@@ -584,6 +682,7 @@ BUDGET & TRANSFERS:
 - Free Transfers: ${freeTransfers}
 - Team Value: £${(inputData.currentTeam.teamValue / 10).toFixed(1)}m (total squad value)
 ${targetPlayerInfo}
+${previousPlanContext}
 
 ═══════════════════════════════════════════════════════════════════════
 🚨🚨🚨 CRITICAL - THESE ARE HARD CONSTRAINTS THAT MUST BE FOLLOWED 🚨🚨🚨
@@ -750,7 +849,10 @@ Provide a strategic gameweek plan in this EXACT JSON format with VERBOSE, DATA-D
     "<DETAILED insight with data - e.g., 'Differential pick: Isak (owned by 0/5 leaders, Form 7.2, vs SHU/BUR/LUT avg diff 1.8)'>",
     "<DETAILED insight with data - e.g., 'GW15-18 fixture swing: Sell Arsenal assets (4 red fixtures), buy Liverpool (4 green fixtures)'>"
   ],
-  "reasoning": "<OVERALL STRATEGY with specific data, league context, fixture analysis, and risk assessment>"
+  "reasoning": "<OVERALL STRATEGY with specific data, league context, fixture analysis, and risk assessment>",
+  "previous_plan_reviewed": <true|false - true if a previous plan existed, false if this is first plan>,
+  "recommendations_changed": <true|false - true ONLY if your recommendations differ from previous plan>,
+  "change_reasoning": "<REQUIRED if recommendations_changed=true: SPECIFIC data that changed with before/after values. Examples: 'Salah injured (75% chance → 25% chance)' or 'Haaland returned from injury (unavailable → available, form 0.0 → 8.5)'. If recommendations_changed=false, write 'No significant data changes - maintaining previous recommendations for consistency'>"
 }
 
 CRITICAL REQUIREMENTS:

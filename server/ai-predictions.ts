@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { storage } from "./storage";
+import { understatService } from "./understat-api";
 import type {
   FPLPlayer,
   FPLFixture,
@@ -476,7 +477,13 @@ Provide chip strategy in JSON format:
     const fixtures = await fplApi.getFixtures();
     const teams = await fplApi.getTeams();
     
-    const playerDetails = players.map(p => {
+    // Fetch Understat data for all players in parallel
+    const understatDataPromises = players.map(p => 
+      understatService.enrichPlayerData(p.web_name).catch(() => null)
+    );
+    const understatDataResults = await Promise.all(understatDataPromises);
+    
+    const playerDetails = players.map((p, index) => {
       const team = teams.find((t: FPLTeam) => t.id === p.team);
       const position = p.element_type === 1 ? 'GK' : p.element_type === 2 ? 'DEF' : p.element_type === 3 ? 'MID' : 'FWD';
       const isDefensive = position === 'GK' || position === 'DEF';
@@ -489,6 +496,8 @@ Provide chip strategy in JSON format:
           const difficulty = isHome ? f.team_h_difficulty : f.team_a_difficulty;
           return `${isHome ? 'H' : 'A'} vs ${opponent?.short_name} (Diff: ${difficulty})`;
         });
+      
+      const understatData = understatDataResults[index];
       
       return {
         name: p.web_name,
@@ -506,6 +515,10 @@ Provide chip strategy in JSON format:
         bps: p.bps,
         cleanSheets: isDefensive ? p.clean_sheets : undefined,
         expectedGoalsConceded: isDefensive ? parseFloat(p.expected_goals_conceded || '0') : undefined,
+        // Understat advanced metrics (null if not available)
+        npxG: understatData?.npxG,
+        xGChain: understatData?.xGChain,
+        xGBuildup: understatData?.xGBuildup,
       };
     });
 
@@ -518,9 +531,10 @@ PLAYERS:
 ${playerDetails.map(p => {
   const baseInfo = `${p.name} (${p.position}) ${p.team}: Form ${p.form.toFixed(1)} | PPG ${p.ppg} | ICT ${p.ict.toFixed(1)}`;
   const attackInfo = `xG ${p.expectedGoals.toFixed(1)} xA ${p.expectedAssists.toFixed(1)}`;
+  const understatInfo = p.npxG !== undefined && p.npxG !== null ? ` npxG ${p.npxG.toFixed(1)} xGChain ${p.xGChain?.toFixed(1)} xGBuild ${p.xGBuildup?.toFixed(1)}` : '';
   const defenseInfo = p.cleanSheets !== undefined ? `CS ${p.cleanSheets} xGC ${p.expectedGoalsConceded?.toFixed(1)}` : '';
   const fixtureInfo = p.upcomingFixtures[0] || 'No fixtures';
-  return `${baseInfo} | ${defenseInfo || attackInfo} | ${fixtureInfo}`;
+  return `${baseInfo} | ${defenseInfo || attackInfo}${understatInfo} | ${fixtureInfo}`;
 }).join('\n')}
 
 Provide 3 BRIEF insights (max 2 sentences each):
@@ -582,8 +596,14 @@ JSON format (be concise):
     const fixtures = await fplApi.getFixtures();
     const teams = await fplApi.getTeams();
     
+    // Fetch Understat data for all players in parallel
+    const understatDataPromises = players.map(p => 
+      understatService.enrichPlayerData(p.web_name).catch(() => null)
+    );
+    const understatDataResults = await Promise.all(understatDataPromises);
+    
     // Build detailed player analysis
-    const playerDetails = players.map(p => {
+    const playerDetails = players.map((p, index) => {
       const team = teams.find((t: FPLTeam) => t.id === p.team);
       const position = p.element_type === 1 ? 'GK' : p.element_type === 2 ? 'DEF' : p.element_type === 3 ? 'MID' : 'FWD';
       const isDefensive = position === 'GK' || position === 'DEF';
@@ -596,6 +616,8 @@ JSON format (be concise):
           const difficulty = isHome ? f.team_h_difficulty : f.team_a_difficulty;
           return `${isHome ? 'H' : 'A'} vs ${opponent?.short_name} (Diff: ${difficulty})`;
         });
+      
+      const understatData = understatDataResults[index];
       
       return {
         name: p.web_name,
@@ -613,6 +635,10 @@ JSON format (be concise):
         bps: p.bps,
         cleanSheets: isDefensive ? p.clean_sheets : undefined,
         expectedGoalsConceded: isDefensive ? parseFloat(p.expected_goals_conceded || '0') : undefined,
+        // Understat advanced metrics (null if not available)
+        npxG: understatData?.npxG,
+        xGChain: understatData?.xGChain,
+        xGBuildup: understatData?.xGBuildup,
       };
     });
 
@@ -625,9 +651,10 @@ PLAYERS:
 ${playerDetails.map(p => {
   const baseInfo = `${p.name} (${p.position}) ${p.team}: Form ${p.form.toFixed(1)} | PPG ${p.ppg} | ICT ${p.ict.toFixed(1)}`;
   const attackInfo = `xG ${p.expectedGoals.toFixed(1)} xA ${p.expectedAssists.toFixed(1)}`;
+  const understatInfo = p.npxG !== undefined && p.npxG !== null ? ` npxG ${p.npxG.toFixed(1)} xGChain ${p.xGChain?.toFixed(1)} xGBuild ${p.xGBuildup?.toFixed(1)}` : '';
   const defenseInfo = p.cleanSheets !== undefined ? `CS ${p.cleanSheets} xGC ${p.expectedGoalsConceded?.toFixed(1)}` : '';
   const fixtureInfo = p.upcomingFixtures[0] || 'No fixtures';
-  return `${baseInfo} | ${defenseInfo || attackInfo} | ${fixtureInfo}`;
+  return `${baseInfo} | ${defenseInfo || attackInfo}${understatInfo} | ${fixtureInfo}`;
 }).join('\n')}
 
 Provide 3 BRIEF insights (max 2 sentences each):

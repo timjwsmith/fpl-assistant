@@ -28,6 +28,7 @@ interface UnderstatCache {
 
 class UnderstatService {
   private cache: Map<string, UnderstatCache> = new Map();
+  private inFlightRequests: Map<string, Promise<UnderstatPlayerData[]>> = new Map();
   private readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
   private readonly BASE_URL = 'https://understat.com';
 
@@ -77,6 +78,36 @@ class UnderstatService {
       return cached.data;
     }
 
+    // Check if there's already an in-flight request for this key
+    const inFlight = this.inFlightRequests.get(cacheKey);
+    if (inFlight) {
+      console.log(`[Understat] Sharing in-flight request for ${cacheKey} (preventing duplicate fetch)`);
+      return inFlight;
+    }
+
+    // Create the fetch promise
+    const fetchPromise = this.fetchLeaguePlayers(season, cacheKey, cached);
+    
+    // Store it in the in-flight map
+    this.inFlightRequests.set(cacheKey, fetchPromise);
+
+    try {
+      const result = await fetchPromise;
+      return result;
+    } finally {
+      // Clean up the in-flight request once complete
+      this.inFlightRequests.delete(cacheKey);
+    }
+  }
+
+  /**
+   * Internal method to fetch league players from Understat
+   */
+  private async fetchLeaguePlayers(
+    season: string,
+    cacheKey: string,
+    cached?: UnderstatCache
+  ): Promise<UnderstatPlayerData[]> {
     try {
       console.log(`[Understat] Fetching EPL player data for season ${season}`);
       const url = `${this.BASE_URL}/league/EPL/${season}`;
@@ -165,7 +196,8 @@ class UnderstatService {
    */
   clearCache(): void {
     this.cache.clear();
-    console.log('[Understat] Cache cleared');
+    this.inFlightRequests.clear();
+    console.log('[Understat] Cache and in-flight requests cleared');
   }
 }
 

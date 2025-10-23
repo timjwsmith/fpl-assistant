@@ -294,7 +294,7 @@ export default function TeamModeller() {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [slots, formation, analyzeMutation]);
+  }, [slots, formation]);
 
   // Auto-sync team from FPL Manager ID when manager is set but no team data exists
   useEffect(() => {

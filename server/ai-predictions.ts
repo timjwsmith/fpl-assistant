@@ -90,6 +90,7 @@ Based on form, fixtures, underlying stats, ICT metrics, and bonus potential, pro
       response_format: { type: "json_object" },
       max_completion_tokens: 4000,
       temperature: 0, // Deterministic predictions for consistency
+      seed: 42, // Perfect reproducibility for same inputs
     });
 
     let result;
@@ -252,6 +253,7 @@ Provide exactly 3 transfer recommendations in this JSON format:
         response_format: { type: "json_object" },
         max_completion_tokens: 4000,
         temperature: 0, // Deterministic predictions for consistency
+        seed: 42, // Perfect reproducibility for same inputs
       });
 
       const result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
@@ -385,6 +387,7 @@ Provide exactly 3 captain recommendations in this JSON format:
         response_format: { type: "json_object" },
         max_completion_tokens: 4000,
         temperature: 0, // Deterministic predictions for consistency
+        seed: 42, // Perfect reproducibility for same inputs
       });
 
       const result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
@@ -458,6 +461,7 @@ Provide chip strategy in JSON format:
       response_format: { type: "json_object" },
       max_completion_tokens: 1000,
       temperature: 0, // Deterministic predictions for consistency
+      seed: 42, // Perfect reproducibility for same inputs
     });
 
     let result;
@@ -560,6 +564,7 @@ JSON format (be concise):
         response_format: { type: "json_object" },
         max_completion_tokens: 4000,
         temperature: 0, // Deterministic predictions for consistency
+        seed: 42, // Perfect reproducibility for same inputs
         stream: true,
       });
 
@@ -681,6 +686,7 @@ JSON format (be concise):
         response_format: { type: "json_object" },
         max_completion_tokens: 4000,
         temperature: 0, // Deterministic predictions for consistency
+        seed: 42, // Perfect reproducibility for same inputs
       });
 
       console.log('[AI] Full response:', JSON.stringify(response, null, 2));

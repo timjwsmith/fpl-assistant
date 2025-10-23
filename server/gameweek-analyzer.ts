@@ -811,6 +811,7 @@ CRITICAL REQUIREMENTS:
           response_format: { type: "json_object" },
           max_completion_tokens: 16384,
           temperature: 0, // Deterministic predictions for consistency
+          seed: 42, // Perfect reproducibility for same inputs
         });
 
         const finishReason = response.choices[0].finish_reason;

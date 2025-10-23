@@ -89,7 +89,7 @@ Based on form, fixtures, underlying stats, ICT metrics, and bonus potential, pro
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
       max_completion_tokens: 4000, // Increased for GPT-5 reasoning tokens + actual response
-      temperature: 0, // Deterministic predictions for consistency
+      // Note: GPT-5 only supports default temperature (1), not 0
     });
 
     let result;
@@ -455,7 +455,7 @@ Provide chip strategy in JSON format:
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
       max_completion_tokens: 1000,
-      temperature: 0, // Deterministic predictions for consistency
+      // Note: GPT-5 only supports default temperature (1), not 0
     });
 
     let result;
@@ -557,7 +557,7 @@ JSON format (be concise):
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
         max_completion_tokens: 4000, // Increased for GPT-5 reasoning tokens + actual response
-        temperature: 0, // Deterministic predictions for consistency
+        // Note: GPT-5 only supports default temperature (1), not 0
         stream: true,
       });
 

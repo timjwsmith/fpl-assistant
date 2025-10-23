@@ -810,7 +810,7 @@ CRITICAL REQUIREMENTS:
           messages: [{ role: "user", content: finalPrompt }],
           response_format: { type: "json_object" },
           max_completion_tokens: 16384,
-          temperature: 0, // Deterministic predictions for consistency
+          // Note: GPT-5 only supports default temperature (1), not 0
         });
 
         const finishReason = response.choices[0].finish_reason;

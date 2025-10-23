@@ -806,11 +806,11 @@ CRITICAL REQUIREMENTS:
         
         console.log(`[GameweekAnalyzer] Calling OpenAI API (attempt ${attempt + 1}/${maxRetries + 1})`);
         const response = await openai.chat.completions.create({
-          model: "gpt-5",
+          model: "gpt-4o",
           messages: [{ role: "user", content: finalPrompt }],
           response_format: { type: "json_object" },
           max_completion_tokens: 16384,
-          // Note: GPT-5 only supports default temperature (1), not 0
+          temperature: 0, // Deterministic predictions for consistency
         });
 
         const finishReason = response.choices[0].finish_reason;

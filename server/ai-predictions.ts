@@ -85,11 +85,11 @@ Based on form, fixtures, underlying stats, ICT metrics, and bonus potential, pro
 `;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
-      max_completion_tokens: 4000, // Increased for GPT-5 reasoning tokens + actual response
-      // Note: GPT-5 only supports default temperature (1), not 0
+      max_completion_tokens: 4000,
+      temperature: 0, // Deterministic predictions for consistency
     });
 
     let result;
@@ -247,10 +247,11 @@ Provide exactly 3 transfer recommendations in this JSON format:
 
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-5",
+        model: "gpt-4o",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
-        max_completion_tokens: 4000, // Increased for GPT-5 reasoning tokens + actual response
+        max_completion_tokens: 4000,
+        temperature: 0, // Deterministic predictions for consistency
       });
 
       const result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
@@ -379,10 +380,11 @@ Provide exactly 3 captain recommendations in this JSON format:
 
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-5",
+        model: "gpt-4o",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
-        max_completion_tokens: 4000, // Increased for GPT-5 reasoning tokens + actual response
+        max_completion_tokens: 4000,
+        temperature: 0, // Deterministic predictions for consistency
       });
 
       const result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
@@ -451,11 +453,11 @@ Provide chip strategy in JSON format:
 `;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
       max_completion_tokens: 1000,
-      // Note: GPT-5 only supports default temperature (1), not 0
+      temperature: 0, // Deterministic predictions for consistency
     });
 
     let result;
@@ -553,11 +555,11 @@ JSON format (be concise):
       console.log('[AI STREAM] Starting stream for', players.length, 'players');
       
       const stream = await openai.chat.completions.create({
-        model: "gpt-5",
+        model: "gpt-4o",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
-        max_completion_tokens: 4000, // Increased for GPT-5 reasoning tokens + actual response
-        // Note: GPT-5 only supports default temperature (1), not 0
+        max_completion_tokens: 4000,
+        temperature: 0, // Deterministic predictions for consistency
         stream: true,
       });
 
@@ -674,10 +676,11 @@ JSON format (be concise):
       console.log('[AI] Prompt:', prompt);
       
       const response = await openai.chat.completions.create({
-        model: "gpt-5",
+        model: "gpt-4o",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
-        max_completion_tokens: 4000, // Increased for GPT-5 reasoning tokens + actual response
+        max_completion_tokens: 4000,
+        temperature: 0, // Deterministic predictions for consistency
       });
 
       console.log('[AI] Full response:', JSON.stringify(response, null, 2));

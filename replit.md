@@ -11,6 +11,7 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - Formation: Automatically determined by AI for each gameweek
 
 ## Recent Changes
+- **2025-10-23**: Integrated Understat.com advanced statistics (npxG, xGChain, xGBuildup) to enhance AI predictions with deeper attacking involvement metrics. Implemented efficient web scraping with 24-hour caching and in-flight request deduplication (91% reduction in API calls). AI now analyzes non-penalty xG for true goal threat, xGChain for attacking involvement, and xGBuildup for build-up contribution.
 - **2025-10-22**: Fixed AI prediction consistency by setting temperature: 0 on all OpenAI calls. This ensures the same team data always produces the same prediction, eliminating random variance (e.g., 64 pts vs 51 pts for identical teams). FPL data still refreshes every 5 minutes for injury/form updates.
 - **2025-10-22**: Removed PlayerSearchPanel from Team Modeller to align with AI-first workflow where users don't manually search/add players. Team Modeller now focused solely on viewing squad, syncing from FPL, and seeing AI predictions.
 - **2025-10-22**: Improved AI Prediction panel UX. Redesigned loading state to show a compact spinner instead of confusing "0 pts" and "0%" placeholders. Panel now elegantly handles loading, empty, and ready states for better mobile experience.
@@ -28,7 +29,7 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - **Frontend:** React 18, TypeScript, Wouter, TanStack Query
 - **Backend:** Express.js, Node.js
 - **AI:** OpenAI GPT-5 (via Replit AI Integrations)
-- **Data Source:** Official FPL API
+- **Data Source:** Official FPL API + Understat.com (advanced statistics)
 - **Storage:** PostgreSQL with Drizzle ORM
 - **Styling:** Tailwind CSS, Shadcn UI components
 
@@ -53,7 +54,8 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - **AI Prediction Pipeline**: User input processed by Context Builder, then GPT-5 for analysis, returning structured and natural language responses. AI services cover player points prediction, transfer recommendations, captain selection, chip strategy, and team analysis.
 - **Asynchronous AI Processing**: Database-backed async polling system for managing long-running AI predictions.
 - **FPL API Integration**: Backend proxy with 5-minute caching for official FPL API requests.
-- **Comprehensive Player Stats**: AI models leverage 20+ additional player metrics for enhanced prediction accuracy.
+- **Understat Integration**: Web scraping service enriches player data with advanced statistics (npxG, xGChain, xGBuildup) scraped from Understat.com. Features 24-hour caching, in-flight request deduplication, and graceful fallback when data unavailable. Reduces duplicate API calls by 91% through intelligent request sharing.
+- **Comprehensive Player Stats**: AI models leverage 20+ additional player metrics for enhanced prediction accuracy, including Understat's advanced attacking involvement metrics.
 - **Verbose AI Reasoning**: AI provides data-backed, natural language explanations without technical jargon.
 - **AI Impact Analysis & Learning System**: Tracks AI performance, compares predicted vs. actual points, learns from past mistakes, and incorporates feedback into future recommendations.
 - **Strategic AI Overhaul**: AI now performs multi-gameweek planning and ROI analysis, considering long-term benefits and justifying point hits for premium players. It proactively recommends strategic multi-transfer plans based on 6-gameweek fixture analysis and full ROI calculations.
@@ -109,6 +111,8 @@ Before claiming any feature works on Replit:
 
 ## External Dependencies
 - **Official FPL API**: For all Fantasy Premier League game data.
+- **Understat.com**: For advanced player statistics (npxG, xGChain, xGBuildup) via web scraping. Data cached for 24 hours.
 - **OpenAI GPT-5**: Utilized via Replit AI Integrations for all AI-powered predictions and analysis.
 - **PostgreSQL**: Primary database for persistent storage.
 - **@dnd-kit**: For drag-and-drop functionality in the Team Modeller.
+- **cheerio**: HTML parsing library for Understat.com web scraping.

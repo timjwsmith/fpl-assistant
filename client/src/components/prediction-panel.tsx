@@ -12,6 +12,7 @@ interface PredictionPanelProps {
   streamingContent?: string;
   isLoading?: boolean;
   hasData?: boolean;
+  label?: string;
 }
 
 export function PredictionPanel({
@@ -23,6 +24,7 @@ export function PredictionPanel({
   streamingContent = '',
   isLoading = false,
   hasData = false,
+  label,
 }: PredictionPanelProps) {
   const showLoadingState = isLoading || (predictedPoints === 0 && confidence === 0 && !hasData);
   
@@ -58,7 +60,12 @@ export function PredictionPanel({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-          <p className="text-sm text-muted-foreground mb-1">Predicted Gameweek Points</p>
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-sm text-muted-foreground">Predicted Gameweek Points</p>
+            {label && (
+              <Badge variant="secondary" className="text-xs">{label}</Badge>
+            )}
+          </div>
           <p className="text-3xl font-bold font-mono" data-testid="text-predicted-points">
             {predictedPoints}
             <span className="text-lg text-muted-foreground ml-2">pts</span>

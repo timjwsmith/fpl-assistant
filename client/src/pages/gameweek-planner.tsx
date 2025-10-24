@@ -427,7 +427,10 @@ export default function GameweekPlanner() {
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm text-muted-foreground">Predicted Points</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-muted-foreground">Predicted Points</p>
+                    <Badge variant="secondary" className="text-xs">With AI Plan</Badge>
+                  </div>
                   <TrendingUp className="h-4 w-4 text-chart-2" />
                 </div>
                 <p className="text-4xl font-bold font-mono">{plan.predictedPoints}</p>

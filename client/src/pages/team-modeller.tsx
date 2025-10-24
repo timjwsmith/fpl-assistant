@@ -699,6 +699,7 @@ export default function TeamModeller() {
             hasData={!!aiPrediction}
             isStreaming={analyzeMutation.isPending}
             streamingContent=""
+            label="Current Team"
           />
         </div>
       </div>

@@ -83,7 +83,20 @@ class CompetitorPredictorService {
     teams: FPLTeam[]
   ): Promise<CompetitorPrediction> {
     const managerDetails = await fplApi.getManagerDetails(managerId);
-    const teamPicks = await fplApi.getManagerPicks(managerId, gameweek);
+    
+    let teamPicks: any;
+    try {
+      teamPicks = await fplApi.getManagerPicks(managerId, gameweek);
+    } catch (error) {
+      const gameweeks = await fplApi.getGameweeks();
+      const currentGW = gameweeks.find(gw => gw.is_current);
+      if (currentGW && currentGW.id !== gameweek) {
+        console.log(`[COMPETITOR PREDICTOR] GW${gameweek} picks not available for manager ${managerId}, falling back to GW${currentGW.id}`);
+        teamPicks = await fplApi.getManagerPicks(managerId, currentGW.id);
+      } else {
+        throw error;
+      }
+    }
 
     const playerMap = new Map(players.map(p => [p.id, p]));
     const teamMap = new Map(teams.map(t => [t.id, t]));

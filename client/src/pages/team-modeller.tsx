@@ -83,11 +83,13 @@ export default function TeamModeller() {
     retry: false,
   });
 
-  const currentGameweek = gameweeks?.find((gw: any) => gw.is_current)?.id || 1;
+  const planningGameweek = gameweeks?.find((gw: any) => gw.is_next) 
+    || gameweeks?.find((gw: any) => gw.is_current);
+  const planningGameweekId = planningGameweek?.id || 1;
   
   const { data: savedTeamData } = useQuery<UserTeam>({
-    queryKey: [`/api/teams/${userId}?gameweek=${currentGameweek}`],
-    enabled: !!currentGameweek,
+    queryKey: [`/api/teams/${userId}?gameweek=${planningGameweekId}`],
+    enabled: !!planningGameweekId,
   });
 
   const syncManagerTeamMutation = useMutation({
@@ -112,8 +114,8 @@ export default function TeamModeller() {
   });
 
   const { data: transfers } = useQuery<Transfer[]>({
-    queryKey: [`/api/transfers/${userId}?gameweek=${currentGameweek}`],
-    enabled: !!currentGameweek,
+    queryKey: [`/api/transfers/${userId}?gameweek=${planningGameweekId}`],
+    enabled: !!planningGameweekId,
   });
   
   const analyzeMutation = useAnalyzeTeam();
@@ -140,7 +142,7 @@ export default function TeamModeller() {
     mutationFn: async () => {
       const teamData = {
         userId,
-        gameweek: currentGameweek,
+        gameweek: planningGameweekId,
         players: slots.map(s => ({
           player_id: s.player?.id || null,
           position: s.position,
@@ -160,7 +162,7 @@ export default function TeamModeller() {
       queryClient.invalidateQueries({ queryKey: ["/api/teams", userId] });
       toast({
         title: "Team saved successfully",
-        description: "Your team has been saved for gameweek " + currentGameweek,
+        description: "Your team has been saved for gameweek " + planningGameweekId,
       });
     },
     onError: (error: any) => {
@@ -203,7 +205,7 @@ export default function TeamModeller() {
         
         return apiRequest("POST", "/api/transfers", {
           userId,
-          gameweek: currentGameweek,
+          gameweek: planningGameweekId,
           playerInId,
           playerOutId,
           cost: transferCost,
@@ -215,7 +217,7 @@ export default function TeamModeller() {
       // Update the team with new transfersMade count
       const teamData = {
         userId,
-        gameweek: currentGameweek,
+        gameweek: planningGameweekId,
         players: slots.map(s => ({
           player_id: s.player?.id || null,
           position: s.position,
@@ -301,13 +303,13 @@ export default function TeamModeller() {
     if (
       settings?.manager_id &&
       !savedTeamData &&
-      currentGameweek &&
+      planningGameweekId &&
       !syncManagerTeamMutation.isPending &&
       !managerStatus
     ) {
       syncManagerTeamMutation.mutate(settings.manager_id);
     }
-  }, [settings?.manager_id, savedTeamData, currentGameweek, managerStatus]);
+  }, [settings?.manager_id, savedTeamData, planningGameweekId, managerStatus]);
 
   // Load saved team when data is available
   useEffect(() => {

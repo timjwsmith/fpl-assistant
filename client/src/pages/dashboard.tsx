@@ -59,9 +59,11 @@ export default function Dashboard() {
     />;
   }
 
-  const currentGameweek = (gameweeks as FPLGameweek[] | undefined)?.find((gw: FPLGameweek) => gw.is_current) || (gameweeks as FPLGameweek[] | undefined)?.[0];
+  const planningGameweek = (gameweeks as FPLGameweek[] | undefined)?.find((gw: FPLGameweek) => gw.is_next) 
+    || (gameweeks as FPLGameweek[] | undefined)?.find((gw: FPLGameweek) => gw.is_current) 
+    || (gameweeks as FPLGameweek[] | undefined)?.[0];
   const topPlayers = (players as FPLPlayer[] | undefined)?.slice().sort((a: FPLPlayer, b: FPLPlayer) => b.total_points - a.total_points).slice(0, 5) || [];
-  const upcomingFixtures = (fixtures as FPLFixture[] | undefined)?.filter((f: FPLFixture) => !f.finished && f.event === currentGameweek?.id).slice(0, 4) || [];
+  const upcomingFixtures = (fixtures as FPLFixture[] | undefined)?.filter((f: FPLFixture) => !f.finished && f.event === planningGameweek?.id).slice(0, 4) || [];
 
   const getDifficultyLabel = (difficulty: number) => {
     if (difficulty <= 2) return "Easy";
@@ -80,10 +82,10 @@ export default function Dashboard() {
 
       <div className="grid gap-4 md:gap-6 grid-cols-2 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Current Gameweek"
-          value={`GW ${currentGameweek?.id || '-'}`}
+          title="Planning for"
+          value={`GW ${planningGameweek?.id || '-'}`}
           icon={Calendar}
-          description={currentGameweek?.name}
+          description={planningGameweek?.name}
         />
         <StatCard
           title="Team Value"

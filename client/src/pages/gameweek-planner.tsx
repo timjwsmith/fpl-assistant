@@ -75,37 +75,39 @@ export default function GameweekPlanner() {
     queryKey: ["/api/fpl-auth/status", userId],
   });
 
-  const currentGameweek = (gameweeks as FPLGameweek[] | undefined)?.find((gw: FPLGameweek) => gw.is_current) || (gameweeks as FPLGameweek[] | undefined)?.[0];
+  const planningGameweek = (gameweeks as FPLGameweek[] | undefined)?.find((gw: FPLGameweek) => gw.is_next) 
+    || (gameweeks as FPLGameweek[] | undefined)?.find((gw: FPLGameweek) => gw.is_current) 
+    || (gameweeks as FPLGameweek[] | undefined)?.[0];
 
   const { data: leagueAnalysis } = useQuery<LeagueAnalysis>({
-    queryKey: ["/api/league-analysis", userId, currentGameweek?.id],
+    queryKey: ["/api/league-analysis", userId, planningGameweek?.id],
     queryFn: async () => {
-      const url = `/api/league-analysis/${userId}?gameweek=${currentGameweek?.id}`;
+      const url = `/api/league-analysis/${userId}?gameweek=${planningGameweek?.id}`;
       return apiRequest("GET", url);
     },
-    enabled: !!currentGameweek?.id && !!settings?.primary_league_id,
+    enabled: !!planningGameweek?.id && !!settings?.primary_league_id,
     retry: false,
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: leagueProjection, isLoading: loadingProjection } = useQuery<LeagueProjection>({
-    queryKey: ["/api/league-projection", userId, currentGameweek?.id],
+    queryKey: ["/api/league-projection", userId, planningGameweek?.id],
     queryFn: async () => {
-      const url = `/api/league-projection/${userId}?gameweek=${currentGameweek?.id}`;
+      const url = `/api/league-projection/${userId}?gameweek=${planningGameweek?.id}`;
       return apiRequest("GET", url);
     },
-    enabled: !!currentGameweek?.id && !!settings?.primary_league_id,
+    enabled: !!planningGameweek?.id && !!settings?.primary_league_id,
     retry: false,
     staleTime: 30 * 60 * 1000,
   });
 
   const { data: plan, isLoading: loadingPlan, error: planError, refetch: refetchPlan } = useQuery<PlanData>({
-    queryKey: ["/api/automation/plan", userId, currentGameweek?.id],
+    queryKey: ["/api/automation/plan", userId, planningGameweek?.id],
     queryFn: async () => {
-      const url = `/api/automation/plan/${userId}?gameweek=${currentGameweek?.id}`;
+      const url = `/api/automation/plan/${userId}?gameweek=${planningGameweek?.id}`;
       return apiRequest("GET", url);
     },
-    enabled: !!currentGameweek?.id,
+    enabled: !!planningGameweek?.id,
     retry: false,
     staleTime: 30 * 1000,
   });
@@ -276,10 +278,10 @@ export default function GameweekPlanner() {
           </p>
         </div>
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full md:w-auto">
-          {currentGameweek && (
+          {planningGameweek && (
             <div className="text-left sm:text-right">
-              <p className="text-sm text-muted-foreground">Current Gameweek</p>
-              <p className="text-2xl font-bold">GW {currentGameweek.id}</p>
+              <p className="text-sm text-muted-foreground">Planning for</p>
+              <p className="text-2xl font-bold">GW {planningGameweek.id}</p>
             </div>
           )}
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">

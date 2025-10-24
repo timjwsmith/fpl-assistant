@@ -57,6 +57,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/fpl/planning-gameweek", async (req, res) => {
+    try {
+      const gameweek = await fplApi.getPlanningGameweek();
+      if (!gameweek) {
+        return res.status(404).json({ error: "No planning gameweek found" });
+      }
+      res.json(gameweek);
+    } catch (error) {
+      console.error("Error fetching planning gameweek:", error);
+      res.status(500).json({ error: "Failed to fetch planning gameweek" });
+    }
+  });
+
   app.get("/api/fpl/fixtures", async (req, res) => {
     try {
       const gameweek = req.query.gameweek ? parseInt(req.query.gameweek as string) : undefined;

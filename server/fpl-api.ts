@@ -70,6 +70,14 @@ class FPLApiService {
     return gameweeks.find((gw) => gw.is_next);
   }
 
+  async getPlanningGameweek(): Promise<FPLGameweek | undefined> {
+    const gameweeks = await this.getGameweeks();
+    const next = gameweeks.find((gw) => gw.is_next);
+    const current = gameweeks.find((gw) => gw.is_current);
+    
+    return next || current;
+  }
+
   async getPositionTypes() {
     const data = await this.getBootstrapData();
     return data.element_types;

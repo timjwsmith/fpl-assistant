@@ -82,7 +82,18 @@ export class ManagerSyncService {
         lastDeadlineBank,
       };
 
+      // Save team for the actual gameweek we fetched picks from
       await storage.saveTeam(teamData);
+
+      // ALSO save to planning gameweek (is_next) so Team Modeller can display it
+      // Team Modeller queries for planning GW, not current GW
+      if (nextGameweek && nextGameweek.id !== actualGameweek.id) {
+        const planningTeamData: InsertUserTeam = {
+          ...teamData,
+          gameweek: nextGameweek.id,
+        };
+        await storage.saveTeam(planningTeamData);
+      }
 
       const captainPick = picks.picks.find(p => p.is_captain);
       const viceCaptainPick = picks.picks.find(p => p.is_vice_captain);

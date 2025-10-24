@@ -1073,16 +1073,22 @@ CRITICAL REQUIREMENTS:
     // Validate squad composition
     const positionCounts: { [key: number]: number } = { 1: 0, 2: 0, 3: 0, 4: 0 };
     const teamCounts: { [key: number]: number } = {};
-
+    
+    console.log('[Validation] Squad after transfers:');
     for (const pick of updatedSquad) {
       if (pick.player_id) {
         const player = allPlayers.find(p => p.id === pick.player_id);
         if (player) {
+          const posNames = { 1: 'GK', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+          console.log(`  - ${player.web_name} (${posNames[player.element_type as keyof typeof posNames]})`);
           positionCounts[player.element_type] = (positionCounts[player.element_type] || 0) + 1;
           teamCounts[player.team] = (teamCounts[player.team] || 0) + 1;
+        } else {
+          console.warn(`  - Player ID ${pick.player_id} not found in allPlayers!`);
         }
       }
     }
+    console.log('[Validation] Position counts:', positionCounts);
 
     // Check position limits: 2 GK, 5 DEF, 5 MID, 3 FWD
     if (positionCounts[1] !== 2) {

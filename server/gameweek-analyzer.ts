@@ -489,11 +489,12 @@ ${prevTransfersText}
    - Small price changes (±0.1m) are NOT significant
    - Normal ownership fluctuations (±2%) are NOT significant
 
-⚠️ **CRITICAL EXCEPTION**: CAPTAIN SELECTION OVERRIDES CONTINUITY WHEN GAP > 100 POINTS
-   - If gap to 1st place > 100 points, you MUST re-evaluate captain choice REGARDLESS of continuity
-   - Previous captain choice is NOT binding when far behind - differential captains take priority
-   - Check league projection data to see who leaders are captaining, then choose someone different
-   - This is a STRATEGIC NECESSITY to close large gaps - continuity does not apply to captaincy when >100 pts behind
+⚠️ **CRITICAL EXCEPTION - CAPTAIN SELECTION**:
+   - Captain choice must ALWAYS be re-evaluated using the expected points framework (see "DATA-DRIVEN CAPTAIN SELECTION STRATEGY" section)
+   - You MUST explicitly calculate expected points for top 3-5 captain candidates each time
+   - Previous captain choice can be maintained ONLY if your analysis confirms it's still the highest expected points
+   - Show your calculation in reasoning: "Haaland: 15 pts expected vs Salah: 12 pts vs Semenyo: 9 pts → Captain Haaland"
+   - DO NOT simply maintain previous captain due to continuity without recalculating
 
 2. 🚨 ONLY CHANGE recommendations if there's a SIGNIFICANT data change:
    - **Injury News**: Player status changed to 'injured' or 'doubtful' with <50% chance of playing
@@ -830,31 +831,60 @@ When differential opportunities are identified in the league analysis, you MUST 
 
 DO NOT just mention differentials in strategic insights - ACT ON THEM by recommending specific differential transfers based on the league position strategy above.
 
-**CRITICAL: CAPTAIN DIFFERENTIAL STRATEGY - MANDATORY WHEN FAR BEHIND**:
-Captaincy is the SINGLE BIGGEST points swing in any gameweek (2x multiplier). When you are far behind in your league, copying the leader's captain choice is strategic suicide.
+**CRITICAL: DATA-DRIVEN CAPTAIN SELECTION STRATEGY**:
+Captaincy is the SINGLE BIGGEST points swing in any gameweek (2x multiplier). Your captain choice must MAXIMIZE EXPECTED POINTS while considering league position.
 
-👑 **IF GAP TO 1ST PLACE > 100 POINTS**: CAPTAIN DIFFERENTIALS ARE MANDATORY
-   - ⛔ **NEVER captain the same player as league leaders** - if 80% of leaders captain Haaland, you MUST NOT captain Haaland
-   - ✅ **Choose a high-upside differential captain** - premium player (£10m+) with great fixtures that leaders DON'T own or aren't captaining
-   - 📊 **Mathematical reality**: If you and leader both captain Haaland and he scores 12 pts, you BOTH get 24 pts (0 net gain, gap unchanged)
-   - 🎯 **Differential math**: If you captain Salah (18 pts) and leader captains Haaland (12 pts), you gain 12 points on them in ONE gameweek
-   - Examples of good differential captains: Salah vs leader's Haaland, Isak vs leader's Palmer, Son vs leader's Saka
-   - **Triple Captain chip**: If available and >100 pts behind, SERIOUSLY consider using it on a differential (3x vs their 2x = massive swing potential)
+🎯 **CAPTAIN SELECTION FRAMEWORK - USE ALL AVAILABLE DATA**:
 
-📈 **IF GAP TO 1ST PLACE 50-100 POINTS**: CONSIDER CAPTAIN DIFFERENTIALS
-   - If leader's top captain has tough fixture (difficulty 4-5), choose a differential with better fixture
-   - If you own a premium player leaders don't have, consider captaining them
-   - Balance risk vs reward - differentials with floor of 6+ points, ceiling of 15+ points
+**STEP 1: Identify Best Captain Candidates (Based on Stats ONLY)**
+   - Analyze xG, form, fixtures, minutes, home/away, opponent defense for ALL premium options
+   - Calculate expected points for top 3-5 candidates
+   - Ignore ownership and league leaders at this stage - focus purely on data
 
-✅ **IF GAP TO 1ST PLACE < 50 POINTS**: SAFE CAPTAINS ACCEPTABLE
-   - Can match leader's captain choice to maintain position
-   - Only take captain differentials if there's clear fixture/form advantage
+**STEP 2: Evaluate League Context (If Gap > 100 Points)**
+   - Check who leaders are captaining (from league projection data)
+   - If your #1 choice (from Step 1) is DIFFERENT from leaders → PERFECT, captain them
+   - If your #1 choice is SAME as leaders → Compare with your #2 and #3 choices:
+     * If #2 has similar expected points (within 2-3 pts) → Choose #2 as differential
+     * If #2 is significantly worse (4+ pts less) → STILL choose #1 even though leaders have him
+   
+**STEP 3: Make Final Decision**
+   - ✅ ALWAYS prioritize higher expected points
+   - ⚠️ ONLY choose differential if expected points are competitive (within 2-3 pts of best option)
+   - ❌ NEVER sacrifice 4+ expected points just to be different
 
-**CAPTAIN SELECTION PROMPT EXAMPLES**:
-❌ BAD (when 120 pts behind): "Captain Haaland because 80% of league leaders are captaining him" - This keeps you 120 points behind!
-✅ GOOD (when 120 pts behind): "Captain Salah instead of Haaland. While leaders captain Haaland, Salah has the highest ceiling this week with Liverpool at home vs Wolves (difficulty 2). If Salah outscores Haaland by just 6 points, you gain 12 points on leaders through captaincy alone. This aggressive differential is essential when 120 points behind - safe picks cannot close gaps."
+**MATHEMATICAL EXAMPLES**:
+📊 Scenario A (Gap: 120 pts behind):
+   - Haaland (leaders' captain): 12 pts expected, xG 1.8, home vs relegation team (difficulty 2)
+   - Salah (differential): 11 pts expected, xG 1.5, home vs mid-table (difficulty 3)
+   - **VERDICT**: Captain Salah. Similar expected points (1 pt difference), but differential opportunity to close gap
+   
+📊 Scenario B (Gap: 120 pts behind):
+   - Haaland (leaders' captain): 15 pts expected, xG 2.4, home vs relegation team (difficulty 2), on penalties
+   - Semenyo (differential): 9 pts expected, xG 0.8, away vs City (difficulty 5)
+   - **VERDICT**: Captain Haaland. Despite being template, he's 6 pts better than next option. Sacrificing 6 expected points to be different would WORSEN your position
+   
+📊 Scenario C (Gap: 120 pts behind):
+   - Palmer (leaders' captain): 12 pts expected
+   - Salah (differential, you own): 13 pts expected
+   - **VERDICT**: Captain Salah. Higher expected points AND differential = perfect choice
 
-**YOU MUST CHECK LEAGUE PROJECTION DATA** to see who leaders are predicted to captain, then DELIBERATELY choose someone different when gap > 100 points.
+**KEY PRINCIPLE**: When far behind, PREFER differentials when stats are comparable. But NEVER choose differential if it means sacrificing significant expected points.
+
+📈 **IF GAP TO 1ST PLACE 50-100 POINTS**: 
+   - Same data-driven approach, but can tolerate slightly smaller differential advantage (within 3-4 pts of best)
+
+✅ **IF GAP TO 1ST PLACE < 50 POINTS**: 
+   - Choose highest expected points candidate regardless of ownership
+   - Safe to match leaders' captain if he's genuinely the best option
+
+**CAPTAIN SELECTION REASONING EXAMPLES**:
+❌ BAD: "Captain Semenyo as differential because we're 120 pts behind leaders who captain Haaland"
+✅ GOOD: "Captain Haaland. While 80% of leaders captain him (gap: 120 pts), his expected points (15) are significantly higher than alternatives: Salah (11), Palmer (10), Semenyo (8). At home vs Bournemouth with 2.4 xG and on penalties, he offers the highest ceiling. Choosing a weaker differential would reduce our expected points and worsen our position."
+
+✅ ALSO GOOD: "Captain Salah over Haaland. Leaders' consensus is Haaland (expected: 12 pts), but Salah has higher expected points (13) with Liverpool at home vs Wolves. This gives us both the best statistical choice AND a differential opportunity (gap: 120 pts). If Salah outscores Haaland by even 2 points, we gain 4 points through captaincy alone."
+
+**YOU MUST ALWAYS**: Explicitly compare expected points for top captain candidates in your reasoning, showing your calculation process.
 
 DO NOT just mention differentials in strategic insights - ACT ON THEM by recommending specific differential transfers based on the league position strategy above.
 

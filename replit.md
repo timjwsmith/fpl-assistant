@@ -8,6 +8,10 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - Default risk tolerance: Balanced
 - Formation: Automatically determined by AI for each gameweek
 
+## Recent Changes
+- **2025-10-24**: Implemented data-driven captain selection strategy. AI now calculates expected points for ALL captain candidates (with mandatory recalculation each plan, no continuity bias). Key principles: (1) Always choose highest expected points captain based on xG/form/fixtures analysis, (2) When gap >100 pts and candidates are statistically close (within 2-3 pts expected), prefer differential to create catching opportunities, (3) Never sacrifice 4+ expected points just to be different. Result: If Haaland has 15 expected pts vs Semenyo 9 pts, AI correctly chooses Haaland even when 120 pts behind and even though Haaland is template - sacrificing 6 pts to be different would worsen position. Conversely, if Haaland 12 pts vs Salah 11 pts, AI chooses Salah as statistically-justified differential. This eliminates arbitrary differential picks while maintaining aggressive strategy when data supports it.
+- **2025-10-24**: Fixed league projection bugs: (1) Competitors showing 0 points - implemented GW pick fallback logic (tries future GW, falls back to current GW when unavailable before deadline), (2) User projection using current team instead of AI plan - now uses AI plan's predicted points for accurate gap analysis, (3) Plans generated for wrong gameweek - analyze route now defaults to `is_next` gameweek. All 20 league competitors now show realistic 40-80 pt predictions.
+
 ## System Architecture
 
 ### Technology Stack
@@ -49,7 +53,7 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - **AI Player ID Validation**: Server-side validation and correction of AI-provided player IDs.
 - **Budget Constraint Fixes**: AI recommendations adhere to realistic budget constraints for transfers.
 - **Visual Enhancements**: Integration of team badge and player shirt graphics into the UI.
-- **Captain Differential Strategy**: AI mandates captain differentials when significantly behind league leaders.
+- **Data-Driven Captain Selection**: AI evaluates expected points for all captain candidates using xG, form, fixtures, and opponent defense stats. Chooses highest expected points option while preferring differentials when statistics are competitive (within 2-3 pts) and user is far behind in league (>100 pts gap). Never sacrifices 4+ expected points for differentiation.
 - **Continuity-aware AI**: AI maintains consistency across plan generations unless significant data changes occur, providing explicit reasoning for changes.
 - **Deterministic Predictions**: AI predictions are perfectly deterministic, ensuring identical results for identical input data.
 - **Dynamic Gameweek Planning**: The app dynamically identifies and plans for the next editable gameweek using FPL's `is_next` flag, adjusting displayed information accordingly.

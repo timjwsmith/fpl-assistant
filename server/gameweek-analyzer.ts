@@ -489,6 +489,12 @@ ${prevTransfersText}
    - Small price changes (±0.1m) are NOT significant
    - Normal ownership fluctuations (±2%) are NOT significant
 
+⚠️ **CRITICAL EXCEPTION**: CAPTAIN SELECTION OVERRIDES CONTINUITY WHEN GAP > 100 POINTS
+   - If gap to 1st place > 100 points, you MUST re-evaluate captain choice REGARDLESS of continuity
+   - Previous captain choice is NOT binding when far behind - differential captains take priority
+   - Check league projection data to see who leaders are captaining, then choose someone different
+   - This is a STRATEGIC NECESSITY to close large gaps - continuity does not apply to captaincy when >100 pts behind
+
 2. 🚨 ONLY CHANGE recommendations if there's a SIGNIFICANT data change:
    - **Injury News**: Player status changed to 'injured' or 'doubtful' with <50% chance of playing
    - **Suspensions**: Player received red card or accumulated yellow cards leading to ban
@@ -821,6 +827,34 @@ When differential opportunities are identified in the league analysis, you MUST 
 **IMPORTANT**: If differential opportunities exist in the league analysis data, you MUST either:
 1. Include at least one differential in your transfer recommendations with clear justification, OR
 2. Explicitly explain in your reasoning why you chose template picks over available differentials
+
+DO NOT just mention differentials in strategic insights - ACT ON THEM by recommending specific differential transfers based on the league position strategy above.
+
+**CRITICAL: CAPTAIN DIFFERENTIAL STRATEGY - MANDATORY WHEN FAR BEHIND**:
+Captaincy is the SINGLE BIGGEST points swing in any gameweek (2x multiplier). When you are far behind in your league, copying the leader's captain choice is strategic suicide.
+
+👑 **IF GAP TO 1ST PLACE > 100 POINTS**: CAPTAIN DIFFERENTIALS ARE MANDATORY
+   - ⛔ **NEVER captain the same player as league leaders** - if 80% of leaders captain Haaland, you MUST NOT captain Haaland
+   - ✅ **Choose a high-upside differential captain** - premium player (£10m+) with great fixtures that leaders DON'T own or aren't captaining
+   - 📊 **Mathematical reality**: If you and leader both captain Haaland and he scores 12 pts, you BOTH get 24 pts (0 net gain, gap unchanged)
+   - 🎯 **Differential math**: If you captain Salah (18 pts) and leader captains Haaland (12 pts), you gain 12 points on them in ONE gameweek
+   - Examples of good differential captains: Salah vs leader's Haaland, Isak vs leader's Palmer, Son vs leader's Saka
+   - **Triple Captain chip**: If available and >100 pts behind, SERIOUSLY consider using it on a differential (3x vs their 2x = massive swing potential)
+
+📈 **IF GAP TO 1ST PLACE 50-100 POINTS**: CONSIDER CAPTAIN DIFFERENTIALS
+   - If leader's top captain has tough fixture (difficulty 4-5), choose a differential with better fixture
+   - If you own a premium player leaders don't have, consider captaining them
+   - Balance risk vs reward - differentials with floor of 6+ points, ceiling of 15+ points
+
+✅ **IF GAP TO 1ST PLACE < 50 POINTS**: SAFE CAPTAINS ACCEPTABLE
+   - Can match leader's captain choice to maintain position
+   - Only take captain differentials if there's clear fixture/form advantage
+
+**CAPTAIN SELECTION PROMPT EXAMPLES**:
+❌ BAD (when 120 pts behind): "Captain Haaland because 80% of league leaders are captaining him" - This keeps you 120 points behind!
+✅ GOOD (when 120 pts behind): "Captain Salah instead of Haaland. While leaders captain Haaland, Salah has the highest ceiling this week with Liverpool at home vs Wolves (difficulty 2). If Salah outscores Haaland by just 6 points, you gain 12 points on leaders through captaincy alone. This aggressive differential is essential when 120 points behind - safe picks cannot close gaps."
+
+**YOU MUST CHECK LEAGUE PROJECTION DATA** to see who leaders are predicted to captain, then DELIBERATELY choose someone different when gap > 100 points.
 
 DO NOT just mention differentials in strategic insights - ACT ON THEM by recommending specific differential transfers based on the league position strategy above.
 

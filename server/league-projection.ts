@@ -44,7 +44,8 @@ class LeagueProjectionService {
   calculateProjection(
     currentStandings: LeagueEntry[],
     competitorPredictions: CompetitorPrediction[],
-    userManagerId: number
+    userManagerId: number,
+    userAIPlanPoints?: number
   ): LeagueProjectionResult {
     const predictionMap: CompetitorMap = {};
     
@@ -58,7 +59,12 @@ class LeagueProjectionService {
 
     const projectedStandings = currentStandings.map(entry => {
       const prediction = predictionMap[entry.entry];
-      const predictedGWPoints = prediction?.predictedPoints || 0;
+      let predictedGWPoints = prediction?.predictedPoints || 0;
+      
+      if (entry.entry === userManagerId && userAIPlanPoints !== undefined) {
+        predictedGWPoints = userAIPlanPoints;
+      }
+      
       const projectedPoints = entry.total + predictedGWPoints;
       
       return {

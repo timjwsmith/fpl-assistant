@@ -676,9 +676,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid userId" });
       }
 
+      const gameweeks = await fplApi.getGameweeks();
+      const nextGW = gameweeks.find(gw => gw.is_next);
+      const currentGW = gameweeks.find(gw => gw.is_current);
+      const defaultGW = nextGW?.id || currentGW?.id || 1;
+      
       const gameweek = req.query.gameweek 
         ? parseInt(req.query.gameweek as string) 
-        : (await fplApi.getGameweeks()).find(gw => gw.is_current)?.id || 1;
+        : defaultGW;
 
       const targetPlayerId = req.query.targetPlayerId 
         ? parseInt(req.query.targetPlayerId as string) 
@@ -1275,11 +1280,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         teams
       );
 
+      const aiPlan = await storage.getGameweekPlan(userId, gwToUse);
+      const userPredictedPoints = aiPlan?.predictedPoints;
+
       console.log(`[LEAGUE PROJECTION] Calculating projections`);
+      if (userPredictedPoints) {
+        console.log(`[LEAGUE PROJECTION] Using AI plan prediction for user: ${userPredictedPoints} pts`);
+      }
+      
       const projection = leagueProjection.calculateProjection(
         entries,
         predictions,
-        userSettings.manager_id
+        userSettings.manager_id,
+        userPredictedPoints
       );
 
       res.json({

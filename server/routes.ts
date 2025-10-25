@@ -716,14 +716,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? parseInt(req.query.gameweek as string) 
         : undefined;
 
-      let plan;
+      let rawPlan;
       if (gameweek) {
-        plan = await storage.getGameweekPlan(userId, gameweek);
+        rawPlan = await storage.getGameweekPlan(userId, gameweek);
       } else {
-        plan = await storage.getLatestGameweekPlan(userId);
+        rawPlan = await storage.getLatestGameweekPlan(userId);
       }
       
-      res.json(plan || null);
+      if (!rawPlan) {
+        return res.json(null);
+      }
+
+      // Hydrate the plan with player names and calculated fields
+      const { gameweekPlanHydrator } = await import("./gameweek-plan-hydrator");
+      const hydratedPlan = await gameweekPlanHydrator.hydratePlan(rawPlan);
+      
+      res.json(hydratedPlan);
     } catch (error) {
       console.error("[Automation Plan Route] Error fetching plan:", error);
       res.status(500).json({ 
@@ -741,9 +749,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid userId" });
       }
 
-      const plans = await storage.getGameweekPlansByUser(userId);
+      const rawPlans = await storage.getGameweekPlansByUser(userId);
       
-      res.json(plans);
+      // Hydrate all plans with player names and calculated fields
+      const { gameweekPlanHydrator } = await import("./gameweek-plan-hydrator");
+      const hydratedPlans = await gameweekPlanHydrator.hydratePlans(rawPlans);
+      
+      res.json(hydratedPlans);
     } catch (error) {
       console.error("[Automation Plans Route] Error fetching plans:", error);
       res.status(500).json({ 

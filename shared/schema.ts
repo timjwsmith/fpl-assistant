@@ -446,6 +446,7 @@ export const gameweekPlans = pgTable('gameweek_plans', {
   actualPointsWithoutAI: integer('actual_points_without_ai'),
   pointsDelta: integer('points_delta'),
   analysisCompletedAt: timestamp('analysis_completed_at'),
+  predictionAnalysis: text('prediction_analysis'),
   recommendationsChanged: boolean('recommendations_changed').default(false),
   changeReasoning: text('change_reasoning'),
 }, (table) => ({

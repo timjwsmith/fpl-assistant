@@ -103,6 +103,7 @@ export interface IStorage {
     pointsDelta: number;
     analysisCompletedAt: Date;
   }): Promise<void>;
+  updatePredictionAnalysis(planId: number, analysis: string): Promise<void>;
 
   // Change History
   saveChangeHistory(change: InsertChangeHistory): Promise<ChangeHistory>;
@@ -645,6 +646,15 @@ export class PostgresStorage implements IStorage {
         actualPointsWithoutAI: analysis.actualPointsWithoutAI,
         pointsDelta: analysis.pointsDelta,
         analysisCompletedAt: analysis.analysisCompletedAt,
+      })
+      .where(eq(gameweekPlans.id, planId));
+  }
+
+  async updatePredictionAnalysis(planId: number, analysis: string): Promise<void> {
+    await db
+      .update(gameweekPlans)
+      .set({
+        predictionAnalysis: analysis,
       })
       .where(eq(gameweekPlans.id, planId));
   }

@@ -38,6 +38,12 @@ interface PredictionAccuracyProps {
 export function PredictionAccuracy({ userId, startGameweek = 8 }: PredictionAccuracyProps) {
   const queryClient = useQueryClient();
 
+  const { data: gameweeks } = useQuery<Array<{ id: number; is_current: boolean; is_previous: boolean; finished: boolean }>>({
+    queryKey: ["/api/fpl/gameweeks"],
+  });
+
+  const currentGameweek = gameweeks?.find(gw => gw.is_current)?.id || 10;
+
   const { data, isLoading, error } = useQuery<PredictionAccuracyHistory>({
     queryKey: [`/api/prediction-accuracy/${userId}`, { startGameweek }],
     queryFn: async () => {
@@ -53,7 +59,7 @@ export function PredictionAccuracy({ userId, startGameweek = 8 }: PredictionAccu
     mutationFn: async () => {
       return apiRequest('POST', `/api/prediction-accuracy/backfill/${userId}`, {
         fromGameweek: startGameweek,
-        toGameweek: 9,
+        toGameweek: Math.max(currentGameweek - 1, startGameweek),
       });
     },
     onSuccess: () => {
@@ -117,7 +123,7 @@ export function PredictionAccuracy({ userId, startGameweek = 8 }: PredictionAccu
               Prediction Accuracy
             </CardTitle>
             <CardDescription>
-              Tracking AI predictions vs actual results from GW{startGameweek}
+              Tracking AI predictions vs actual results from GW{startGameweek} onwards
             </CardDescription>
           </div>
           {metrics.completedGameweeks === 0 && (

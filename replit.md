@@ -9,6 +9,7 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - Formation: Automatically determined by AI for each gameweek
 
 ## Recent Changes
+- **2025-10-27**: Implemented Prediction Accuracy Tracker on Dashboard. Automatically compares AI predictions vs actual gameweek results. Shows week-by-week accuracy history with metrics: Mean Absolute Error, accuracy within ±5/10 pts, overall prediction bias. Tracks only the latest plan per gameweek to avoid duplicates. Backfill feature populates historical data from GW8 onwards. Current results show AI averaging 14.5 pts error (GW8: predicted 78, actual 63; GW9: predicted 57, actual 43). Dynamic toGameweek calculation ensures feature works for future gameweeks without code changes.
 - **2025-10-24**: Implemented data-driven captain selection strategy. AI now calculates expected points for ALL captain candidates (with mandatory recalculation each plan, no continuity bias). Key principles: (1) Always choose highest expected points captain based on xG/form/fixtures analysis, (2) When gap >100 pts and candidates are statistically close (within 2-3 pts expected), prefer differential to create catching opportunities, (3) Never sacrifice 4+ expected points just to be different. Result: If Haaland has 15 expected pts vs Semenyo 9 pts, AI correctly chooses Haaland even when 120 pts behind and even though Haaland is template - sacrificing 6 pts to be different would worsen position. Conversely, if Haaland 12 pts vs Salah 11 pts, AI chooses Salah as statistically-justified differential. This eliminates arbitrary differential picks while maintaining aggressive strategy when data supports it.
 - **2025-10-24**: Fixed league projection bugs: (1) Competitors showing 0 points - implemented GW pick fallback logic (tries future GW, falls back to current GW when unavailable before deadline), (2) User projection using current team instead of AI plan - now uses AI plan's predicted points for accurate gap analysis, (3) Plans generated for wrong gameweek - analyze route now defaults to `is_next` gameweek. All 20 league competitors now show realistic 40-80 pt predictions.
 
@@ -33,10 +34,10 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - **PWA Features:** Standalone mode, offline support, FPL-themed app icon and splash screen.
 
 ### Core Features
-- **Dashboard**: Real-time FPL stats, AI recommendations, squad preview, upcoming fixtures.
+- **Dashboard**: Real-time FPL stats, AI recommendations, squad preview, upcoming fixtures, and Prediction Accuracy Tracker showing weekly AI performance.
 - **Interactive Team Modeller**: Visual football pitch with drag-and-drop, auto-sync, live AI predictions, and transfer application.
 - **Gameweek Planner**: Centralized interface for all recommendations including Transfer Analyzer, Fixture Planner, Captain Selector, Chip Advisor, and League Projection & Competitor Analysis.
-- **Performance Analysis**: Compares predicted vs. actual points and tracks AI prediction accuracy.
+- **Prediction Accuracy Tracker**: Tracks AI predictions vs actual gameweek results from GW8 onwards, displaying metrics (MAE, bias, accuracy rates) and week-by-week history to validate AI performance over time.
 - **Settings**: FPL Manager ID connection, risk tolerance, and optional FPL authentication.
 
 ### System Design Choices
@@ -57,6 +58,7 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - **Continuity-aware AI**: AI maintains consistency across plan generations unless significant data changes occur, providing explicit reasoning for changes.
 - **Deterministic Predictions**: AI predictions are perfectly deterministic, ensuring identical results for identical input data.
 - **Dynamic Gameweek Planning**: The app dynamically identifies and plans for the next editable gameweek using FPL's `is_next` flag, adjusting displayed information accordingly.
+- **Prediction Accuracy System**: Automated tracking service fetches actual gameweek scores from FPL API, compares against AI predictions, calculates accuracy metrics (MAE, bias, success rates), and displays results on Dashboard. Uses latest-plan-per-gameweek deduplication to prevent duplicates. Backfill endpoint populates historical data with dynamic toGameweek calculation.
 
 ## External Dependencies
 - **Official FPL API**: For all Fantasy Premier League game data.

@@ -9,6 +9,7 @@ interface GameweekAccuracyRecord {
   error: number | null;
   status: 'pending' | 'completed' | 'not_found';
   applied: boolean;
+  analysis: string | null;
 }
 
 interface AccuracyMetrics {
@@ -83,6 +84,7 @@ class PredictionAccuracyService {
         error,
         status: plan.actualPointsWithAI !== null ? 'completed' : 'pending',
         applied: true,
+        analysis: plan.predictionAnalysis || null,
       };
     });
 

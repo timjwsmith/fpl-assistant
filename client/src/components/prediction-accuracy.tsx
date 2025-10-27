@@ -1,8 +1,9 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, XCircle, AlertCircle, TrendingUp, TrendingDown, Minus, RefreshCw } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, TrendingUp, TrendingDown, Minus, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 interface GameweekAccuracyRecord {
@@ -12,6 +13,7 @@ interface GameweekAccuracyRecord {
   error: number | null;
   status: 'pending' | 'completed' | 'not_found';
   applied: boolean;
+  analysis: string | null;
 }
 
 interface AccuracyMetrics {
@@ -37,6 +39,28 @@ interface PredictionAccuracyProps {
 
 export function PredictionAccuracy({ userId, startGameweek = 8 }: PredictionAccuracyProps) {
   const queryClient = useQueryClient();
+  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
+
+  const toggleExpanded = (gameweek: number) => {
+    setExpandedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(gameweek)) {
+        newSet.delete(gameweek);
+      } else {
+        newSet.add(gameweek);
+      }
+      return newSet;
+    });
+  };
+
+  const formatAnalysis = (analysis: string | null): string[] => {
+    if (!analysis) return [];
+    return analysis
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .map(line => line.startsWith('•') || line.startsWith('-') ? line.substring(1).trim() : line);
+  };
 
   const { data: gameweeks } = useQuery<Array<{ id: number; is_current: boolean; is_previous: boolean; finished: boolean }>>({
     queryKey: ["/api/fpl/gameweeks"],
@@ -215,32 +239,70 @@ export function PredictionAccuracy({ userId, startGameweek = 8 }: PredictionAccu
                 <p>No predictions yet. Generate a plan to start tracking accuracy.</p>
               </div>
             ) : (
-              history.map((record) => (
-                <div
-                  key={record.gameweek}
-                  className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    {getAccuracyIcon(record.error)}
-                    <div>
-                      <p className="font-semibold">Gameweek {record.gameweek}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {record.status === 'completed' 
-                          ? `Predicted: ${record.predictedPoints} pts • Actual: ${record.actualPoints} pts` 
-                          : `Predicted: ${record.predictedPoints} pts`}
-                      </p>
+              history.map((record) => {
+                const isExpanded = expandedItems.has(record.gameweek);
+                const analysisPoints = formatAnalysis(record.analysis);
+                const hasAnalysis = analysisPoints.length > 0;
+
+                return (
+                  <div
+                    key={record.gameweek}
+                    className="rounded-lg border bg-card overflow-hidden"
+                  >
+                    <div className="flex items-center justify-between p-3 hover:bg-accent/50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        {getAccuracyIcon(record.error)}
+                        <div>
+                          <p className="font-semibold">Gameweek {record.gameweek}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {record.status === 'completed' 
+                              ? `Predicted: ${record.predictedPoints} pts • Actual: ${record.actualPoints} pts` 
+                              : `Predicted: ${record.predictedPoints} pts`}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {record.error !== null && (
+                          <Badge variant="outline" className="text-xs">
+                            {record.error === 0 ? 'Perfect' : `±${record.error} pts`}
+                          </Badge>
+                        )}
+                        {getAccuracyBadge(record.error)}
+                        {hasAnalysis && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleExpanded(record.gameweek)}
+                            className="h-8 px-2"
+                          >
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                            <span className="ml-1 text-xs">
+                              {isExpanded ? 'Hide' : 'Show'} Analysis
+                            </span>
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {record.error !== null && (
-                      <Badge variant="outline" className="text-xs">
-                        {record.error === 0 ? 'Perfect' : `±${record.error} pts`}
-                      </Badge>
+                    
+                    {hasAnalysis && isExpanded && (
+                      <div className="px-3 pb-3 pt-0">
+                        <div className="bg-accent/30 rounded-md p-3 space-y-1.5">
+                          {analysisPoints.map((point, idx) => (
+                            <div key={idx} className="flex gap-2 text-sm">
+                              <span className="text-muted-foreground mt-0.5">•</span>
+                              <span className="text-muted-foreground">{point}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
-                    {getAccuracyBadge(record.error)}
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

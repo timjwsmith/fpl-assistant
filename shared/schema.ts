@@ -449,6 +449,9 @@ export const gameweekPlans = pgTable('gameweek_plans', {
   predictionAnalysis: text('prediction_analysis'),
   recommendationsChanged: boolean('recommendations_changed').default(false),
   changeReasoning: text('change_reasoning'),
+  snapshotGameweek: integer('snapshot_gameweek'),
+  snapshotTimestamp: timestamp('snapshot_timestamp'),
+  snapshotEnriched: boolean('snapshot_enriched'),
 }, (table) => ({
   userIdIdx: index('gameweek_plans_user_id_idx').on(table.userId),
   gameweekIdx: index('gameweek_plans_gameweek_idx').on(table.gameweek),

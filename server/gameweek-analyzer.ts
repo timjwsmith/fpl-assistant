@@ -216,6 +216,9 @@ export class GameweekAnalyzerService {
         originalTeamSnapshot,
         recommendationsChanged: aiResponse.recommendations_changed,
         changeReasoning: aiResponse.change_reasoning,
+        snapshotGameweek: inputData.snapshot.gameweek,
+        snapshotTimestamp: new Date(inputData.snapshot.timestamp),
+        snapshotEnriched: inputData.snapshot.enriched,
       });
 
       console.log(`[GameweekAnalyzer] Analysis complete, plan ID: ${plan.id}`);
@@ -346,6 +349,11 @@ export class GameweekAnalyzerService {
       dreamTeam,
       leagueInsights,
       leagueProjectionData,
+      snapshot: {
+        gameweek: snapshot.gameweek,
+        timestamp: snapshot.timestamp,
+        enriched: snapshot.enriched,
+      },
     };
   }
 

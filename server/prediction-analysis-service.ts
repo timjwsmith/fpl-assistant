@@ -49,7 +49,7 @@ export class PredictionAnalysisService {
     }
 
     // Fetch gameweek data for context with REAL data
-    const gameweekData = await this.getGameweekContext(plan.gameweek, plan.userId);
+    const gameweekData = await this.getGameweekContext(plan.gameweek, plan.userId, plan);
 
     // Use AI to analyze the failure
     const analysis = await this.generateAIAnalysis(plan, gameweekData, error);
@@ -71,12 +71,15 @@ export class PredictionAnalysisService {
   /**
    * Get gameweek context for AI analysis with REAL data
    */
-  private async getGameweekContext(gameweek: number, userId: number): Promise<{
+  private async getGameweekContext(gameweek: number, userId: number, plan: GameweekPlan): Promise<{
     avgScore: number;
     captain: { name: string; points: number } | null;
     topUnderperformers: Array<{ name: string; points: number; position: string }>;
     fixtureResults: Array<{ team: string; opponent: string; result: string }>;
     teamSummary: string;
+    planWasApplied: boolean;
+    recommendedCaptainFollowed: boolean;
+    implementationNote: string;
   }> {
     try {
       // Get gameweek stats
@@ -98,6 +101,9 @@ export class PredictionAnalysisService {
           topUnderperformers: [],
           fixtureResults: [],
           teamSummary: 'No team data found for this gameweek',
+          planWasApplied: false,
+          recommendedCaptainFollowed: false,
+          implementationNote: 'No team data available for this gameweek',
         };
       }
 
@@ -168,12 +174,35 @@ export class PredictionAnalysisService {
 
       const teamSummary = `${userTeam.players.length} players, ${totalPoints} total points`;
 
+      // Check if plan was applied
+      const planWasApplied = plan.status === 'applied' && plan.appliedAt !== null;
+      
+      // Check if recommended captain was followed
+      const actualCaptainId = captainInfo?.player_id;
+      const recommendedCaptainId = plan.captainId;
+      const recommendedCaptainFollowed = actualCaptainId === recommendedCaptainId;
+      
+      // Build implementation note
+      let implementationNote = '';
+      if (!planWasApplied) {
+        implementationNote = 'Plan was NOT applied - user did not implement these recommendations.';
+      } else if (!recommendedCaptainFollowed && recommendedCaptainId) {
+        const recommendedCaptainPlayer = allPlayers.find((p: any) => p.id === recommendedCaptainId);
+        const recommendedCaptainName = recommendedCaptainPlayer?.web_name || 'Unknown';
+        implementationNote = `Plan applied, but captain choice differed: Recommended ${recommendedCaptainName}, actual ${captain?.name || 'Unknown'}.`;
+      } else {
+        implementationNote = 'Plan was fully applied as recommended.';
+      }
+
       return {
         avgScore,
         captain,
         topUnderperformers: underperformers,
         fixtureResults: gwFixtures,
         teamSummary,
+        planWasApplied,
+        recommendedCaptainFollowed,
+        implementationNote,
       };
     } catch (error) {
       console.error(`[PredictionAnalysis] Error fetching gameweek context:`, error);
@@ -183,6 +212,9 @@ export class PredictionAnalysisService {
         topUnderperformers: [],
         fixtureResults: [],
         teamSummary: 'Unable to load team data',
+        planWasApplied: false,
+        recommendedCaptainFollowed: false,
+        implementationNote: 'Unable to verify implementation status',
       };
     }
   }
@@ -220,6 +252,9 @@ PREDICTION DATA:
 - Error: ${error} pts (${biasDirection} by ${Math.abs(bias)} pts)
 - Average GW Score: ${context.avgScore} pts
 
+IMPLEMENTATION STATUS:
+${context.implementationNote}
+
 ACTUAL GAMEWEEK DATA:
 ${captainText}
 ${context.teamSummary}
@@ -229,13 +264,15 @@ ${underperformersText}
 ${fixturesText}
 
 TASK: Explain in 2-4 concise bullet points WHY the prediction missed. You MUST:
-1. Use SPECIFIC player names, teams, and scores from the data above
-2. Reference ACTUAL match results when explaining fixture surprises
-3. Be concrete - don't say "captain underperformed" without naming who and their score
-4. Focus on the biggest contributors to the ${error} pt error
+1. ${!context.planWasApplied ? 'FIRST NOTE that recommendations were NOT implemented - the AI should not be blamed for this error!' : 'Analyze the error based on actual performance'}
+2. Use SPECIFIC player names, teams, and scores from the data above
+3. Reference ACTUAL match results when explaining fixture surprises
+4. Be concrete - don't say "captain underperformed" without naming who and their score
+5. Focus on the biggest contributors to the ${error} pt error
 
 DO NOT use generic phrases like "key players were benched" - name them!
 DO NOT say "favorable fixtures failed" - specify which match!
+${!context.planWasApplied ? 'DO NOT analyze why players underperformed if the recommendations were never implemented!' : ''}
 
 Format as bullet points starting with "• ". Max 4 bullets.`;
 

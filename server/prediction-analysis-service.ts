@@ -3,7 +3,11 @@ import { fplApi } from './fpl-api';
 import type { GameweekPlan } from '../shared/schema';
 import OpenAI from 'openai';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Using Replit AI Integrations - provides OpenAI-compatible API access without requiring your own API key
+const openai = new OpenAI({
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
+});
 
 interface PredictionFailureAnalysis {
   gameweek: number;

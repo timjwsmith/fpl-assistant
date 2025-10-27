@@ -13,6 +13,7 @@ import { competitorPredictor } from "./competitor-predictor";
 import { leagueProjection } from "./league-projection";
 import { aiImpactAnalysis } from "./ai-impact-analysis";
 import { predictionAccuracyService } from "./prediction-accuracy";
+import { predictionAnalysisService } from "./prediction-analysis-service";
 import { z } from "zod";
 import { userSettingsSchema } from "@shared/schema";
 
@@ -951,6 +952,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("[Prediction Accuracy Route] Error backfilling actual points:", error);
       res.status(500).json({ 
         error: "Failed to backfill actual points",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.post("/api/prediction-accuracy/analyze/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+
+      console.log(`[API] Generating AI analysis for all completed gameweeks for user ${userId}`);
+      const results = await predictionAnalysisService.analyzeAllCompletedGameweeks(userId);
+      
+      res.json({ 
+        message: `Successfully analyzed ${results.length} gameweeks`,
+        analyses: results
+      });
+    } catch (error) {
+      console.error("[API] Error generating analysis:", error);
+      res.status(500).json({ 
+        error: "Failed to generate prediction analysis",
         details: error instanceof Error ? error.message : "Unknown error"
       });
     }

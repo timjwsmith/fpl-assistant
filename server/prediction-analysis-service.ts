@@ -82,15 +82,20 @@ export class PredictionAnalysisService {
     implementationNote: string;
   }> {
     try {
-      // Get gameweek stats
-      const gameweeks = await fplApi.getGameweeks();
+      // Use unified snapshot for consistency across all analysis
+      const { gameweekSnapshot } = await import('./gameweek-data-snapshot');
+      const snapshot = await gameweekSnapshot.getSnapshot(gameweek, false); // Don't need Understat for analysis
+      
+      console.log(`[PredictionAnalysis] Using snapshot from ${new Date(snapshot.timestamp).toISOString()}`);
+
+      // Extract data from snapshot
+      const gameweeks = snapshot.data.gameweeks;
       const gw = gameweeks.find((g: any) => g.id === gameweek);
       const avgScore = gw?.average_entry_score || 0;
 
-      // Get all players data for this gameweek
-      const allPlayers = await fplApi.getPlayers();
-      const allTeams = await fplApi.getTeams();
-      const fixtures = await fplApi.getFixtures();
+      const allPlayers = snapshot.data.players;
+      const allTeams = snapshot.data.teams;
+      const fixtures = snapshot.data.fixtures;
       
       // Get user's team for this gameweek
       const userTeam = await storage.getTeam(userId, gameweek);

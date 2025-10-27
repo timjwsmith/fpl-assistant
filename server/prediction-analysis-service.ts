@@ -243,16 +243,15 @@ export class PredictionAnalysisService {
       ? `Key fixtures:\n${context.fixtureResults.map((f: any) => `  - ${f.team} vs ${f.opponent}: ${f.result}`).join('\n')}`
       : 'Fixtures data unavailable';
 
-    const prompt = `Analyze why the FPL prediction for this gameweek differed from actual results. Focus on understanding what happened with the actual players used, not what could have been done differently.
+    const prompt = `Analyze why this FPL prediction missed the mark. Focus ONLY on explaining prediction errors for the actual decisions that were made.
 
 PREDICTION vs REALITY:
 - Gameweek: ${plan.gameweek}
-- Predicted Points: ${plan.predictedPoints} pts
-- Actual Points: ${plan.actualPointsWithAI} pts
+- Predicted: ${plan.predictedPoints} pts → Actual: ${plan.actualPointsWithAI} pts
 - Difference: ${error} pts (${biasDirection} by ${Math.abs(bias)} pts)
-- Average GW Score: ${context.avgScore} pts
+- League Average: ${context.avgScore} pts
 
-ACTUAL TEAM PERFORMANCE:
+WHAT ACTUALLY HAPPENED:
 ${captainText}
 ${context.teamSummary}
 
@@ -260,19 +259,22 @@ ${underperformersText}
 
 ${fixturesText}
 
-TASK: Explain in 2-4 bullet points WHY the prediction was off for the actual team used:
-1. Analyze ONLY the players that were actually in the team - never suggest players that weren't available
-2. Explain why specific players scored differently than expected (name them, their actual scores, and why)
-3. Reference specific match results and what actually happened in those games
-4. Focus on learning: what can be learned from these prediction errors?
+YOUR TASK: In 2-4 bullet points, explain WHY predictions were inaccurate for the ACTUAL team and decisions used.
 
-CRITICAL: DO NOT suggest alternative players or teams. ONLY analyze why predictions for the ACTUAL players used were inaccurate.
+CRITICAL RULES:
+1. ONLY explain why predictions for actual players were wrong
+2. Name specific players, their actual scores, and what happened in their matches
+3. Focus on prediction errors, not alternative strategies
+4. ${!context.recommendedCaptainFollowed && context.planWasApplied ? 'Note: Different captain was chosen than recommended - this may explain part of the error' : 'Analyze why predicted performance differed from actual'}
+
+NEVER suggest players that weren't in the team or weren't recommended by the AI.
+NEVER say "you should have done X" unless the AI specifically recommended X in the original plan.
 
 Examples:
-✅ GOOD: "Semenyo (captain) scored 6 pts in Bournemouth's 3-3 draw vs Palace, lower than expected because..."
-❌ BAD: "You should have captained Haaland instead" (Don't suggest alternatives!)
-✅ GOOD: "Mitoma blanked (0 pts) in Brighton's 2-1 win, contrary to predictions because..."
-❌ BAD: "The plan wasn't implemented" (Don't be adversarial!)
+✅ "Semenyo (captain) scored 6 pts in Bournemouth's 3-3 draw. Prediction overestimated his involvement..."
+✅ "Mitoma blanked despite Brighton winning because he was subbed early at 58 minutes..."
+❌ "You should have captained Haaland" (NEVER suggest alternatives not recommended!)
+❌ "Recommendations weren't followed" (NEVER be adversarial!)
 
 Format as bullet points starting with "• ". Max 4 bullets.`;
 

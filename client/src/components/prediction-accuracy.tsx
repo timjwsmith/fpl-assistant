@@ -143,13 +143,25 @@ export function PredictionAccuracy({ userId, startGameweek = 8 }: PredictionAccu
         {metrics.completedGameweeks > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Avg Error</p>
-              <p className="text-2xl font-bold">
-                {metrics.meanAbsoluteError !== null 
-                  ? `±${metrics.meanAbsoluteError.toFixed(1)}` 
+              <p className="text-xs text-muted-foreground">Prediction Bias</p>
+              <p className={`text-2xl font-bold ${
+                metrics.overallBias && metrics.overallBias > 0 
+                  ? 'text-destructive' 
+                  : metrics.overallBias && metrics.overallBias < 0 
+                    ? 'text-chart-2' 
+                    : ''
+              }`}>
+                {metrics.overallBias !== null 
+                  ? `${metrics.overallBias > 0 ? '+' : ''}${metrics.overallBias.toFixed(1)}` 
                   : '-'}
               </p>
-              <p className="text-xs text-muted-foreground">points per GW</p>
+              <p className="text-xs text-muted-foreground">
+                {metrics.overallBias && metrics.overallBias > 0 
+                  ? 'over-predicting' 
+                  : metrics.overallBias && metrics.overallBias < 0 
+                    ? 'under-predicting' 
+                    : 'points per GW'}
+              </p>
             </div>
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">Within ±5pts</p>

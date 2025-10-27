@@ -121,18 +121,26 @@ export class PredictionAnalysisService {
         }
       }
 
-      // Get all players in team with their performance
+      // Get all players who actually played
+      // Include: Starting XI (positions 1-11) OR bench players who got minutes (event_points > 0)
       const teamPerformance = userTeam.players
         .filter((p: any) => p.player_id) // Filter out null player_ids
         .map((p: any) => {
           const playerData = allPlayers.find((pl: any) => pl.id === p.player_id);
+          const eventPoints = playerData?.event_points || 0;
           return {
             name: playerData?.web_name || 'Unknown',
-            points: playerData?.event_points || 0,
-            position: ['GKP', 'DEF', 'MID', 'FWD'][p.position - 1] || 'Unknown',
+            points: eventPoints,
+            position: ['GKP', 'DEF', 'MID', 'FWD'][(playerData?.element_type || 1) - 1] || 'Unknown',
             isCaptain: p.is_captain,
+            lineupPosition: p.position, // 1-15 lineup slot
+            playedFromBench: p.position > 11 && eventPoints > 0, // Bench player who came on
           };
-        });
+        })
+        .filter((p: any) => 
+          p.lineupPosition <= 11 || // Starting XI
+          (p.lineupPosition > 11 && p.points > 0) // Bench player who actually played
+        );
       
       // Find underperformers (players who scored 2 or fewer points)
       const underperformers = teamPerformance
@@ -140,12 +148,11 @@ export class PredictionAnalysisService {
         .sort((a: any, b: any) => a.points - b.points)
         .slice(0, 5);
 
-      // Get relevant fixtures for teams in squad
+      // Get relevant fixtures for teams in squad (players who actually played)
       const relevantTeamIds = new Set(
-        userTeam.players
-          .filter((p: any) => p.player_id)
+        teamPerformance
           .map((p: any) => {
-            const playerData = allPlayers.find((pl: any) => pl.id === p.player_id);
+            const playerData = allPlayers.find((pl: any) => pl.name === p.name);
             return playerData?.team;
           })
           .filter(Boolean)
@@ -172,7 +179,7 @@ export class PredictionAnalysisService {
         return sum + (p.isCaptain ? p.points * 2 : p.points);
       }, 0);
 
-      const teamSummary = `${userTeam.players.length} players, ${totalPoints} total points`;
+      const teamSummary = `${teamPerformance.length} players who played, ${totalPoints} total points`;
 
       // Check if plan was applied
       const planWasApplied = plan.status === 'applied' && plan.appliedAt !== null;

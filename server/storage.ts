@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, gt, lte, isNull } from "drizzle-orm";
 import {
   users,
   userSettingsTable,
@@ -13,6 +13,8 @@ import {
   automationSettings,
   gameweekPlans,
   changeHistory,
+  aiPrecomputations,
+  aiDecisionLedger,
   type User,
   type InsertUser,
   type UserTeam,
@@ -36,6 +38,10 @@ import {
   type InsertGameweekPlan,
   type ChangeHistory,
   type InsertChangeHistory,
+  type InsertAiPrecomputation,
+  type AiPrecomputation,
+  type InsertAiDecisionLedger,
+  type AiDecisionLedger,
 } from "@shared/schema";
 
 if (!process.env.DATABASE_URL) {
@@ -58,10 +64,12 @@ export interface IStorage {
   savePrediction(prediction: InsertPrediction): Promise<PredictionDB>;
   upsertPrediction(prediction: InsertPrediction): Promise<void>;
   getPredictions(userId: number, gameweek: number): Promise<PredictionDB[]>;
+  getPredictionsByGameweek(userId: number, gameweek: number): Promise<PredictionDB[]>;
   getPredictionsByUser(userId: number): Promise<PredictionDB[]>;
   getPredictionsWithoutActuals(userId: number, gameweek: number): Promise<PredictionDB[]>;
   updatePredictionActualPoints(predictionId: number, actualPoints: number): Promise<void>;
   updateActualPointsByPlayer(userId: number, gameweek: number, playerId: number, actualPoints: number): Promise<void>;
+  deletePredictionsByGameweek(userId: number, gameweek: number): Promise<void>;
   
   saveTransfer(transfer: InsertTransfer): Promise<Transfer>;
   getTransfers(userId: number, gameweek: number): Promise<Transfer[]>;
@@ -109,6 +117,25 @@ export interface IStorage {
   saveChangeHistory(change: InsertChangeHistory): Promise<ChangeHistory>;
   getChangeHistory(userId: number, gameweek: number): Promise<ChangeHistory[]>;
   getChangeHistoryByUser(userId: number): Promise<ChangeHistory[]>;
+
+  // AI Precomputations
+  savePrecomputation(data: InsertAiPrecomputation): Promise<void>;
+  getPrecomputation(
+    snapshotId: string,
+    computationType: string,
+    playerId?: number
+  ): Promise<AiPrecomputation | null>;
+  getPrecomputationsBySnapshot(
+    snapshotId: string
+  ): Promise<AiPrecomputation[]>;
+  cleanupExpiredPrecomputations(): Promise<number>;
+
+  // AI Decision Ledger
+  saveDecisionLog(entry: InsertAiDecisionLedger): Promise<void>;
+  getDecisionsByUser(userId: number, limit?: number): Promise<AiDecisionLedger[]>;
+  getDecisionsByGameweek(userId: number, gameweek: number): Promise<AiDecisionLedger[]>;
+  getDecisionsBySnapshot(snapshotId: string): Promise<AiDecisionLedger[]>;
+  getDecisionById(id: number): Promise<AiDecisionLedger | null>;
 }
 
 export class PostgresStorage implements IStorage {
@@ -306,6 +333,16 @@ export class PostgresStorage implements IStorage {
       ));
   }
 
+  async getPredictionsByGameweek(userId: number, gameweek: number): Promise<PredictionDB[]> {
+    return db
+      .select()
+      .from(predictions)
+      .where(and(
+        eq(predictions.userId, userId),
+        eq(predictions.gameweek, gameweek)
+      ));
+  }
+
   async getPredictionsByUser(userId: number): Promise<PredictionDB[]> {
     return db
       .select()
@@ -400,6 +437,18 @@ export class PostgresStorage implements IStorage {
         eq(predictions.gameweek, gameweek),
         eq(predictions.playerId, playerId)
       ));
+  }
+
+  async deletePredictionsByGameweek(userId: number, gameweek: number): Promise<void> {
+    await db
+      .delete(predictions)
+      .where(
+        and(
+          eq(predictions.userId, userId),
+          eq(predictions.gameweek, gameweek)
+        )
+      );
+    console.log(`[Storage] Cleared predictions for user ${userId}, GW${gameweek}`);
   }
 
   // AI Team Predictions methods
@@ -685,6 +734,109 @@ export class PostgresStorage implements IStorage {
       .from(changeHistory)
       .where(eq(changeHistory.userId, userId))
       .orderBy(changeHistory.gameweek, changeHistory.createdAt);
+  }
+
+  // AI Precomputations methods
+  async savePrecomputation(data: InsertAiPrecomputation): Promise<void> {
+    await db.insert(aiPrecomputations).values(data);
+  }
+
+  async getPrecomputation(
+    snapshotId: string,
+    computationType: string,
+    playerId?: number
+  ): Promise<AiPrecomputation | null> {
+    const conditions: any[] = [
+      eq(aiPrecomputations.snapshotId, snapshotId),
+      eq(aiPrecomputations.computationType, computationType as any),
+      gt(aiPrecomputations.expiresAt, new Date())
+    ];
+
+    if (playerId !== undefined) {
+      conditions.push(eq(aiPrecomputations.playerId, playerId as any));
+    } else {
+      conditions.push(isNull(aiPrecomputations.playerId));
+    }
+
+    const result = await db
+      .select()
+      .from(aiPrecomputations)
+      .where(and(...conditions))
+      .limit(1);
+    
+    if (result.length > 0) {
+      console.log(`[Precomputation Cache] 🎯 HIT for ${computationType} (snapshot: ${snapshotId.substring(0, 8)}...)`);
+    } else {
+      console.log(`[Precomputation Cache] ❌ MISS for ${computationType} (snapshot: ${snapshotId.substring(0, 8)}...)`);
+    }
+    
+    return result[0] || null;
+  }
+
+  async getPrecomputationsBySnapshot(
+    snapshotId: string
+  ): Promise<AiPrecomputation[]> {
+    return await db
+      .select()
+      .from(aiPrecomputations)
+      .where(
+        and(
+          eq(aiPrecomputations.snapshotId, snapshotId),
+          gt(aiPrecomputations.expiresAt, new Date())
+        )
+      );
+  }
+
+  async cleanupExpiredPrecomputations(): Promise<number> {
+    const result = await db
+      .delete(aiPrecomputations)
+      .where(lte(aiPrecomputations.expiresAt, new Date()));
+    
+    return result.rowCount || 0;
+  }
+
+  // AI Decision Ledger methods
+  async saveDecisionLog(entry: InsertAiDecisionLedger): Promise<void> {
+    await db.insert(aiDecisionLedger).values(entry);
+  }
+
+  async getDecisionsByUser(userId: number, limit = 50): Promise<AiDecisionLedger[]> {
+    return await db
+      .select()
+      .from(aiDecisionLedger)
+      .where(eq(aiDecisionLedger.userId, userId))
+      .orderBy(desc(aiDecisionLedger.createdAt))
+      .limit(limit);
+  }
+
+  async getDecisionsByGameweek(userId: number, gameweek: number): Promise<AiDecisionLedger[]> {
+    return await db
+      .select()
+      .from(aiDecisionLedger)
+      .where(
+        and(
+          eq(aiDecisionLedger.userId, userId),
+          eq(aiDecisionLedger.gameweek, gameweek)
+        )
+      )
+      .orderBy(desc(aiDecisionLedger.createdAt));
+  }
+
+  async getDecisionsBySnapshot(snapshotId: string): Promise<AiDecisionLedger[]> {
+    return await db
+      .select()
+      .from(aiDecisionLedger)
+      .where(eq(aiDecisionLedger.snapshotId, snapshotId))
+      .orderBy(desc(aiDecisionLedger.createdAt));
+  }
+
+  async getDecisionById(id: number): Promise<AiDecisionLedger | null> {
+    const result = await db
+      .select()
+      .from(aiDecisionLedger)
+      .where(eq(aiDecisionLedger.id, id))
+      .limit(1);
+    return result[0] || null;
   }
 }
 

@@ -31,6 +31,7 @@
  * - Use clearCache(gameweek?) to manually invalidate cache entries
  */
 
+import { createHash } from 'crypto';
 import type {
   FPLPlayer,
   FPLTeam,
@@ -39,6 +40,8 @@ import type {
 } from "@shared/schema";
 import { fplApi } from "./fpl-api";
 import { understatService } from "./understat-api";
+import { precomputationOrchestrator } from "./precomputation-orchestrator";
+import type { SnapshotContext } from "./snapshot-context";
 
 export interface EnrichedPlayer extends FPLPlayer {
   understat?: {
@@ -49,6 +52,7 @@ export interface EnrichedPlayer extends FPLPlayer {
 }
 
 export interface GameweekSnapshot {
+  snapshotId: string;
   gameweek: number;
   timestamp: number;
   data: {
@@ -71,6 +75,16 @@ export interface GameweekSnapshot {
 class GameweekDataSnapshotService {
   private cache: Map<number, GameweekSnapshot> = new Map();
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes - matches FPL API cache
+
+  /**
+   * Generate a unique snapshot ID from gameweek and timestamp
+   * Format: sha256 hash of "gw{gameweek}-ts{timestamp}"
+   * Example: "gw10-ts1698764800000" -> "a3b2c1d4e5f6..."
+   */
+  private generateSnapshotId(gameweek: number, timestamp: number): string {
+    const input = `gw${gameweek}-ts${timestamp}`;
+    return createHash('sha256').update(input).digest('hex').substring(0, 16);
+  }
 
   /**
    * Get a complete snapshot of all data for a gameweek
@@ -133,6 +147,7 @@ class GameweekDataSnapshotService {
     }
 
     const snapshot: GameweekSnapshot = {
+      snapshotId: this.generateSnapshotId(gameweek, now),
       gameweek,
       timestamp: now,
       data: {
@@ -148,6 +163,18 @@ class GameweekDataSnapshotService {
 
     this.cache.set(gameweek, snapshot);
     console.log(`[Snapshot] Cached fresh data for GW${gameweek} with ${enrichedPlayers.length} players`);
+
+    const snapshotContext: SnapshotContext = {
+      snapshotId: snapshot.snapshotId,
+      gameweek: snapshot.gameweek,
+      timestamp: snapshot.timestamp,
+      enriched: enrichWithUnderstat,
+      snapshot: snapshot
+    };
+
+    precomputationOrchestrator.onSnapshotReady(snapshotContext).catch(err => {
+      console.error('[Snapshot] Precomputation failed:', err);
+    });
 
     return snapshot;
   }

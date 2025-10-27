@@ -1,6 +1,8 @@
 import OpenAI from "openai";
 import { storage } from "./storage";
 import { understatService } from "./understat-api";
+import { snapshotContext, type SnapshotContext } from "./snapshot-context";
+import { decisionLogger } from "./decision-logger";
 import type {
   FPLPlayer,
   FPLFixture,
@@ -22,6 +24,7 @@ interface PredictionContext {
   upcomingFixtures: FPLFixture[];
   userId?: number;
   gameweek?: number;
+  snapshotId?: string;
   teamStrength?: {
     attack_home: number;
     attack_away: number;
@@ -140,7 +143,11 @@ Based on AVAILABILITY FIRST, then form, fixtures, underlying stats, ICT metrics,
           predictedPoints: prediction.predicted_points,
           actualPoints: null,
           confidence: prediction.confidence,
+          snapshotId: context.snapshotId,
         });
+        if (context.snapshotId) {
+          console.log(`[Prediction] Saved prediction for player ${context.player.id} with snapshot ${context.snapshotId}`);
+        }
       } catch (error) {
         console.error('Error saving prediction to database:', error);
       }
@@ -157,12 +164,11 @@ Based on AVAILABILITY FIRST, then form, fixtures, underlying stats, ICT metrics,
     userId?: number,
     gameweek?: number
   ): Promise<TransferRecommendation[]> {
-    // Get team data from unified snapshot for consistency
-    const { gameweekSnapshot } = await import('./gameweek-data-snapshot');
-    const snapshot = await gameweekSnapshot.getSnapshot(gameweek || 1, false); // Don't need Understat for transfers
-    const teams = snapshot.data.teams;
+    // Get snapshot context for consistency and tracking
+    const context = await snapshotContext.getContext(gameweek || 1, false); // Don't need Understat for transfers
+    const teams = context.snapshot.data.teams;
     
-    console.log(`[Transfers] Using snapshot from ${new Date(snapshot.timestamp).toISOString()}`);
+    console.log(`[Transfers] Using snapshot ${context.snapshotId} from ${new Date(context.timestamp).toISOString()}`);
     
     // Analyze current squad weaknesses
     const squadAnalysis = currentPlayers.map(p => {
@@ -305,6 +311,7 @@ Provide exactly 3 transfer recommendations in this JSON format:
                 upcomingFixtures,
                 userId,
                 gameweek,
+                snapshotId: context.snapshotId,
               });
               
               await storage.upsertPrediction({
@@ -314,12 +321,25 @@ Provide exactly 3 transfer recommendations in this JSON format:
                 predictedPoints: prediction.predicted_points,
                 actualPoints: null,
                 confidence: rec.priority === 'high' ? 80 : rec.priority === 'medium' ? 60 : 40,
+                snapshotId: context.snapshotId,
               });
+              console.log(`[Transfers] Saved transfer recommendation prediction for player ${rec.player_in_id} with snapshot ${context.snapshotId}`);
             }
           } catch (error) {
             console.error(`Error saving transfer recommendation prediction for player ${rec.player_in_id}:`, error);
           }
         }
+      }
+
+      // Log transfer decision to audit trail
+      if (recommendations.length > 0 && userId && gameweek) {
+        await decisionLogger.logTransferDecision(
+          userId,
+          context,
+          { currentPlayers, allPlayers, fixtures, budget, gameweek },
+          recommendations,
+          undefined // No overall confidence for transfer lists
+        );
       }
 
       return recommendations;
@@ -335,12 +355,11 @@ Provide exactly 3 transfer recommendations in this JSON format:
     userId?: number,
     gameweek?: number
   ): Promise<CaptainRecommendation[]> {
-    // Get team data from unified snapshot for consistency
-    const { gameweekSnapshot } = await import('./gameweek-data-snapshot');
-    const snapshot = await gameweekSnapshot.getSnapshot(gameweek || 1, false); // Don't need Understat for captain picks
-    const teams = snapshot.data.teams;
+    // Get snapshot context for consistency and tracking
+    const context = await snapshotContext.getContext(gameweek || 1, false); // Don't need Understat for captain picks
+    const teams = context.snapshot.data.teams;
     
-    console.log(`[Captain] Using snapshot from ${new Date(snapshot.timestamp).toISOString()}`);
+    console.log(`[Captain] Using snapshot ${context.snapshotId} from ${new Date(context.timestamp).toISOString()}`);
     
     // Filter and enrich top players with fixture data
     // CRITICAL: Filter out injured/unavailable/suspended players FIRST - basic availability check
@@ -449,11 +468,26 @@ Provide exactly 3 captain recommendations in this JSON format:
               predictedPoints: Math.round(rec.expected_points),
               actualPoints: null,
               confidence: rec.confidence,
+              snapshotId: context.snapshotId,
             });
+            console.log(`[Captain] Saved captain recommendation prediction for player ${rec.player_id} with snapshot ${context.snapshotId}`);
           } catch (error) {
             console.error(`Error saving captain recommendation prediction for player ${rec.player_id}:`, error);
           }
         }
+      }
+
+      // Log captain decision to audit trail (log the top recommendation)
+      if (recommendations.length > 0 && userId && gameweek) {
+        const topRecommendation = recommendations[0];
+        await decisionLogger.logCaptainDecision(
+          userId,
+          undefined, // No planId for standalone captain calls
+          context,
+          { players, fixtures, gameweek },
+          topRecommendation,
+          topRecommendation.confidence
+        );
       }
 
       return recommendations;

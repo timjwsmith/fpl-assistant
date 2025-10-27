@@ -5,6 +5,9 @@ import { leagueAnalysis } from "./league-analysis";
 import { competitorPredictor } from "./competitor-predictor";
 import { leagueProjection } from "./league-projection";
 import { aiLearningFeedback } from "./ai-learning-feedback";
+import { snapshotContext, type SnapshotContext } from "./snapshot-context";
+import { snapshotValidator } from "./snapshot-validator";
+import { decisionLogger } from "./decision-logger";
 import type {
   FPLPlayer,
   FPLFixture,
@@ -70,6 +73,10 @@ export class GameweekAnalyzerService {
       } catch (error) {
         console.log(`[GameweekAnalyzer] Could not fetch previous plan:`, error instanceof Error ? error.message : 'Unknown error');
       }
+
+      // 1.6. Clear old predictions to ensure fresh data with current snapshot
+      await storage.deletePredictionsByGameweek(userId, gameweek);
+      console.log(`[GameweekAnalyzer] Cleared old predictions for GW${gameweek}`);
 
       // 2-5. Generate AI recommendations with retry logic (max 3 attempts)
       const maxAttempts = 3;
@@ -191,6 +198,24 @@ export class GameweekAnalyzerService {
         console.log(`[GameweekAnalyzer] No manager_id set, skipping original team snapshot capture`);
       }
 
+      // 6.6. Validate snapshot consistency before persistence
+      console.log(`[GameweekAnalyzer] Validating snapshot consistency...`);
+      const snapshotValidation = snapshotValidator.validateGameweekPlan(
+        inputData.context.snapshotId,
+        {
+          transfers: aiResponse.transfers?.map(t => ({ snapshotId: inputData.context.snapshotId })),
+          predictions: undefined, // Predictions validated separately
+          captainRecommendation: aiResponse.captain_id ? { snapshotId: inputData.context.snapshotId } : undefined,
+          chipStrategy: aiResponse.chip_to_play ? { snapshotId: inputData.context.snapshotId } : undefined,
+        }
+      );
+
+      if (!snapshotValidation.valid) {
+        console.error('[GameweekAnalyzer] Snapshot validation failed:', snapshotValidation.errors);
+        throw new Error('Snapshot validation failed: ' + snapshotValidation.errors.join(', '));
+      }
+      console.log(`[GameweekAnalyzer] Snapshot validation passed for ${inputData.context.snapshotId}`);
+
       // 7. Save to database
       const plan = await storage.saveGameweekPlan({
         userId,
@@ -211,17 +236,71 @@ export class GameweekAnalyzerService {
             warnings: [...validation.warnings, ...chipValidation.warnings],
           },
           transferCost,
+          snapshotId: inputData.context.snapshotId,
         }),
         status: 'pending',
         originalTeamSnapshot,
         recommendationsChanged: aiResponse.recommendations_changed,
         changeReasoning: aiResponse.change_reasoning,
-        snapshotGameweek: inputData.snapshot.gameweek,
-        snapshotTimestamp: new Date(inputData.snapshot.timestamp),
-        snapshotEnriched: inputData.snapshot.enriched,
+        snapshotId: inputData.context.snapshotId,
+        snapshotGameweek: inputData.context.gameweek,
+        snapshotTimestamp: new Date(inputData.context.timestamp),
+        snapshotEnriched: inputData.context.enriched,
       });
 
+      // Validate that the saved plan has the correct snapshot_id
+      if (plan.snapshotId !== inputData.context.snapshotId) {
+        throw new Error(`Snapshot ID mismatch: plan has ${plan.snapshotId}, expected ${inputData.context.snapshotId}`);
+      }
+
+      // Calculate player IDs in the current plan (after transfers)
+      const transferredOutIds = new Set(aiResponse.transfers.map(t => t.player_out_id));
+      const transferredInIds = new Set(aiResponse.transfers.map(t => t.player_in_id));
+      
+      const currentPlayerIds = new Set([
+        ...inputData.currentTeam.players
+          .filter(p => p.player_id && !transferredOutIds.has(p.player_id))
+          .map(p => p.player_id!),
+        ...Array.from(transferredInIds)
+      ]);
+
+      console.log(`[GameweekAnalyzer] Current plan has ${currentPlayerIds.size} players (${inputData.currentTeam.players.length} original - ${transferredOutIds.size} out + ${transferredInIds.size} in)`);
+
+      // Fetch predictions that were just saved for this gameweek
+      const savedPredictions = await storage.getPredictionsByGameweek(userId, gameweek);
+
+      // Filter to only predictions for players in the current plan
+      const relevantPredictions = savedPredictions.filter(p => currentPlayerIds.has(p.playerId));
+
+      console.log(`[GameweekAnalyzer] Validating ${relevantPredictions.length} predictions (out of ${savedPredictions.length} total) for current plan players`);
+
+      // Validate only relevant predictions have matching snapshot_id
+      const mismatchedPredictions = relevantPredictions.filter(
+        p => p.snapshotId && p.snapshotId !== inputData.context.snapshotId
+      );
+
+      if (mismatchedPredictions.length > 0) {
+        console.error('[GameweekAnalyzer] Snapshot mismatch in predictions:', {
+          expected: inputData.context.snapshotId,
+          found: mismatchedPredictions.map(p => ({ playerId: p.playerId, snapshotId: p.snapshotId }))
+        });
+        throw new Error(`Snapshot validation failed: ${mismatchedPredictions.length} predictions have mismatched snapshot_id`);
+      }
+
+      console.log(`[GameweekAnalyzer] ✓ Validated ${relevantPredictions.length} predictions match snapshot ${inputData.context.snapshotId.substring(0, 8)}...`);
+
       console.log(`[GameweekAnalyzer] Analysis complete, plan ID: ${plan.id}`);
+
+      // Log the decision to audit trail
+      await decisionLogger.logGameweekPlan(
+        userId,
+        plan.id,
+        inputData.context,
+        inputData,
+        aiResponse,
+        aiResponse.confidence,
+        undefined // uncertaintyReasons not currently in AI response
+      );
 
       return plan;
     } catch (error) {
@@ -233,11 +312,10 @@ export class GameweekAnalyzerService {
   private async collectInputData(userId: number, gameweek: number) {
     console.log(`[GameweekAnalyzer] Collecting input data...`);
 
-    // Use unified snapshot for consistent data across all features
-    const { gameweekSnapshot } = await import('./gameweek-data-snapshot');
-    const snapshot = await gameweekSnapshot.getSnapshot(gameweek, true);
+    // Use unified snapshot context for consistent data across all AI operations
+    const context = await snapshotContext.getContext(gameweek, true);
     
-    console.log(`[GameweekAnalyzer] Using data snapshot from ${new Date(snapshot.timestamp).toISOString()} (age: ${Math.round((Date.now() - snapshot.timestamp) / 1000)}s)`);
+    console.log(`[GameweekAnalyzer] Using snapshot ${context.snapshotId} from ${new Date(context.timestamp).toISOString()} (age: ${Math.round((Date.now() - context.timestamp) / 1000)}s)`);
 
     const [
       userSettings,
@@ -255,11 +333,11 @@ export class GameweekAnalyzerService {
       storage.getTransfersByUser(userId),
     ]);
 
-    // Extract data from snapshot
-    const allPlayers = snapshot.data.players;
-    const teams = snapshot.data.teams;
-    const fixtures = snapshot.data.fixtures;
-    const gameweeks = snapshot.data.gameweeks;
+    // Extract data from snapshot context
+    const allPlayers = context.snapshot.data.players;
+    const teams = context.snapshot.data.teams;
+    const fixtures = context.snapshot.data.fixtures;
+    const gameweeks = context.snapshot.data.gameweeks;
 
     // Filter fixtures for next 4-6 gameweeks
     const upcomingFixtures = fixtures.filter(
@@ -349,11 +427,7 @@ export class GameweekAnalyzerService {
       dreamTeam,
       leagueInsights,
       leagueProjectionData,
-      snapshot: {
-        gameweek: snapshot.gameweek,
-        timestamp: snapshot.timestamp,
-        enriched: snapshot.enriched,
-      },
+      context, // Include full snapshot context for validation and metadata
     };
   }
 

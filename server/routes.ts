@@ -15,6 +15,7 @@ import { aiImpactAnalysis } from "./ai-impact-analysis";
 import { predictionAccuracyService } from "./prediction-accuracy";
 import { predictionAnalysisService } from "./prediction-analysis-service";
 import { gameweekSnapshot } from "./gameweek-data-snapshot";
+import { precomputationCache } from "./precomputation-cache";
 import { z } from "zod";
 import { userSettingsSchema } from "@shared/schema";
 
@@ -1449,6 +1450,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("[LEAGUE PROJECTION] Error:", error);
       res.status(500).json({ error: "Failed to calculate league projection" });
     }
+  });
+
+  // Decision Ledger Endpoints
+  app.get("/api/decision-ledger/user/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+      
+      const decisions = await storage.getDecisionsByUser(userId, limit);
+      res.json({ decisions, count: decisions.length });
+    } catch (error) {
+      console.error("Error fetching decisions by user:", error);
+      res.status(500).json({ error: "Failed to fetch decisions" });
+    }
+  });
+
+  app.get("/api/decision-ledger/user/:userId/gameweek/:gameweek", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const gameweek = parseInt(req.params.gameweek);
+      
+      if (isNaN(userId) || isNaN(gameweek)) {
+        return res.status(400).json({ error: "Invalid userId or gameweek" });
+      }
+      
+      const decisions = await storage.getDecisionsByGameweek(userId, gameweek);
+      res.json({ decisions, count: decisions.length });
+    } catch (error) {
+      console.error("Error fetching decisions by gameweek:", error);
+      res.status(500).json({ error: "Failed to fetch decisions" });
+    }
+  });
+
+  app.get("/api/decision-ledger/snapshot/:snapshotId", async (req, res) => {
+    try {
+      const snapshotId = req.params.snapshotId;
+      const decisions = await storage.getDecisionsBySnapshot(snapshotId);
+      res.json({ decisions, count: decisions.length });
+    } catch (error) {
+      console.error("Error fetching decisions by snapshot:", error);
+      res.status(500).json({ error: "Failed to fetch decisions" });
+    }
+  });
+
+  app.get("/api/decision-ledger/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid decision ID" });
+      }
+      
+      const decision = await storage.getDecisionById(id);
+      if (decision) {
+        res.json(decision);
+      } else {
+        res.status(404).json({ error: "Decision not found" });
+      }
+    } catch (error) {
+      console.error("Error fetching decision by ID:", error);
+      res.status(500).json({ error: "Failed to fetch decision" });
+    }
+  });
+
+  // Monitoring Endpoints
+  app.get("/api/monitoring/snapshot-cache", async (req, res) => {
+    const status = gameweekSnapshot.getCacheStatus();
+    res.json(status);
+  });
+
+  app.get("/api/monitoring/precomputation-cache", async (req, res) => {
+    const stats = precomputationCache.getStats();
+    res.json(stats);
+  });
+
+  app.get("/api/monitoring/dashboard", async (req, res) => {
+    const snapshotStatus = gameweekSnapshot.getCacheStatus();
+    const precomputationStats = precomputationCache.getStats();
+    
+    res.json({
+      snapshot: snapshotStatus,
+      precomputation: precomputationStats,
+      timestamp: new Date().toISOString()
+    });
   });
 
   const httpServer = createServer(app);

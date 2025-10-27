@@ -302,6 +302,7 @@ export const predictions = pgTable('predictions', {
   predictedPoints: integer('predicted_points').notNull(),
   actualPoints: integer('actual_points'),
   confidence: integer('confidence').notNull(),
+  snapshotId: text('snapshot_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
   userIdIdx: index('predictions_user_id_idx').on(table.userId),
@@ -309,6 +310,7 @@ export const predictions = pgTable('predictions', {
   playerIdIdx: index('predictions_player_id_idx').on(table.playerId),
   userGameweekIdx: index('predictions_user_gameweek_idx').on(table.userId, table.gameweek),
   userGameweekPlayerIdx: uniqueIndex('predictions_user_gameweek_player_idx').on(table.userId, table.gameweek, table.playerId),
+  snapshotIdIdx: index('predictions_snapshot_id_idx').on(table.snapshotId),
 }));
 
 export const insertPredictionSchema = createInsertSchema(predictions).omit({ id: true, createdAt: true });
@@ -449,6 +451,7 @@ export const gameweekPlans = pgTable('gameweek_plans', {
   predictionAnalysis: text('prediction_analysis'),
   recommendationsChanged: boolean('recommendations_changed').default(false),
   changeReasoning: text('change_reasoning'),
+  snapshotId: text('snapshot_id'),
   snapshotGameweek: integer('snapshot_gameweek'),
   snapshotTimestamp: timestamp('snapshot_timestamp'),
   snapshotEnriched: boolean('snapshot_enriched'),
@@ -567,5 +570,77 @@ export const changeHistoryRelations = relations(changeHistory, ({ one }) => ({
   user: one(users, {
     fields: [changeHistory.userId],
     references: [users.id],
+  }),
+}));
+
+// ==================== PHASE 2: AI PRECOMPUTATION & AUDIT TRAIL ====================
+
+// AI Precomputations Table (for caching intermediate AI results)
+export const aiPrecomputations = pgTable('ai_precomputations', {
+  id: serial('id').primaryKey(),
+  snapshotId: text('snapshot_id').notNull(),
+  gameweek: integer('gameweek').notNull(),
+  computationType: text('computation_type', { 
+    enum: ['player_projections', 'fixture_difficulty', 'captain_shortlist', 'chip_heuristics'] 
+  }).notNull(),
+  playerId: integer('player_id'),
+  result: jsonb('result').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+}, (table) => ({
+  snapshotIdIdx: index('ai_precomp_snapshot_id_idx').on(table.snapshotId),
+  gameweekIdx: index('ai_precomp_gameweek_idx').on(table.gameweek),
+  typeIdx: index('ai_precomp_type_idx').on(table.computationType),
+  playerIdIdx: index('ai_precomp_player_id_idx').on(table.playerId),
+  snapshotTypePlayerUnique: uniqueIndex('ai_precomp_snapshot_type_player_unique')
+    .on(table.snapshotId, table.computationType, table.playerId),
+}));
+
+export const insertAiPrecomputationSchema = createInsertSchema(aiPrecomputations).omit({ id: true, createdAt: true });
+export type InsertAiPrecomputation = z.infer<typeof insertAiPrecomputationSchema>;
+export type AiPrecomputation = typeof aiPrecomputations.$inferSelect;
+
+// AI Decision Ledger Table (for audit trail and replay)
+export const aiDecisionLedger = pgTable('ai_decision_ledger', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  planId: integer('plan_id').references(() => gameweekPlans.id, { onDelete: 'cascade' }),
+  snapshotId: text('snapshot_id').notNull(),
+  gameweek: integer('gameweek').notNull(),
+  decisionType: text('decision_type', { 
+    enum: ['gameweek_plan', 'transfer', 'captain', 'chip', 'prediction'] 
+  }).notNull(),
+  inputsFingerprint: text('inputs_fingerprint').notNull(),
+  modelVersion: text('model_version').notNull(),
+  confidence: integer('confidence'),
+  uncertaintyReasons: jsonb('uncertainty_reasons').$type<string[]>(),
+  overrides: jsonb('overrides').$type<{ [key: string]: any }>(),
+  decisionData: jsonb('decision_data').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index('ai_decision_user_id_idx').on(table.userId),
+  planIdIdx: index('ai_decision_plan_id_idx').on(table.planId),
+  snapshotIdIdx: index('ai_decision_snapshot_id_idx').on(table.snapshotId),
+  gameweekIdx: index('ai_decision_gameweek_idx').on(table.gameweek),
+  decisionTypeIdx: index('ai_decision_type_idx').on(table.decisionType),
+}));
+
+export const insertAiDecisionLedgerSchema = createInsertSchema(aiDecisionLedger).omit({ id: true, createdAt: true });
+export type InsertAiDecisionLedger = z.infer<typeof insertAiDecisionLedgerSchema>;
+export type AiDecisionLedger = typeof aiDecisionLedger.$inferSelect;
+
+// Relations
+export const aiPrecomputationsRelations = relations(aiPrecomputations, ({ one }) => ({
+  // No user relation as these are shared across all users for a given snapshot
+}));
+
+export const aiDecisionLedgerRelations = relations(aiDecisionLedger, ({ one }) => ({
+  user: one(users, {
+    fields: [aiDecisionLedger.userId],
+    references: [users.id],
+  }),
+  plan: one(gameweekPlans, {
+    fields: [aiDecisionLedger.planId],
+    references: [gameweekPlans.id],
   }),
 }));

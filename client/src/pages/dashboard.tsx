@@ -9,6 +9,7 @@ import { Link } from "wouter";
 import { useFPLGameweeks, useFPLPlayers, useFPLTeams, useFPLFixtures } from "@/hooks/use-fpl-data";
 import { LoadingScreen } from "@/components/loading-screen";
 import { ErrorState } from "@/components/error-state";
+import { PredictionAccuracy } from "@/components/prediction-accuracy";
 import { useQuery } from "@tanstack/react-query";
 import type { FPLPlayer, FPLTeam, FPLGameweek, FPLFixture, UserSettings } from "@shared/schema";
 
@@ -190,6 +191,8 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+
+      {settings?.manager_id && <PredictionAccuracy userId={userId} startGameweek={8} />}
 
       <div>
         <div className="flex items-center justify-between mb-3 md:mb-4">

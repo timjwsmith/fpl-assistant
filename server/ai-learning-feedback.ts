@@ -17,6 +17,17 @@ interface AILearningContext {
     averageImpact: number;
     successRate: number;
   };
+  predictionAccuracy: {
+    totalGameweeks: number;
+    meanAbsoluteError: number;
+    overallBias: number;
+    recentMisses: Array<{
+      gameweek: number;
+      predicted: number;
+      actual: number;
+      error: number;
+    }>;
+  };
   recentMistakes: LearningInsight[];
   captainPatterns: {
     successfulPicks: string[];
@@ -42,16 +53,24 @@ export class AILearningFeedbackService {
       p => p.analysisCompletedAt && p.actualPointsWithAI !== null && p.actualPointsWithoutAI !== null
     );
 
-    if (analyzedPlans.length === 0) {
+    // Get prediction accuracy data (plans with actual points tracked)
+    const plansWithPredictions = allPlans.filter(
+      p => p.predictedPoints !== null && p.actualPointsWithAI !== null
+    );
+
+    if (analyzedPlans.length === 0 && plansWithPredictions.length === 0) {
       console.log(`[AILearning] No analyzed gameweeks found for user ${userId}`);
       return this.getEmptyContext();
     }
 
     // Calculate overall performance
     const totalPointsImpact = analyzedPlans.reduce((sum, p) => sum + (p.pointsDelta || 0), 0);
-    const averageImpact = totalPointsImpact / analyzedPlans.length;
+    const averageImpact = analyzedPlans.length > 0 ? totalPointsImpact / analyzedPlans.length : 0;
     const successfulGameweeks = analyzedPlans.filter(p => (p.pointsDelta || 0) > 0).length;
-    const successRate = (successfulGameweeks / analyzedPlans.length) * 100;
+    const successRate = analyzedPlans.length > 0 ? (successfulGameweeks / analyzedPlans.length) * 100 : 0;
+
+    // Calculate prediction accuracy metrics
+    const predictionAccuracy = this.calculatePredictionAccuracy(plansWithPredictions);
 
     // Identify recent mistakes (last 5 gameweeks where AI hurt performance)
     const recentMistakes = await this.identifyRecentMistakes(analyzedPlans.slice(-10), userId);
@@ -65,7 +84,7 @@ export class AILearningFeedbackService {
     // Generate key lessons from the data
     const keyLessons = this.generateKeyLessons(recentMistakes, captainPatterns, transferPatterns, averageImpact);
 
-    console.log(`[AILearning] Context generated: ${analyzedPlans.length} GWs analyzed, avg impact: ${averageImpact.toFixed(1)}, success rate: ${successRate.toFixed(1)}%`);
+    console.log(`[AILearning] Context generated: ${analyzedPlans.length} GWs analyzed, avg impact: ${averageImpact.toFixed(1)}, success rate: ${successRate.toFixed(1)}%, prediction MAE: ${predictionAccuracy.meanAbsoluteError.toFixed(1)}`);
 
     return {
       totalGameweeksAnalyzed: analyzedPlans.length,
@@ -74,10 +93,76 @@ export class AILearningFeedbackService {
         averageImpact,
         successRate,
       },
+      predictionAccuracy,
       recentMistakes,
       captainPatterns,
       transferPatterns,
       keyLessons,
+    };
+  }
+
+  /**
+   * Calculate prediction accuracy metrics from plans with tracked predictions
+   */
+  private calculatePredictionAccuracy(plansWithPredictions: GameweekPlan[]): {
+    totalGameweeks: number;
+    meanAbsoluteError: number;
+    overallBias: number;
+    recentMisses: Array<{
+      gameweek: number;
+      predicted: number;
+      actual: number;
+      error: number;
+    }>;
+  } {
+    if (plansWithPredictions.length === 0) {
+      return {
+        totalGameweeks: 0,
+        meanAbsoluteError: 0,
+        overallBias: 0,
+        recentMisses: [],
+      };
+    }
+
+    // Calculate MAE and bias
+    let totalError = 0;
+    let totalBias = 0;
+    const recentMisses: Array<{
+      gameweek: number;
+      predicted: number;
+      actual: number;
+      error: number;
+    }> = [];
+
+    for (const plan of plansWithPredictions) {
+      const predicted = plan.predictedPoints!;
+      const actual = plan.actualPointsWithAI!;
+      const error = Math.abs(predicted - actual);
+      const bias = predicted - actual;
+
+      totalError += error;
+      totalBias += bias;
+
+      // Track recent misses (error > 10 pts)
+      if (error > 10) {
+        recentMisses.push({
+          gameweek: plan.gameweek,
+          predicted,
+          actual,
+          error,
+        });
+      }
+    }
+
+    // Sort recent misses by error (worst first) and take top 5
+    recentMisses.sort((a, b) => b.error - a.error);
+    const topMisses = recentMisses.slice(0, 5);
+
+    return {
+      totalGameweeks: plansWithPredictions.length,
+      meanAbsoluteError: totalError / plansWithPredictions.length,
+      overallBias: totalBias / plansWithPredictions.length,
+      recentMisses: topMisses,
     };
   }
 
@@ -281,6 +366,33 @@ export class AILearningFeedbackService {
     prompt += `Overall Impact: ${context.overallPerformance.totalPointsImpact >= 0 ? '+' : ''}${context.overallPerformance.totalPointsImpact.toFixed(0)} points total (avg: ${context.overallPerformance.averageImpact >= 0 ? '+' : ''}${context.overallPerformance.averageImpact.toFixed(1)} per GW)\n`;
     prompt += `Success Rate: ${context.overallPerformance.successRate.toFixed(0)}% of gameweeks had positive impact\n\n`;
 
+    // Prediction accuracy stats
+    if (context.predictionAccuracy.totalGameweeks > 0) {
+      prompt += '**PREDICTION ACCURACY ANALYSIS:**\n';
+      prompt += `Tracked predictions: ${context.predictionAccuracy.totalGameweeks} gameweeks\n`;
+      prompt += `Average prediction error: ${context.predictionAccuracy.meanAbsoluteError.toFixed(1)} points per gameweek\n`;
+      prompt += `Prediction bias: ${context.predictionAccuracy.overallBias >= 0 ? '+' : ''}${context.predictionAccuracy.overallBias.toFixed(1)} points (${context.predictionAccuracy.overallBias > 0 ? 'OVER-PREDICTING' : context.predictionAccuracy.overallBias < 0 ? 'UNDER-PREDICTING' : 'NEUTRAL'})\n`;
+      
+      if (context.predictionAccuracy.recentMisses.length > 0) {
+        prompt += '\n**RECENT SIGNIFICANT PREDICTION FAILURES (error >10 pts):**\n';
+        for (const miss of context.predictionAccuracy.recentMisses) {
+          prompt += `- GW${miss.gameweek}: Predicted ${miss.predicted} pts, Actual ${miss.actual} pts (±${miss.error} pts error)\n`;
+        }
+        prompt += '\n';
+      }
+
+      // Critical warning if over-predicting significantly
+      if (context.predictionAccuracy.overallBias > 10) {
+        prompt += `⚠️ CRITICAL: You are SEVERELY OVER-PREDICTING by an average of ${context.predictionAccuracy.overallBias.toFixed(1)} points per gameweek. You MUST:\n`;
+        prompt += '1. Apply a conservative bias correction to all predictions\n';
+        prompt += '2. Be more realistic about captain points (reduce captain multiplier expectations)\n';
+        prompt += '3. Account for rotation risk, especially in defense\n';
+        prompt += '4. Reduce points expectations for players with tough fixtures\n\n';
+      } else if (context.predictionAccuracy.overallBias > 5) {
+        prompt += `⚠️ WARNING: You are over-predicting by ${context.predictionAccuracy.overallBias.toFixed(1)} points per gameweek. Be more conservative in your predictions.\n\n`;
+      }
+    }
+
     // Recent mistakes
     if (context.recentMistakes.length > 0) {
       prompt += '**CRITICAL LESSONS FROM RECENT MISTAKES:**\n';
@@ -320,6 +432,12 @@ export class AILearningFeedbackService {
         totalPointsImpact: 0,
         averageImpact: 0,
         successRate: 0,
+      },
+      predictionAccuracy: {
+        totalGameweeks: 0,
+        meanAbsoluteError: 0,
+        overallBias: 0,
+        recentMisses: [],
       },
       recentMistakes: [],
       captainPatterns: {

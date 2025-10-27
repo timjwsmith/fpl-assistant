@@ -50,6 +50,7 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - **Understat Integration**: Web scraping service enriches player data with advanced statistics (npxG, xGChain, xGBuildup) from Understat.com, featuring 24-hour caching and in-flight request deduplication.
 - **Comprehensive Player Stats**: AI models leverage 20+ additional player metrics, including advanced attacking involvement.
 - **Verbose AI Reasoning**: AI provides data-backed, natural language explanations without technical jargon.
+- **Availability-First Decision Making**: System enforces player availability checks before all AI decisions through multi-layer approach: (1) Pre-filtering: Injured/unavailable/suspended players filtered out before AI sees transfer/captain options, (2) AI prompt rules: Explicit critical rules in prompts prohibiting use of unavailable players, (3) Hard enforcement: Code overrides AI predictions to force 0 points for players with status='i'/'u'/'s' or chance_of_playing=0%. This prevents fundamental errors like recommending injured players or predicting points for known absences.
 - **AI Impact Analysis & Learning System**: Tracks AI performance, learns from past mistakes, and incorporates feedback.
 - **Strategic AI Overhaul**: AI performs multi-gameweek planning and ROI analysis, considering long-term benefits and justifying point hits. It proactively recommends multi-transfer plans based on 6-gameweek fixture analysis.
 - **Manual Workflow**: AI provides recommendations, which users manually apply in the official FPL app/website.

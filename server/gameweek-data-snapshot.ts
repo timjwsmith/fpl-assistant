@@ -10,6 +10,25 @@
  * - Snapshot includes timestamp for debugging and consistency verification
  * - Provides typed access to prevent data access errors
  * - 5-minute cache aligns with FPL API updates
+ * 
+ * CACHE INVALIDATION STRATEGY:
+ * 
+ * When to Force Refresh (forceRefresh=true):
+ * 1. Deadline Transitions - When a gameweek deadline passes and new data is available
+ * 2. Injury News Updates - When critical team news changes player availability
+ * 3. Manual User Refresh - When user explicitly requests fresh data (pull-to-refresh)
+ * 4. Admin Operations - When testing or debugging data accuracy
+ * 5. Data Correction - When FPL API makes retroactive score adjustments
+ * 
+ * Automatic Cache Expiry:
+ * - Default TTL: 5 minutes (matches FPL API update frequency)
+ * - Cache is automatically refreshed when expired
+ * - Age is logged on every request for observability
+ * 
+ * Cache Inspection:
+ * - Use getCacheAge(gameweek) to check individual entry age
+ * - Use getCacheStatus() to see all cached gameweeks and their ages
+ * - Use clearCache(gameweek?) to manually invalidate cache entries
  */
 
 import type {
@@ -48,19 +67,45 @@ class GameweekDataSnapshotService {
 
   /**
    * Get a complete snapshot of all data for a gameweek
-   * Returns cached data if available and fresh, otherwise fetches new data
+   * 
+   * @param gameweek - The gameweek number to fetch data for
+   * @param enrichWithUnderstat - Whether to enrich premium players with Understat data (default: true)
+   * @param forceRefresh - Bypass cache and fetch fresh data (default: false)
+   * 
+   * @returns Complete gameweek snapshot with all FPL and Understat data
+   * 
+   * @example
+   * // Normal usage - uses cache if available and fresh
+   * const snapshot = await gameweekSnapshot.getSnapshot(10);
+   * 
+   * @example
+   * // Force refresh - bypasses cache (use after deadline or injury news)
+   * const snapshot = await gameweekSnapshot.getSnapshot(10, true, true);
    */
-  async getSnapshot(gameweek: number, enrichWithUnderstat: boolean = true): Promise<GameweekSnapshot> {
+  async getSnapshot(
+    gameweek: number, 
+    enrichWithUnderstat: boolean = true,
+    forceRefresh: boolean = false
+  ): Promise<GameweekSnapshot> {
     const cached = this.cache.get(gameweek);
     const now = Date.now();
 
-    // Return cached data if still fresh
-    if (cached && now - cached.timestamp < this.CACHE_DURATION) {
-      console.log(`[Snapshot] Using cached data for GW${gameweek} (age: ${Math.round((now - cached.timestamp) / 1000)}s)`);
+    // Check if we should use cached data
+    if (!forceRefresh && cached && now - cached.timestamp < this.CACHE_DURATION) {
+      const cacheAge = Math.round((now - cached.timestamp) / 1000);
+      console.log(`[Snapshot] 🎯 CACHE HIT for GW${gameweek} (age: ${cacheAge}s, TTL: ${this.CACHE_DURATION / 1000}s)`);
       return cached;
     }
 
-    console.log(`[Snapshot] Fetching fresh data for GW${gameweek}`);
+    // Log the reason for fetching fresh data
+    if (forceRefresh) {
+      console.log(`[Snapshot] 🔄 FORCED REFRESH for GW${gameweek} (cache bypassed)`);
+    } else if (cached) {
+      const cacheAge = Math.round((now - cached.timestamp) / 1000);
+      console.log(`[Snapshot] ⏰ CACHE EXPIRED for GW${gameweek} (age: ${cacheAge}s, TTL: ${this.CACHE_DURATION / 1000}s)`);
+    } else {
+      console.log(`[Snapshot] 🆕 CACHE MISS for GW${gameweek} (no cached data)`);
+    }
     
     // Fetch all FPL data in parallel
     const [players, teams, fixtures, gameweeks] = await Promise.all([
@@ -144,38 +189,90 @@ class GameweekDataSnapshotService {
 
   /**
    * Get the current/next editable gameweek snapshot (planning gameweek)
+   * 
+   * @param enrichWithUnderstat - Whether to enrich premium players with Understat data (default: true)
+   * @param forceRefresh - Bypass cache and fetch fresh data (default: false)
+   * 
+   * @returns Snapshot for the currently editable gameweek
    */
-  async getPlanningSnapshot(enrichWithUnderstat: boolean = true): Promise<GameweekSnapshot> {
+  async getPlanningSnapshot(
+    enrichWithUnderstat: boolean = true,
+    forceRefresh: boolean = false
+  ): Promise<GameweekSnapshot> {
     const planningGameweek = await fplApi.getPlanningGameweek();
     if (!planningGameweek) {
       throw new Error('No planning gameweek available');
     }
     
-    return this.getSnapshot(planningGameweek.id, enrichWithUnderstat);
+    return this.getSnapshot(planningGameweek.id, enrichWithUnderstat, forceRefresh);
   }
 
   /**
    * Clear cache for a specific gameweek (useful for testing or forcing refresh)
+   * 
+   * @param gameweek - Optional gameweek number. If not provided, clears all cache
+   * 
+   * @example
+   * // Clear cache for a specific gameweek
+   * gameweekSnapshot.clearCache(10);
+   * 
+   * @example
+   * // Clear all cache
+   * gameweekSnapshot.clearCache();
    */
   clearCache(gameweek?: number): void {
     if (gameweek) {
       this.cache.delete(gameweek);
-      console.log(`[Snapshot] Cleared cache for GW${gameweek}`);
+      console.log(`[Snapshot] 🗑️  Cleared cache for GW${gameweek}`);
     } else {
       this.cache.clear();
-      console.log(`[Snapshot] Cleared all snapshot cache`);
+      console.log(`[Snapshot] 🗑️  Cleared all snapshot cache`);
     }
   }
 
   /**
-   * Get cache status for debugging
+   * Get the age (in seconds) of cached data for a specific gameweek
+   * Returns null if no cached data exists for that gameweek
+   * 
+   * @param gameweek - The gameweek number to check
+   * @returns Age in seconds, or null if not cached
+   * 
+   * @example
+   * const age = gameweekSnapshot.getCacheAge(10);
+   * if (age !== null && age > 240) {
+   *   console.log('Cache is older than 4 minutes, consider refreshing');
+   * }
    */
-  getCacheStatus(): Array<{ gameweek: number; age: number }> {
+  getCacheAge(gameweek: number): number | null {
+    const cached = this.cache.get(gameweek);
+    if (!cached) {
+      return null;
+    }
+    
     const now = Date.now();
-    return Array.from(this.cache.entries()).map(([gameweek, snapshot]) => ({
-      gameweek,
-      age: Math.round((now - snapshot.timestamp) / 1000), // age in seconds
-    }));
+    return Math.round((now - cached.timestamp) / 1000);
+  }
+
+  /**
+   * Get cache status for all cached gameweeks (for debugging and monitoring)
+   * 
+   * @returns Array of gameweek numbers with their cache age in seconds
+   * 
+   * @example
+   * const status = gameweekSnapshot.getCacheStatus();
+   * console.log('Cached gameweeks:', status);
+   * // Output: [{ gameweek: 10, age: 45, isStale: false }, { gameweek: 9, age: 310, isStale: true }]
+   */
+  getCacheStatus(): Array<{ gameweek: number; age: number; isStale: boolean }> {
+    const now = Date.now();
+    return Array.from(this.cache.entries()).map(([gameweek, snapshot]) => {
+      const age = Math.round((now - snapshot.timestamp) / 1000);
+      return {
+        gameweek,
+        age,
+        isStale: now - snapshot.timestamp >= this.CACHE_DURATION,
+      };
+    });
   }
 }
 

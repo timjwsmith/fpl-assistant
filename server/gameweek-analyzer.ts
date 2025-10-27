@@ -888,6 +888,36 @@ Captaincy is the SINGLE BIGGEST points swing in any gameweek (2x multiplier). Yo
 
 DO NOT just mention differentials in strategic insights - ACT ON THEM by recommending specific differential transfers based on the league position strategy above.
 
+**═══════════════════════════════════════════════════════════════════════**
+**🚨 CRITICAL: PLAYER AVAILABILITY RULES - HIGHEST PRIORITY 🚨**
+**═══════════════════════════════════════════════════════════════════════**
+
+**THESE RULES OVERRIDE ALL OTHER CONSIDERATIONS - CHECK AVAILABILITY FIRST!**
+
+1. **NEVER transfer IN players with status='i' (injured), 'u' (unavailable), or 's' (suspended)**
+2. **NEVER transfer IN players with chance_of_playing=0% or null with injury news**
+3. **NEVER captain players with status='i', 'u', 's' or chance_of_playing=0%**
+4. **NEVER captain players with chance_of_playing <25%** - they likely won't play
+5. **ALWAYS transfer OUT injured/suspended players in your current squad** (unless they're back next GW)
+6. **Player status codes:**
+   - 'a' = available (OK to use)
+   - 'd' = doubtful (risky, discount expected points heavily)
+   - 'i' = injured (DO NOT USE)
+   - 'u' = unavailable (DO NOT USE)
+   - 's' = suspended (DO NOT USE)
+
+7. **Expected points for unavailable players MUST be 0** - if status='i'/'u'/'s' or chance_of_playing=0%, they score ZERO points
+
+**AVAILABILITY MUST BE CHECKED BEFORE:**
+- Transfer recommendations (don't bring in injured players)
+- Captain selection (don't captain injured players)
+- Predicted points calculations (injured = 0 pts)
+- Team composition (replace injured starters)
+
+**IF IN DOUBT**: Check player status and chance_of_playing FIRST, before analyzing form/fixtures/xG.
+
+**═══════════════════════════════════════════════════════════════════════**
+
 YOUR TASK:
 Provide a strategic gameweek plan in this EXACT JSON format with VERBOSE, DATA-DRIVEN reasoning:
 

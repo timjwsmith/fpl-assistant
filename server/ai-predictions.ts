@@ -193,8 +193,16 @@ Based on AVAILABILITY FIRST, then form, fixtures, underlying stats, ICT metrics,
     });
 
     // Find potential replacements in good form with favorable fixtures
+    // CRITICAL: Filter out injured/unavailable/suspended players FIRST
     const potentialTargets = allPlayers
-      .filter(p => !currentPlayers.some(cp => cp.id === p.id) && parseFloat(p.form) > 4)
+      .filter(p => 
+        !currentPlayers.some(cp => cp.id === p.id) && // Not already in squad
+        parseFloat(p.form) > 4 && // Good form
+        p.status !== 'i' && // Not injured
+        p.status !== 'u' && // Not unavailable
+        p.status !== 's' && // Not suspended
+        p.chance_of_playing_this_round !== 0 // Has chance of playing
+      )
       .slice(0, 20)
       .map(p => {
         const team = teams.find((t: FPLTeam) => t.id === p.team);
@@ -329,8 +337,16 @@ Provide exactly 3 transfer recommendations in this JSON format:
     const teams = await fplApi.getTeams();
     
     // Filter and enrich top players with fixture data
+    // CRITICAL: Filter out injured/unavailable/suspended players FIRST - basic availability check
     const topPlayers = players
-      .filter(p => parseFloat(p.form) > 3 && p.total_points > 20)
+      .filter(p => 
+        parseFloat(p.form) > 3 && 
+        p.total_points > 20 &&
+        p.status !== 'i' && // Not injured
+        p.status !== 'u' && // Not unavailable  
+        p.status !== 's' && // Not suspended
+        p.chance_of_playing_this_round !== 0 // Has chance of playing
+      )
       .slice(0, 15)
       .map(p => {
         const team = teams.find((t: FPLTeam) => t.id === p.team);

@@ -230,14 +230,17 @@ export class GameweekAnalyzerService {
   private async collectInputData(userId: number, gameweek: number) {
     console.log(`[GameweekAnalyzer] Collecting input data...`);
 
+    // Use unified snapshot for consistent data across all features
+    const { gameweekSnapshot } = await import('./gameweek-data-snapshot');
+    const snapshot = await gameweekSnapshot.getSnapshot(gameweek, true);
+    
+    console.log(`[GameweekAnalyzer] Using data snapshot from ${new Date(snapshot.timestamp).toISOString()} (age: ${Math.round((Date.now() - snapshot.timestamp) / 1000)}s)`);
+
     const [
       userSettings,
       automationSettings,
       currentTeam,
       managerData,
-      allPlayers,
-      teams,
-      fixtures,
       chipsUsed,
       transferHistory,
     ] = await Promise.all([
@@ -245,12 +248,14 @@ export class GameweekAnalyzerService {
       storage.getAutomationSettings(userId),
       this.getCurrentTeam(userId, gameweek),
       this.getManagerData(userId),
-      fplApi.getPlayers(),
-      fplApi.getTeams(),
-      fplApi.getFixtures(),
       storage.getChipsUsed(userId),
       storage.getTransfersByUser(userId),
     ]);
+
+    // Extract data from snapshot
+    const allPlayers = snapshot.data.players;
+    const teams = snapshot.data.teams;
+    const fixtures = snapshot.data.fixtures;
 
     // Filter fixtures for next 4-6 gameweeks
     const upcomingFixtures = fixtures.filter(

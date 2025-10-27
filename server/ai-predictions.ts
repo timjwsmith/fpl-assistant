@@ -157,9 +157,12 @@ Based on AVAILABILITY FIRST, then form, fixtures, underlying stats, ICT metrics,
     userId?: number,
     gameweek?: number
   ): Promise<TransferRecommendation[]> {
-    // Get team data for fixture context
-    const { fplApi } = await import("./fpl-api");
-    const teams = await fplApi.getTeams();
+    // Get team data from unified snapshot for consistency
+    const { gameweekSnapshot } = await import('./gameweek-data-snapshot');
+    const snapshot = await gameweekSnapshot.getSnapshot(gameweek || 1, false); // Don't need Understat for transfers
+    const teams = snapshot.data.teams;
+    
+    console.log(`[Transfers] Using snapshot from ${new Date(snapshot.timestamp).toISOString()}`);
     
     // Analyze current squad weaknesses
     const squadAnalysis = currentPlayers.map(p => {
@@ -332,9 +335,12 @@ Provide exactly 3 transfer recommendations in this JSON format:
     userId?: number,
     gameweek?: number
   ): Promise<CaptainRecommendation[]> {
-    // Get team data for fixture context
-    const { fplApi } = await import("./fpl-api");
-    const teams = await fplApi.getTeams();
+    // Get team data from unified snapshot for consistency
+    const { gameweekSnapshot } = await import('./gameweek-data-snapshot');
+    const snapshot = await gameweekSnapshot.getSnapshot(gameweek || 1, false); // Don't need Understat for captain picks
+    const teams = snapshot.data.teams;
+    
+    console.log(`[Captain] Using snapshot from ${new Date(snapshot.timestamp).toISOString()}`);
     
     // Filter and enrich top players with fixture data
     // CRITICAL: Filter out injured/unavailable/suspended players FIRST - basic availability check

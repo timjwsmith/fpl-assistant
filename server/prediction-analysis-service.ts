@@ -289,23 +289,32 @@ ${fixturesText}
 
 YOUR TASK: In 2-4 bullet points, explain WHY predictions were inaccurate for the ACTUAL team and decisions used.
 
-CRITICAL RULES:
+CRITICAL RULES - ZERO SPECULATION ALLOWED:
 1. ONLY explain why predictions for actual players were wrong
-2. Use the EXACT point breakdown provided [90 mins: +2, 1YC: -1, etc.] - DO NOT speculate or say "likely"
-3. For defenders/GKs who scored ≤2 pts, check if team conceded (no CS in breakdown = they conceded)
-4. Name specific players with their EXACT breakdown: "Cucurella scored 1 pt [90 mins: +2, 1YC: -1] because Chelsea conceded"
-5. Focus on prediction errors, not alternative strategies
-6. ${!context.recommendedCaptainFollowed && context.planWasApplied ? 'Note: Different captain was chosen than recommended - this may explain part of the error' : 'Analyze why predicted performance differed from actual'}
+2. Use the EXACT point breakdown provided [90 mins: +2, 1YC: -1, etc.] - DO NOT speculate
+3. For defenders/GKs: NO clean sheet in breakdown = their team DEFINITELY conceded (not "likely", not "probably")
+4. Match results show EXACT scores - use them: "Fulham 0-2 Man City" means Leno conceded 2 goals (FACT, not speculation)
+5. Name specific players with EXACT breakdown + EXACT match result: "Leno scored 2 pts [90 mins: +2]. Fulham conceded 2 goals (0-2 vs Man City), no clean sheet."
+6. Focus on prediction errors, not alternative strategies
+7. ${!context.recommendedCaptainFollowed && context.planWasApplied ? 'Note: Different captain was chosen than recommended - this may explain part of the error' : 'Analyze why predicted performance differed from actual'}
+
+BANNED PHRASES - NEVER USE THESE:
+❌ "likely conceded" → ✅ "conceded 2 goals (seen in 0-2 result)"
+❌ "probably didn't get clean sheet" → ✅ "no clean sheet (team conceded 2 goals)"
+❌ "may have received yellow card" → ✅ "received 1 yellow card (shown in breakdown)"
+❌ "appears to have" → ✅ Just state the fact directly
 
 NEVER suggest players that weren't in the team or weren't recommended by the AI.
 NEVER say "you should have done X" unless the AI specifically recommended X in the original plan.
-NEVER use vague language like "likely", "probably", "may have" - you have the EXACT data in the breakdown.
+You have the EXACT data - use it. No hedging, no speculation, no weasel words.
 
-Examples:
-✅ "Cucurella scored 1 pt [90 mins: +2, 1YC: -1]. Chelsea conceded goals so no clean sheet, and the yellow card cost him."
+Examples of EXACT analysis (use these patterns):
+✅ "Leno scored 2 pts [90 mins: +2]. Fulham conceded 2 goals (0-2 vs Man City), no clean sheet."
+✅ "Cucurella scored 1 pt [90 mins: +2, 1YC: -1]. Chelsea conceded in their match (no clean sheet), and the yellow card cost him."
 ✅ "Semenyo (captain) scored 6 pts [90 mins: +2, 1G: +4] in Bournemouth's 3-3 draw. Only 1 goal involvement despite high xG prediction."
-✅ "Mitoma scored 1 pt [58 mins: +1]. Subbed early at 58 minutes, preventing the full appearance points."
-❌ "Cucurella underperformed defensively, likely due to conceding goals or receiving a yellow card" (TOO VAGUE!)
+✅ "Mitoma scored 1 pt [58 mins: +1]. Subbed off at 58 minutes, missing the 60-minute bonus point."
+❌ "Leno only got 2 points, likely due to conceding goals" (SPECULATION - you can see the 0-2 score!)
+❌ "Cucurella underperformed defensively, likely due to conceding goals or receiving a yellow card" (VAGUE!)
 ❌ "You should have captained Haaland" (NEVER suggest alternatives not recommended!)
 
 Format as bullet points starting with "• ". Max 4 bullets.`;

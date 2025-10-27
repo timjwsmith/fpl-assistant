@@ -58,6 +58,13 @@ export interface GameweekSnapshot {
     gameweeks: FPLGameweek[];
     currentGameweek: FPLGameweek | undefined;
     nextGameweek: FPLGameweek | undefined;
+    element_types: Array<{
+      id: number;
+      plural_name: string;
+      plural_name_short: string;
+      singular_name: string;
+      singular_name_short: string;
+    }>;
   };
 }
 
@@ -108,11 +115,12 @@ class GameweekDataSnapshotService {
     }
     
     // Fetch all FPL data in parallel
-    const [players, teams, fixtures, gameweeks] = await Promise.all([
+    const [players, teams, fixtures, gameweeks, element_types] = await Promise.all([
       fplApi.getPlayers(),
       fplApi.getTeams(),
       fplApi.getFixtures(),
       fplApi.getGameweeks(),
+      fplApi.getPositionTypes(),
     ]);
 
     const currentGameweek = gameweeks.find((gw) => gw.is_current);
@@ -134,6 +142,7 @@ class GameweekDataSnapshotService {
         gameweeks,
         currentGameweek,
         nextGameweek,
+        element_types,
       },
     };
 

@@ -22,8 +22,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // FPL Data Endpoints
   app.get("/api/fpl/bootstrap", async (req, res) => {
     try {
-      const data = await fplApi.getBootstrapData();
-      res.json(data);
+      const planningGameweek = await fplApi.getPlanningGameweek();
+      const gameweek = planningGameweek?.id || 1;
+      const snapshot = await gameweekSnapshot.getSnapshot(gameweek);
+      
+      // Construct bootstrap-compatible response with snapshot metadata
+      res.json({
+        elements: snapshot.data.players,
+        teams: snapshot.data.teams,
+        events: snapshot.data.gameweeks,
+        element_types: snapshot.data.element_types,
+        // Include snapshot metadata for debugging data consistency
+        _snapshot: {
+          gameweek: snapshot.gameweek,
+          timestamp: snapshot.timestamp,
+          enriched: snapshot.data.players.some(p => p.understat !== undefined)
+        }
+      });
     } catch (error) {
       console.error("Error fetching bootstrap data:", error);
       res.status(500).json({ error: "Failed to fetch FPL data" });

@@ -262,9 +262,20 @@ export function PredictionAccuracy({ userId, startGameweek = 8 }: PredictionAccu
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        {record.error !== null && (
-                          <Badge variant="outline" className="text-xs">
-                            {record.error === 0 ? 'Perfect' : `±${record.error} pts`}
+                        {record.error !== null && record.actualPoints !== null && (
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs ${
+                              record.error === 0 
+                                ? '' 
+                                : record.predictedPoints > record.actualPoints 
+                                  ? 'text-destructive border-destructive/50' 
+                                  : 'text-chart-2 border-chart-2/50'
+                            }`}
+                          >
+                            {record.error === 0 
+                              ? 'Perfect' 
+                              : `${record.predictedPoints > record.actualPoints ? '+' : ''}${record.predictedPoints - record.actualPoints} pts`}
                           </Badge>
                         )}
                         {getAccuracyBadge(record.error)}

@@ -67,7 +67,7 @@ BONUS POINTS SYSTEM:
 
 AVAILABILITY:
 - Minutes Played: ${context.player.minutes}
-- Status: ${context.player.status}
+- Status: ${context.player.status} (a=available, d=doubtful, i=injured, u=unavailable, s=suspended)
 - Chance of Playing: ${context.player.chance_of_playing_this_round !== null ? context.player.chance_of_playing_this_round + '%' : 'Unknown'}
 - News: ${context.player.news || 'None'}
 - Yellow Cards: ${context.player.yellow_cards} | Red Cards: ${context.player.red_cards}
@@ -75,7 +75,13 @@ AVAILABILITY:
 Upcoming Fixtures (next 3):
 ${context.upcomingFixtures.slice(0, 3).map((f, i) => `${i + 1}. Difficulty: ${f.team_h_difficulty || f.team_a_difficulty}`).join('\n')}
 
-Based on form, fixtures, underlying stats, ICT metrics, and bonus potential, provide a prediction in JSON format:
+CRITICAL RULES FOR INJURY/AVAILABILITY:
+1. If Status is 'i' (injured), 'u' (unavailable), or 's' (suspended) → predicted_points MUST be 0
+2. If Chance of Playing is 0% or null and News mentions injury/suspension → predicted_points MUST be 0
+3. If Chance of Playing is < 25% → predicted_points should be heavily discounted (max 2 pts)
+4. Only predict meaningful points if Status = 'a' (available) OR Chance of Playing ≥ 75%
+
+Based on AVAILABILITY FIRST, then form, fixtures, underlying stats, ICT metrics, and bonus potential, provide a prediction in JSON format:
 {
   "predicted_points": <number>,
   "confidence": <0-100>,
@@ -101,11 +107,27 @@ Based on form, fixtures, underlying stats, ICT metrics, and bonus potential, pro
       result = {};
     }
 
+    // HARD ENFORCEMENT: Override AI if player is definitely unavailable
+    let predictedPoints = result.predicted_points || 0;
+    let reasoning = result.reasoning || "Analysis based on current form and fixtures";
+    
+    // Force 0 points for injured/unavailable/suspended players
+    const isDefinitelyOut = context.player.status === 'i' || 
+                           context.player.status === 'u' || 
+                           context.player.status === 's' ||
+                           context.player.chance_of_playing_this_round === 0;
+    
+    if (isDefinitelyOut && predictedPoints > 0) {
+      console.warn(`[AI Override] ${context.player.web_name} predicted ${predictedPoints} pts but status=${context.player.status}, forcing to 0`);
+      predictedPoints = 0;
+      reasoning = `Player unavailable (${context.player.status === 'i' ? 'injured' : context.player.status === 'u' ? 'unavailable' : 'suspended'}). ${context.player.news || 'No additional news'}`;
+    }
+
     const prediction: Prediction = {
       player_id: context.player.id,
-      predicted_points: result.predicted_points || 0,
+      predicted_points: predictedPoints,
       confidence: result.confidence || 50,
-      reasoning: result.reasoning || "Analysis based on current form and fixtures",
+      reasoning: reasoning,
       fixtures_considered: result.fixtures_considered || context.upcomingFixtures.slice(0, 3).map(f => f.id),
     };
 

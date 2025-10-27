@@ -61,7 +61,17 @@ class PredictionAccuracyService {
       ? plans.filter((p: GameweekPlan) => p.gameweek >= startGameweek)
       : plans;
 
-    const history: GameweekAccuracyRecord[] = filteredPlans.map((plan: GameweekPlan) => {
+    const latestPlansByGameweek = new Map<number, GameweekPlan>();
+    for (const plan of filteredPlans) {
+      const existing = latestPlansByGameweek.get(plan.gameweek);
+      if (!existing || plan.createdAt > existing.createdAt) {
+        latestPlansByGameweek.set(plan.gameweek, plan);
+      }
+    }
+
+    const uniquePlans = Array.from(latestPlansByGameweek.values());
+
+    const history: GameweekAccuracyRecord[] = uniquePlans.map((plan: GameweekPlan) => {
       const error = plan.actualPointsWithAI !== null 
         ? Math.abs(plan.predictedPoints - plan.actualPointsWithAI)
         : null;

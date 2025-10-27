@@ -48,8 +48,8 @@ export class PredictionAnalysisService {
       };
     }
 
-    // Fetch gameweek data for context
-    const gameweekData = await this.getGameweekContext(plan.gameweek);
+    // Fetch gameweek data for context with REAL data
+    const gameweekData = await this.getGameweekContext(plan.gameweek, plan.userId);
 
     // Use AI to analyze the failure
     const analysis = await this.generateAIAnalysis(plan, gameweekData, error);
@@ -69,10 +69,14 @@ export class PredictionAnalysisService {
   }
 
   /**
-   * Get gameweek context for AI analysis
+   * Get gameweek context for AI analysis with REAL data
    */
-  private async getGameweekContext(gameweek: number): Promise<{
+  private async getGameweekContext(gameweek: number, userId: number): Promise<{
     avgScore: number;
+    captain: { name: string; points: number } | null;
+    topUnderperformers: Array<{ name: string; points: number; position: string }>;
+    fixtureResults: Array<{ team: string; opponent: string; result: string }>;
+    teamSummary: string;
   }> {
     try {
       // Get gameweek stats
@@ -80,13 +84,105 @@ export class PredictionAnalysisService {
       const gw = gameweeks.find((g: any) => g.id === gameweek);
       const avgScore = gw?.average_entry_score || 0;
 
+      // Get all players data for this gameweek
+      const allPlayers = await fplApi.getPlayers();
+      const allTeams = await fplApi.getTeams();
+      const fixtures = await fplApi.getFixtures();
+      
+      // Get user's team for this gameweek
+      const userTeam = await storage.getTeam(userId, gameweek);
+      if (!userTeam) {
+        return {
+          avgScore,
+          captain: null,
+          topUnderperformers: [],
+          fixtureResults: [],
+          teamSummary: 'No team data found for this gameweek',
+        };
+      }
+
+      // Get captain info
+      let captain: { name: string; points: number } | null = null;
+      const captainInfo = userTeam.players.find((p: any) => p.is_captain);
+      if (captainInfo?.player_id) {
+        const captainPlayer = allPlayers.find((p: any) => p.id === captainInfo.player_id);
+        if (captainPlayer) {
+          const gwPoints = captainPlayer.event_points || 0;
+          captain = {
+            name: captainPlayer.web_name,
+            points: gwPoints * 2, // Captain gets double points
+          };
+        }
+      }
+
+      // Get all players in team with their performance
+      const teamPerformance = userTeam.players
+        .filter((p: any) => p.player_id) // Filter out null player_ids
+        .map((p: any) => {
+          const playerData = allPlayers.find((pl: any) => pl.id === p.player_id);
+          return {
+            name: playerData?.web_name || 'Unknown',
+            points: playerData?.event_points || 0,
+            position: ['GKP', 'DEF', 'MID', 'FWD'][p.position - 1] || 'Unknown',
+            isCaptain: p.is_captain,
+          };
+        });
+      
+      // Find underperformers (players who scored 2 or fewer points)
+      const underperformers = teamPerformance
+        .filter((p: any) => p.points <= 2)
+        .sort((a: any, b: any) => a.points - b.points)
+        .slice(0, 5);
+
+      // Get relevant fixtures for teams in squad
+      const relevantTeamIds = new Set(
+        userTeam.players
+          .filter((p: any) => p.player_id)
+          .map((p: any) => {
+            const playerData = allPlayers.find((pl: any) => pl.id === p.player_id);
+            return playerData?.team;
+          })
+          .filter(Boolean)
+      );
+
+      const gwFixtures = fixtures
+        .filter((f: any) => f.event === gameweek && f.finished)
+        .filter((f: any) => 
+          relevantTeamIds.has(f.team_h) || relevantTeamIds.has(f.team_a)
+        )
+        .slice(0, 8) // Limit to 8 fixtures
+        .map((f: any) => {
+          const homeTeam = allTeams.find((t: any) => t.id === f.team_h);
+          const awayTeam = allTeams.find((t: any) => t.id === f.team_a);
+          return {
+            team: homeTeam?.name || 'Unknown',
+            opponent: awayTeam?.name || 'Unknown',
+            result: `${f.team_h_score}-${f.team_a_score}`,
+          };
+        });
+
+      // Calculate total points
+      const totalPoints = teamPerformance.reduce((sum: number, p: any) => {
+        return sum + (p.isCaptain ? p.points * 2 : p.points);
+      }, 0);
+
+      const teamSummary = `${userTeam.players.length} players, ${totalPoints} total points`;
+
       return {
         avgScore,
+        captain,
+        topUnderperformers: underperformers,
+        fixtureResults: gwFixtures,
+        teamSummary,
       };
     } catch (error) {
       console.error(`[PredictionAnalysis] Error fetching gameweek context:`, error);
       return {
         avgScore: 0,
+        captain: null,
+        topUnderperformers: [],
+        fixtureResults: [],
+        teamSummary: 'Unable to load team data',
       };
     }
   }
@@ -102,7 +198,20 @@ export class PredictionAnalysisService {
     const bias = plan.predictedPoints - plan.actualPointsWithAI!;
     const biasDirection = bias > 0 ? 'over-predicted' : 'under-predicted';
 
-    const prompt = `You are analyzing why an FPL prediction failed.
+    // Build specific context with real data
+    const captainText = context.captain 
+      ? `Captain: ${context.captain.name} scored ${context.captain.points} pts (including captaincy)`
+      : 'Captain: Unknown';
+
+    const underperformersText = context.topUnderperformers.length > 0
+      ? `Players who scored ≤2 pts:\n${context.topUnderperformers.map((p: any) => `  - ${p.name} (${p.position}): ${p.points} pts`).join('\n')}`
+      : 'No major underperformers';
+
+    const fixturesText = context.fixtureResults.length > 0
+      ? `Key fixtures:\n${context.fixtureResults.map((f: any) => `  - ${f.team} vs ${f.opponent}: ${f.result}`).join('\n')}`
+      : 'Fixtures data unavailable';
+
+    const prompt = `You are analyzing why an FPL prediction failed. Provide SPECIFIC, DATA-DRIVEN analysis using the ACTUAL gameweek data below.
 
 PREDICTION DATA:
 - Gameweek: ${plan.gameweek}
@@ -111,17 +220,24 @@ PREDICTION DATA:
 - Error: ${error} pts (${biasDirection} by ${Math.abs(bias)} pts)
 - Average GW Score: ${context.avgScore} pts
 
-GAMEWEEK CONTEXT:
-- Average FPL Score: ${context.avgScore} pts
+ACTUAL GAMEWEEK DATA:
+${captainText}
+${context.teamSummary}
 
-TASK: Explain in 2-4 concise bullet points WHY the prediction missed. Focus on:
-1. Captain performance (if captain underperformed significantly)
-2. Rotation/bench issues (if key players didn't start)
-3. Defensive performance (if clean sheets missed or conceded unexpectedly)
-4. Fixture surprises (if easy fixtures didn't deliver or tough fixtures exceeded expectations)
-5. Over-optimism bias (if consistently over-predicting)
+${underperformersText}
 
-Format as bullet points starting with "• ". Be specific and data-driven. Max 4 bullets.`;
+${fixturesText}
+
+TASK: Explain in 2-4 concise bullet points WHY the prediction missed. You MUST:
+1. Use SPECIFIC player names, teams, and scores from the data above
+2. Reference ACTUAL match results when explaining fixture surprises
+3. Be concrete - don't say "captain underperformed" without naming who and their score
+4. Focus on the biggest contributors to the ${error} pt error
+
+DO NOT use generic phrases like "key players were benched" - name them!
+DO NOT say "favorable fixtures failed" - specify which match!
+
+Format as bullet points starting with "• ". Max 4 bullets.`;
 
     try {
       const response = await openai.chat.completions.create({
@@ -129,15 +245,15 @@ Format as bullet points starting with "• ". Be specific and data-driven. Max 4
         messages: [
           {
             role: 'system',
-            content: 'You are an FPL prediction analyst. Provide concise, data-driven explanations for prediction failures.',
+            content: 'You are an FPL prediction analyst. Provide SPECIFIC, data-driven explanations using actual player names, teams, and scores. Never use generic placeholders.',
           },
           {
             role: 'user',
             content: prompt,
           },
         ],
-        temperature: 0.3,
-        max_tokens: 300,
+        temperature: 0.2, // Lower temperature for more factual analysis
+        max_tokens: 400,
       });
 
       const analysis = response.choices[0]?.message?.content || 'Unable to generate analysis';

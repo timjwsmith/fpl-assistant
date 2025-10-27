@@ -135,6 +135,15 @@ export class PredictionAnalysisService {
             isCaptain: p.is_captain,
             lineupPosition: p.position, // 1-15 lineup slot
             playedFromBench: p.position > 11 && eventPoints > 0, // Bench player who came on
+            // Detailed stats breakdown for analysis
+            minutes: playerData?.minutes || 0,
+            goalsScored: playerData?.goals_scored || 0,
+            assists: playerData?.assists || 0,
+            cleanSheets: playerData?.clean_sheets || 0,
+            yellowCards: playerData?.yellow_cards || 0,
+            redCards: playerData?.red_cards || 0,
+            bonus: playerData?.bonus || 0,
+            saves: playerData?.saves || 0,
           };
         })
         .filter((p: any) => 
@@ -243,7 +252,19 @@ export class PredictionAnalysisService {
       : 'Captain: Unknown';
 
     const underperformersText = context.topUnderperformers.length > 0
-      ? `Players who scored ≤2 pts:\n${context.topUnderperformers.map((p: any) => `  - ${p.name} (${p.position}): ${p.points} pts`).join('\n')}`
+      ? `Players who scored ≤2 pts (with exact breakdown):\n${context.topUnderperformers.map((p: any) => {
+          const breakdown: string[] = [];
+          if (p.minutes >= 60) breakdown.push(`${p.minutes} mins: +2`);
+          else if (p.minutes > 0) breakdown.push(`${p.minutes} mins: +1`);
+          if (p.goalsScored > 0) breakdown.push(`${p.goalsScored}G: +${p.goalsScored * (p.position === 'FWD' ? 4 : p.position === 'MID' ? 5 : 6)}`);
+          if (p.assists > 0) breakdown.push(`${p.assists}A: +${p.assists * 3}`);
+          if (p.cleanSheets > 0 && (p.position === 'GKP' || p.position === 'DEF')) breakdown.push(`CS: +4`);
+          if (p.yellowCards > 0) breakdown.push(`${p.yellowCards}YC: -${p.yellowCards}`);
+          if (p.redCards > 0) breakdown.push(`${p.redCards}RC: -${p.redCards * 3}`);
+          if (p.bonus > 0) breakdown.push(`Bonus: +${p.bonus}`);
+          if (p.saves >= 3) breakdown.push(`${p.saves} saves: +${Math.floor(p.saves / 3)}`);
+          return `  - ${p.name} (${p.position}): ${p.points} pts [${breakdown.join(', ')}]`;
+        }).join('\n')}`
       : 'No major underperformers';
 
     const fixturesText = context.fixtureResults.length > 0
@@ -270,18 +291,22 @@ YOUR TASK: In 2-4 bullet points, explain WHY predictions were inaccurate for the
 
 CRITICAL RULES:
 1. ONLY explain why predictions for actual players were wrong
-2. Name specific players, their actual scores, and what happened in their matches
-3. Focus on prediction errors, not alternative strategies
-4. ${!context.recommendedCaptainFollowed && context.planWasApplied ? 'Note: Different captain was chosen than recommended - this may explain part of the error' : 'Analyze why predicted performance differed from actual'}
+2. Use the EXACT point breakdown provided [90 mins: +2, 1YC: -1, etc.] - DO NOT speculate or say "likely"
+3. For defenders/GKs who scored ≤2 pts, check if team conceded (no CS in breakdown = they conceded)
+4. Name specific players with their EXACT breakdown: "Cucurella scored 1 pt [90 mins: +2, 1YC: -1] because Chelsea conceded"
+5. Focus on prediction errors, not alternative strategies
+6. ${!context.recommendedCaptainFollowed && context.planWasApplied ? 'Note: Different captain was chosen than recommended - this may explain part of the error' : 'Analyze why predicted performance differed from actual'}
 
 NEVER suggest players that weren't in the team or weren't recommended by the AI.
 NEVER say "you should have done X" unless the AI specifically recommended X in the original plan.
+NEVER use vague language like "likely", "probably", "may have" - you have the EXACT data in the breakdown.
 
 Examples:
-✅ "Semenyo (captain) scored 6 pts in Bournemouth's 3-3 draw. Prediction overestimated his involvement..."
-✅ "Mitoma blanked despite Brighton winning because he was subbed early at 58 minutes..."
+✅ "Cucurella scored 1 pt [90 mins: +2, 1YC: -1]. Chelsea conceded goals so no clean sheet, and the yellow card cost him."
+✅ "Semenyo (captain) scored 6 pts [90 mins: +2, 1G: +4] in Bournemouth's 3-3 draw. Only 1 goal involvement despite high xG prediction."
+✅ "Mitoma scored 1 pt [58 mins: +1]. Subbed early at 58 minutes, preventing the full appearance points."
+❌ "Cucurella underperformed defensively, likely due to conceding goals or receiving a yellow card" (TOO VAGUE!)
 ❌ "You should have captained Haaland" (NEVER suggest alternatives not recommended!)
-❌ "Recommendations weren't followed" (NEVER be adversarial!)
 
 Format as bullet points starting with "• ". Max 4 bullets.`;
 

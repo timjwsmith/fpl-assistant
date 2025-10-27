@@ -243,19 +243,16 @@ export class PredictionAnalysisService {
       ? `Key fixtures:\n${context.fixtureResults.map((f: any) => `  - ${f.team} vs ${f.opponent}: ${f.result}`).join('\n')}`
       : 'Fixtures data unavailable';
 
-    const prompt = `You are analyzing why an FPL prediction missed, using SPECIFIC data to help improve future predictions. This is a collaborative learning exercise.
+    const prompt = `Analyze why the FPL prediction for this gameweek differed from actual results. Focus on understanding what happened with the actual players used, not what could have been done differently.
 
-PREDICTION DATA:
+PREDICTION vs REALITY:
 - Gameweek: ${plan.gameweek}
 - Predicted Points: ${plan.predictedPoints} pts
 - Actual Points: ${plan.actualPointsWithAI} pts
-- Error: ${error} pts (${biasDirection} by ${Math.abs(bias)} pts)
+- Difference: ${error} pts (${biasDirection} by ${Math.abs(bias)} pts)
 - Average GW Score: ${context.avgScore} pts
 
-IMPLEMENTATION STATUS:
-${context.implementationNote}
-
-ACTUAL GAMEWEEK DATA:
+ACTUAL TEAM PERFORMANCE:
 ${captainText}
 ${context.teamSummary}
 
@@ -263,18 +260,19 @@ ${underperformersText}
 
 ${fixturesText}
 
-TASK: Explain in 2-4 concise bullet points WHAT HAPPENED and why the prediction differed from reality. You MUST:
-1. ${!context.planWasApplied ? 'START by noting the plan wasn\'t implemented - different decisions were made on the day' : 'Analyze what happened vs what was expected'}
-2. Use SPECIFIC player names, teams, and scores from the data above
-3. Reference ACTUAL match results when explaining surprises
-4. Be factual and educational, not defensive - focus on learning
-5. Explain the ${error} pt difference objectively
+TASK: Explain in 2-4 bullet points WHY the prediction was off for the actual team used:
+1. Analyze ONLY the players that were actually in the team - never suggest players that weren't available
+2. Explain why specific players scored differently than expected (name them, their actual scores, and why)
+3. Reference specific match results and what actually happened in those games
+4. Focus on learning: what can be learned from these prediction errors?
 
-TONE: Collaborative and learning-focused. We're analyzing what happened to improve predictions, not assigning fault.
+CRITICAL: DO NOT suggest alternative players or teams. ONLY analyze why predictions for the ACTUAL players used were inaccurate.
 
-DO NOT use generic phrases like "key players were benched" - name them!
-DO NOT say "favorable fixtures failed" - specify which match!
-${!context.planWasApplied ? 'If the plan wasn\'t used, briefly note what actually happened instead, then focus on the actual outcomes.' : ''}
+Examples:
+✅ GOOD: "Semenyo (captain) scored 6 pts in Bournemouth's 3-3 draw vs Palace, lower than expected because..."
+❌ BAD: "You should have captained Haaland instead" (Don't suggest alternatives!)
+✅ GOOD: "Mitoma blanked (0 pts) in Brighton's 2-1 win, contrary to predictions because..."
+❌ BAD: "The plan wasn't implemented" (Don't be adversarial!)
 
 Format as bullet points starting with "• ". Max 4 bullets.`;
 

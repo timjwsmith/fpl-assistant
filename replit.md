@@ -7,6 +7,7 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - Default theme: Dark mode
 - Default risk tolerance: Balanced
 - Formation: Automatically determined by AI for each gameweek
+- **POST-PHASE-2 REQUEST**: User wants learning session on: (1) How they could have interacted with agent better, (2) How they could have made the process more efficient
 
 ## Recent Changes
 - **2025-10-27**: **PHASE 1 COMPLETE: Unified Data Layer Architecture** - Successfully implemented comprehensive data consistency system. ALL core FPL data (players, teams, fixtures, gameweeks, element_types) now flows through single `GameweekDataSnapshot` cache. Migrated 7 backend services + all frontend API endpoints to use unified snapshot. Added snapshot metadata tracking (gameweek, timestamp, enriched flag) persisted in database with every AI plan. Implemented cache invalidation strategy with forceRefresh parameter, getCacheAge() inspection, and enhanced observability logging (🎯 CACHE HIT, 🆕 CACHE MISS, ⏰ CACHE EXPIRED, 🔄 FORCED REFRESH). Bootstrap endpoint now 100% cached (zero live API calls). Benefits: (1) Guaranteed data consistency across frontend and AI services, (2) 5-minute cache TTL reduces API load, (3) Complete debugging traceability via snapshot metadata, (4) Foundation ready for Phase 2 coordinated AI pipeline. Architect-approved with PASS verdict.

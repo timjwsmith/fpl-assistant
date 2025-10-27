@@ -243,7 +243,7 @@ export class PredictionAnalysisService {
       ? `Key fixtures:\n${context.fixtureResults.map((f: any) => `  - ${f.team} vs ${f.opponent}: ${f.result}`).join('\n')}`
       : 'Fixtures data unavailable';
 
-    const prompt = `You are analyzing why an FPL prediction failed. Provide SPECIFIC, DATA-DRIVEN analysis using the ACTUAL gameweek data below.
+    const prompt = `You are analyzing why an FPL prediction missed, using SPECIFIC data to help improve future predictions. This is a collaborative learning exercise.
 
 PREDICTION DATA:
 - Gameweek: ${plan.gameweek}
@@ -263,16 +263,18 @@ ${underperformersText}
 
 ${fixturesText}
 
-TASK: Explain in 2-4 concise bullet points WHY the prediction missed. You MUST:
-1. ${!context.planWasApplied ? 'FIRST NOTE that recommendations were NOT implemented - the AI should not be blamed for this error!' : 'Analyze the error based on actual performance'}
+TASK: Explain in 2-4 concise bullet points WHAT HAPPENED and why the prediction differed from reality. You MUST:
+1. ${!context.planWasApplied ? 'START by noting the plan wasn\'t implemented - different decisions were made on the day' : 'Analyze what happened vs what was expected'}
 2. Use SPECIFIC player names, teams, and scores from the data above
-3. Reference ACTUAL match results when explaining fixture surprises
-4. Be concrete - don't say "captain underperformed" without naming who and their score
-5. Focus on the biggest contributors to the ${error} pt error
+3. Reference ACTUAL match results when explaining surprises
+4. Be factual and educational, not defensive - focus on learning
+5. Explain the ${error} pt difference objectively
+
+TONE: Collaborative and learning-focused. We're analyzing what happened to improve predictions, not assigning fault.
 
 DO NOT use generic phrases like "key players were benched" - name them!
 DO NOT say "favorable fixtures failed" - specify which match!
-${!context.planWasApplied ? 'DO NOT analyze why players underperformed if the recommendations were never implemented!' : ''}
+${!context.planWasApplied ? 'If the plan wasn\'t used, briefly note what actually happened instead, then focus on the actual outcomes.' : ''}
 
 Format as bullet points starting with "• ". Max 4 bullets.`;
 
@@ -282,7 +284,7 @@ Format as bullet points starting with "• ". Max 4 bullets.`;
         messages: [
           {
             role: 'system',
-            content: 'You are an FPL prediction analyst. Provide SPECIFIC, data-driven explanations using actual player names, teams, and scores. Never use generic placeholders.',
+            content: 'You are a collaborative FPL analyst helping understand prediction accuracy. Provide SPECIFIC, factual explanations using actual player names, teams, and scores. Focus on learning and improvement, not blame. Be educational and objective.',
           },
           {
             role: 'user',

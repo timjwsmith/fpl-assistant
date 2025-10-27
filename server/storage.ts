@@ -96,6 +96,7 @@ export interface IStorage {
   getLatestGameweekPlan(userId: number): Promise<GameweekPlan | undefined>;
   getGameweekPlansByUser(userId: number): Promise<GameweekPlan[]>;
   updateGameweekPlanStatus(planId: number, status: 'pending' | 'previewed' | 'applied' | 'rejected'): Promise<void>;
+  updateGameweekPlanActualPoints(planId: number, actualPoints: number): Promise<void>;
   updateGameweekPlanAnalysis(planId: number, analysis: {
     actualPointsWithAI: number;
     actualPointsWithoutAI: number;
@@ -618,6 +619,15 @@ export class PostgresStorage implements IStorage {
       .set({ 
         status,
         appliedAt: status === 'applied' ? new Date() : undefined,
+      })
+      .where(eq(gameweekPlans.id, planId));
+  }
+
+  async updateGameweekPlanActualPoints(planId: number, actualPoints: number): Promise<void> {
+    await db
+      .update(gameweekPlans)
+      .set({ 
+        actualPointsWithAI: actualPoints,
       })
       .where(eq(gameweekPlans.id, planId));
   }

@@ -12,6 +12,7 @@ import { leagueAnalysis } from "./league-analysis";
 import { competitorPredictor } from "./competitor-predictor";
 import { leagueProjection } from "./league-projection";
 import { aiImpactAnalysis } from "./ai-impact-analysis";
+import { predictionAccuracyService } from "./prediction-accuracy";
 import { z } from "zod";
 import { userSettingsSchema } from "@shared/schema";
 
@@ -877,6 +878,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("[Automation History Route] Error fetching change history:", error);
       res.status(500).json({ 
         error: "Failed to fetch change history",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Prediction Accuracy Routes
+  app.get("/api/prediction-accuracy/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+
+      const startGameweek = req.query.startGameweek 
+        ? parseInt(req.query.startGameweek as string) 
+        : undefined;
+
+      console.log(`[Prediction Accuracy Route] Fetching accuracy history for user ${userId}${startGameweek ? ` from GW${startGameweek}` : ''}`);
+      
+      const accuracyData = await predictionAccuracyService.getAccuracyHistory(userId, startGameweek);
+      
+      res.json(accuracyData);
+    } catch (error) {
+      console.error("[Prediction Accuracy Route] Error fetching accuracy history:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch prediction accuracy",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.post("/api/prediction-accuracy/update/:userId/:gameweek", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const gameweek = parseInt(req.params.gameweek);
+      
+      if (isNaN(userId) || isNaN(gameweek)) {
+        return res.status(400).json({ error: "Invalid userId or gameweek" });
+      }
+
+      console.log(`[Prediction Accuracy Route] Updating actual points for user ${userId}, GW${gameweek}`);
+      
+      await predictionAccuracyService.updateActualPoints(userId, gameweek);
+      
+      res.json({ success: true, message: `Updated actual points for GW${gameweek}` });
+    } catch (error) {
+      console.error("[Prediction Accuracy Route] Error updating actual points:", error);
+      res.status(500).json({ 
+        error: "Failed to update actual points",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.post("/api/prediction-accuracy/backfill/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const { fromGameweek, toGameweek } = req.body;
+      
+      if (isNaN(userId) || !fromGameweek || !toGameweek) {
+        return res.status(400).json({ error: "Invalid request parameters" });
+      }
+
+      console.log(`[Prediction Accuracy Route] Backfilling actual points for user ${userId}, GW${fromGameweek}-${toGameweek}`);
+      
+      const updated = await predictionAccuracyService.backfillActualPoints(userId, fromGameweek, toGameweek);
+      
+      res.json({ success: true, updated, message: `Backfilled ${updated} gameweeks` });
+    } catch (error) {
+      console.error("[Prediction Accuracy Route] Error backfilling actual points:", error);
+      res.status(500).json({ 
+        error: "Failed to backfill actual points",
         details: error instanceof Error ? error.message : "Unknown error"
       });
     }

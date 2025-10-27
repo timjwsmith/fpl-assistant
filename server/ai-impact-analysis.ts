@@ -1,6 +1,7 @@
 import { fplApi } from './fpl-api';
 import { storage } from './storage';
-import type { GameweekPlan } from '../shared/schema';
+import { gameweekSnapshot } from './gameweek-data-snapshot';
+import type { GameweekPlan, FPLPlayer, FPLGameweek } from '../shared/schema';
 
 interface PlayerGameweekPoints {
   playerId: number;
@@ -48,8 +49,11 @@ export class AIImpactAnalysisService {
       throw new Error(`Plan ${planId} missing original team snapshot - cannot calculate impact`);
     }
 
-    // 2. Check if gameweek is finished
-    const gameweeks = await fplApi.getGameweeks();
+    // 2. Fetch snapshot data for the gameweek
+    const snapshot = await gameweekSnapshot.getSnapshot(plan.gameweek);
+    const gameweeks = snapshot.data.gameweeks;
+    const allPlayers = snapshot.data.players;
+    
     const targetGameweek = gameweeks.find(gw => gw.id === plan.gameweek);
     if (!targetGameweek?.finished) {
       throw new Error(`Gameweek ${plan.gameweek} is not finished yet`);
@@ -77,12 +81,13 @@ export class AIImpactAnalysisService {
     // 7. Detailed comparison: Captain impact
     const captainComparison = await this.analyzeCaptainImpact(
       plan,
-      playerPoints
+      playerPoints,
+      allPlayers
     );
 
     // 8. Detailed comparison: Transfers impact (if any)
     const transfersImpact = plan.transfers.length > 0
-      ? await this.analyzeTransfersImpact(plan, playerPoints)
+      ? await this.analyzeTransfersImpact(plan, playerPoints, allPlayers)
       : undefined;
 
     // 9. Update the plan in database
@@ -215,14 +220,14 @@ export class AIImpactAnalysisService {
    */
   private async analyzeCaptainImpact(
     plan: GameweekPlan,
-    playerPoints: Map<number, PlayerGameweekPoints>
+    playerPoints: Map<number, PlayerGameweekPoints>,
+    players: FPLPlayer[]
   ): Promise<{
     original: { playerId: number; playerName: string; points: number };
     ai: { playerId: number; playerName: string; points: number };
     deltaFromCaptainChange: number;
   }> {
-    const allPlayers = await fplApi.getPlayers();
-    const playersMap = new Map(allPlayers.map(p => [p.id, p]));
+    const playersMap = new Map(players.map(p => [p.id, p]));
 
     const originalCaptainId = plan.originalTeamSnapshot!.captain_id;
     const aiCaptainId = plan.captainId!;
@@ -253,14 +258,14 @@ export class AIImpactAnalysisService {
    */
   private async analyzeTransfersImpact(
     plan: GameweekPlan,
-    playerPoints: Map<number, PlayerGameweekPoints>
+    playerPoints: Map<number, PlayerGameweekPoints>,
+    players: FPLPlayer[]
   ): Promise<{
     playersAdded: Array<{ playerId: number; playerName: string; points: number }>;
     playersRemoved: Array<{ playerId: number; playerName: string; points: number }>;
     netTransferImpact: number;
   }> {
-    const allPlayers = await fplApi.getPlayers();
-    const playersMap = new Map(allPlayers.map(p => [p.id, p]));
+    const playersMap = new Map(players.map(p => [p.id, p]));
 
     const playersAdded = plan.transfers.map(t => {
       const points = playerPoints.get(t.player_in_id)?.points || 0;
@@ -301,8 +306,13 @@ export class AIImpactAnalysisService {
     const plans = await storage.getGameweekPlansByUser(userId);
     const appliedPlans = plans.filter(p => p.status === 'applied' && p.originalTeamSnapshot);
 
+    // Get current gameweek to fetch snapshot
+    const planningGameweek = await fplApi.getPlanningGameweek();
+    const currentGw = planningGameweek?.id || 1;
+    
     // Check which gameweeks are finished
-    const gameweeks = await fplApi.getGameweeks();
+    const snapshot = await gameweekSnapshot.getSnapshot(currentGw);
+    const gameweeks = snapshot.data.gameweeks;
     const finishedGameweeks = new Set(gameweeks.filter(gw => gw.finished).map(gw => gw.id));
 
     const results: ImpactAnalysisResult[] = [];

@@ -256,6 +256,7 @@ export class GameweekAnalyzerService {
     const allPlayers = snapshot.data.players;
     const teams = snapshot.data.teams;
     const fixtures = snapshot.data.fixtures;
+    const gameweeks = snapshot.data.gameweeks;
 
     // Filter fixtures for next 4-6 gameweeks
     const upcomingFixtures = fixtures.filter(
@@ -311,7 +312,8 @@ export class GameweekAnalyzerService {
               gameweek,
               allPlayers,
               upcomingFixtures,
-              teams
+              teams,
+              gameweeks
             );
 
             leagueProjectionData = leagueProjection.calculateProjection(
@@ -972,7 +974,7 @@ CRITICAL REQUIREMENTS:
     let learningPrompt = '';
     try {
       console.log(`[GameweekAnalyzer] Fetching AI learning context for user ${userId}...`);
-      const learningContext = await aiLearningFeedback.generateLearningContext(userId);
+      const learningContext = await aiLearningFeedback.generateLearningContext(userId, allPlayers);
       console.log(`[GameweekAnalyzer] Learning context fetched: ${learningContext.totalGameweeksAnalyzed} gameweeks analyzed`);
       
       if (learningContext.keyLessons.length > 0) {

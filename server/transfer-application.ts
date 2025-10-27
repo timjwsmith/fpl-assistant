@@ -1,7 +1,8 @@
 import { storage } from './storage';
 import { fplAuth } from './fpl-auth';
 import { fplApi } from './fpl-api';
-import type { TransferRecommendation } from '@shared/schema';
+import { gameweekSnapshot } from './gameweek-data-snapshot';
+import type { TransferRecommendation, FPLPlayer } from '@shared/schema';
 
 const FPL_BASE_URL = 'https://fantasy.premierleague.com/api';
 
@@ -93,7 +94,11 @@ class TransferApplicationService {
 
       const managerId = userSettings.manager_id;
 
-      await this.validatePlan(plan, managerId);
+      // Fetch snapshot data for validation
+      const snapshot = await gameweekSnapshot.getSnapshot(plan.gameweek);
+      const players = snapshot.data.players;
+
+      await this.validatePlan(plan, managerId, players);
 
       if (plan.transfers && Array.isArray(plan.transfers) && plan.transfers.length > 0) {
         const transferSuccess = await this.makeTransfers(
@@ -101,7 +106,8 @@ class TransferApplicationService {
           plan.transfers, 
           plan.gameweek,
           managerId,
-          plan.chipToPlay === 'wildcard' || plan.chipToPlay === 'freehit' ? plan.chipToPlay : null
+          plan.chipToPlay === 'wildcard' || plan.chipToPlay === 'freehit' ? plan.chipToPlay : null,
+          players
         );
         result.transfersApplied = transferSuccess;
         result.details.transfersCount = plan.transfers.length;
@@ -180,7 +186,8 @@ class TransferApplicationService {
     transfers: TransferRecommendation[], 
     gameweek: number,
     managerId?: number,
-    chipToUse?: string | null
+    chipToUse?: string | null,
+    players?: FPLPlayer[]
   ): Promise<boolean> {
     console.log(`[Transfer Application] Making ${transfers.length} transfers for user ${userId}, gameweek ${gameweek}`);
     
@@ -195,7 +202,11 @@ class TransferApplicationService {
       const sessionCookies = await fplAuth.getSessionCookies(userId);
       const csrfToken = await fplAuth.getCsrfToken(userId);
 
-      const players = await fplApi.getPlayers();
+      // Fetch players if not provided
+      if (!players) {
+        const snapshot = await gameweekSnapshot.getSnapshot(gameweek);
+        players = snapshot.data.players;
+      }
       
       const transferPayloads: TransferPayload[] = transfers.map(transfer => {
         const playerIn = players.find(p => p.id === transfer.player_in_id);
@@ -539,8 +550,7 @@ class TransferApplicationService {
     }
   }
 
-  private async validatePlan(plan: any, managerId: number): Promise<void> {
-    const players = await fplApi.getPlayers();
+  private async validatePlan(plan: any, managerId: number, players: FPLPlayer[]): Promise<void> {
     const playerIds = new Set(players.map(p => p.id));
 
     if (plan.transfers && Array.isArray(plan.transfers)) {

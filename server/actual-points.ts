@@ -1,5 +1,6 @@
 import { fplApi } from "./fpl-api";
 import { storage } from "./storage";
+import { gameweekSnapshot } from "./gameweek-data-snapshot";
 import type { PredictionDB } from "@shared/schema";
 
 interface PlayerActualPoints {
@@ -42,7 +43,9 @@ class ActualPointsService {
     let updated = 0;
 
     try {
-      const gameweeks = await fplApi.getGameweeks();
+      // Fetch snapshot data
+      const snapshot = await gameweekSnapshot.getSnapshot(gameweek);
+      const gameweeks = snapshot.data.gameweeks;
       const targetGameweek = gameweeks.find(gw => gw.id === gameweek);
 
       if (!targetGameweek) {
@@ -142,7 +145,10 @@ class ActualPointsService {
   async getPerformanceComparison(userId: number, gameweek: number) {
     try {
       const predictions = await storage.getPredictions(userId, gameweek);
-      const allPlayers = await fplApi.getPlayers();
+      
+      // Fetch snapshot data
+      const snapshot = await gameweekSnapshot.getSnapshot(gameweek);
+      const allPlayers = snapshot.data.players;
       const playersMap = new Map(allPlayers.map(p => [p.id, p]));
 
       const predictionDetails = predictions.map(p => {

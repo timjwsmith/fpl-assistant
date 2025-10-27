@@ -1,5 +1,4 @@
 import type { FPLPlayer } from "@shared/schema";
-import { fplApi } from "./fpl-api";
 
 interface RawGameweekPlan {
   id: number;
@@ -50,28 +49,13 @@ interface HydratedGameweekPlan extends Omit<RawGameweekPlan, 'transfers' | 'capt
 }
 
 export class GameweekPlanHydrator {
-  private playerCache: Map<number, FPLPlayer> | null = null;
-  private cacheTimestamp: number = 0;
-  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
-  private async getPlayerMap(): Promise<Map<number, FPLPlayer>> {
-    const now = Date.now();
-    
-    // Return cached data if still valid
-    if (this.playerCache && (now - this.cacheTimestamp) < this.CACHE_DURATION) {
-      return this.playerCache;
-    }
-
-    // Fetch fresh data
-    const players = await fplApi.getPlayers();
-    this.playerCache = new Map(players.map(p => [p.id, p]));
-    this.cacheTimestamp = now;
-    
-    return this.playerCache;
-  }
-
-  async hydratePlan(rawPlan: RawGameweekPlan): Promise<HydratedGameweekPlan> {
-    const playerMap = await this.getPlayerMap();
+  /**
+   * Hydrate a gameweek plan with player names and calculated fields
+   * @param rawPlan - The raw plan from database
+   * @param players - Array of FPL players (from snapshot)
+   */
+  async hydratePlan(rawPlan: RawGameweekPlan, players: FPLPlayer[]): Promise<HydratedGameweekPlan> {
+    const playerMap = new Map(players.map(p => [p.id, p]));
 
     // Enrich transfers with player names
     const enrichedTransfers = rawPlan.transfers.map(transfer => ({
@@ -103,8 +87,13 @@ export class GameweekPlanHydrator {
     };
   }
 
-  async hydratePlans(rawPlans: RawGameweekPlan[]): Promise<HydratedGameweekPlan[]> {
-    return Promise.all(rawPlans.map(plan => this.hydratePlan(plan)));
+  /**
+   * Hydrate multiple gameweek plans with player names and calculated fields
+   * @param rawPlans - Array of raw plans from database
+   * @param players - Array of FPL players (from snapshot)
+   */
+  async hydratePlans(rawPlans: RawGameweekPlan[], players: FPLPlayer[]): Promise<HydratedGameweekPlan[]> {
+    return Promise.all(rawPlans.map(plan => this.hydratePlan(plan, players)));
   }
 }
 

@@ -14,6 +14,7 @@ import { leagueProjection } from "./league-projection";
 import { aiImpactAnalysis } from "./ai-impact-analysis";
 import { predictionAccuracyService } from "./prediction-accuracy";
 import { predictionAnalysisService } from "./prediction-analysis-service";
+import { gameweekSnapshot } from "./gameweek-data-snapshot";
 import { z } from "zod";
 import { userSettingsSchema } from "@shared/schema";
 
@@ -31,8 +32,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/fpl/players", async (req, res) => {
     try {
-      const players = await fplApi.getPlayers();
-      res.json(players);
+      const planningGameweek = await fplApi.getPlanningGameweek();
+      const gameweek = planningGameweek?.id || 1;
+      const snapshot = await gameweekSnapshot.getSnapshot(gameweek);
+      res.json(snapshot.data.players);
     } catch (error) {
       console.error("Error fetching players:", error);
       res.status(500).json({ error: "Failed to fetch players" });
@@ -41,8 +44,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/fpl/teams", async (req, res) => {
     try {
-      const teams = await fplApi.getTeams();
-      res.json(teams);
+      const planningGameweek = await fplApi.getPlanningGameweek();
+      const gameweek = planningGameweek?.id || 1;
+      const snapshot = await gameweekSnapshot.getSnapshot(gameweek);
+      res.json(snapshot.data.teams);
     } catch (error) {
       console.error("Error fetching teams:", error);
       res.status(500).json({ error: "Failed to fetch teams" });
@@ -51,8 +56,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/fpl/gameweeks", async (req, res) => {
     try {
-      const gameweeks = await fplApi.getGameweeks();
-      res.json(gameweeks);
+      const planningGameweek = await fplApi.getPlanningGameweek();
+      const gameweek = planningGameweek?.id || 1;
+      const snapshot = await gameweekSnapshot.getSnapshot(gameweek);
+      res.json(snapshot.data.gameweeks);
     } catch (error) {
       console.error("Error fetching gameweeks:", error);
       res.status(500).json({ error: "Failed to fetch gameweeks" });
@@ -74,8 +81,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/fpl/fixtures", async (req, res) => {
     try {
-      const gameweek = req.query.gameweek ? parseInt(req.query.gameweek as string) : undefined;
-      const fixtures = await fplApi.getFixtures(gameweek);
+      const planningGameweek = await fplApi.getPlanningGameweek();
+      const defaultGameweek = planningGameweek?.id || 1;
+      const gameweek = req.query.gameweek ? parseInt(req.query.gameweek as string) : defaultGameweek;
+      const snapshot = await gameweekSnapshot.getSnapshot(gameweek);
+      
+      // Filter fixtures by gameweek if specified in query
+      const fixtures = req.query.gameweek 
+        ? snapshot.data.fixtures.filter(f => f.event === gameweek)
+        : snapshot.data.fixtures;
+      
       res.json(fixtures);
     } catch (error) {
       console.error("Error fetching fixtures:", error);
@@ -267,13 +282,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Missing required data" });
       }
 
-      const allPlayers = await fplApi.getPlayers();
-      const fixtures = await fplApi.getFixtures();
+      const planningGameweek = await fplApi.getPlanningGameweek();
+      const gameweek = planningGameweek?.id || 1;
+      const snapshot = await gameweekSnapshot.getSnapshot(gameweek);
       
       const recommendations = await aiPredictions.getTransferRecommendations(
         currentPlayers,
-        allPlayers,
-        fixtures,
+        snapshot.data.players,
+        snapshot.data.fixtures,
         budget
       );
       
@@ -291,11 +307,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Missing or invalid playerIds" });
       }
 
-      const allPlayers = await fplApi.getPlayers();
-      const fixtures = await fplApi.getFixtures();
+      const planningGameweek = await fplApi.getPlanningGameweek();
+      const gameweek = planningGameweek?.id || 1;
+      const snapshot = await gameweekSnapshot.getSnapshot(gameweek);
       
-      const players = allPlayers.filter(p => playerIds.includes(p.id));
-      const recommendations = await aiPredictions.getCaptainRecommendations(players, fixtures);
+      const players = snapshot.data.players.filter(p => playerIds.includes(p.id));
+      const recommendations = await aiPredictions.getCaptainRecommendations(players, snapshot.data.fixtures);
       
       res.json(recommendations);
     } catch (error) {
@@ -678,10 +695,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid userId" });
       }
 
-      const gameweeks = await fplApi.getGameweeks();
-      const nextGW = gameweeks.find(gw => gw.is_next);
-      const currentGW = gameweeks.find(gw => gw.is_current);
-      const defaultGW = nextGW?.id || currentGW?.id || 1;
+      const planningGameweek = await fplApi.getPlanningGameweek();
+      const defaultGW = planningGameweek?.id || 1;
       
       const gameweek = req.query.gameweek 
         ? parseInt(req.query.gameweek as string) 
@@ -729,9 +744,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(null);
       }
 
+      // Get players from snapshot for hydration
+      const snapshot = await gameweekSnapshot.getSnapshot(rawPlan.gameweek);
+      
       // Hydrate the plan with player names and calculated fields
       const { gameweekPlanHydrator } = await import("./gameweek-plan-hydrator");
-      const hydratedPlan = await gameweekPlanHydrator.hydratePlan(rawPlan);
+      const hydratedPlan = await gameweekPlanHydrator.hydratePlan(rawPlan, snapshot.data.players);
       
       res.json(hydratedPlan);
     } catch (error) {
@@ -753,9 +771,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const rawPlans = await storage.getGameweekPlansByUser(userId);
       
+      if (rawPlans.length === 0) {
+        return res.json([]);
+      }
+      
+      // Get players from snapshot (use latest plan's gameweek or current)
+      const latestGameweek = rawPlans[rawPlans.length - 1]?.gameweek || 1;
+      const snapshot = await gameweekSnapshot.getSnapshot(latestGameweek);
+      
       // Hydrate all plans with player names and calculated fields
       const { gameweekPlanHydrator } = await import("./gameweek-plan-hydrator");
-      const hydratedPlans = await gameweekPlanHydrator.hydratePlans(rawPlans);
+      const hydratedPlans = await gameweekPlanHydrator.hydratePlans(rawPlans, snapshot.data.players);
       
       res.json(hydratedPlans);
     } catch (error) {
@@ -1308,16 +1334,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No primary league configured in user settings" });
       }
 
-      if (!gameweek) {
-        const gameweeks = await fplApi.getGameweeks();
-        const currentGW = gameweeks.find((gw: any) => gw.is_current) || gameweeks[0];
-        if (!currentGW) {
-          return res.status(400).json({ error: "Could not determine current gameweek" });
-        }
-      }
-
-      const players = await fplApi.getPlayers();
-      const gwToUse = gameweek || (await fplApi.getGameweeks()).find((gw: any) => gw.is_current)?.id || 1;
+      const planningGameweek = await fplApi.getPlanningGameweek();
+      const gwToUse = gameweek || planningGameweek?.id || 1;
+      
+      const snapshot = await gameweekSnapshot.getSnapshot(gwToUse);
+      const players = snapshot.data.players;
 
       const analysis = await leagueAnalysis.analyzeLeague(
         userSettings.primary_league_id,
@@ -1359,17 +1380,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No primary league configured in user settings" });
       }
 
-      const players = await fplApi.getPlayers();
-      const teams = await fplApi.getTeams();
-      const gameweeks = await fplApi.getGameweeks();
-      const currentGW = gameweeks.find((gw: any) => gw.is_current) || gameweeks[0];
-      const gwToUse = gameweek || currentGW?.id;
-
-      if (!gwToUse) {
-        return res.status(400).json({ error: "Could not determine gameweek" });
-      }
-
-      const fixtures = await fplApi.getFixtures(gwToUse);
+      const planningGameweek = await fplApi.getPlanningGameweek();
+      const gwToUse = gameweek || planningGameweek?.id || 1;
+      
+      const snapshot = await gameweekSnapshot.getSnapshot(gwToUse);
+      const players = snapshot.data.players;
+      const teams = snapshot.data.teams;
+      const gameweeks = snapshot.data.gameweeks;
+      const fixtures = snapshot.data.fixtures.filter((f: any) => f.event === gwToUse);
 
       console.log(`[LEAGUE PROJECTION] Fetching league standings for league ${userSettings.primary_league_id}`);
       const standings = await fplApi.getLeagueStandings(userSettings.primary_league_id);
@@ -1388,7 +1406,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         gwToUse,
         players,
         fixtures,
-        teams
+        teams,
+        gameweeks
       );
 
       const aiPlan = await storage.getGameweekPlan(userId, gwToUse);

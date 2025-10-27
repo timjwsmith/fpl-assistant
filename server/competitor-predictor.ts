@@ -1,5 +1,5 @@
 import { fplApi } from "./fpl-api";
-import type { FPLPlayer, FPLFixture, FPLTeam, FPLTeamPicks } from "@shared/schema";
+import type { FPLPlayer, FPLFixture, FPLTeam, FPLGameweek } from "@shared/schema";
 
 export interface CompetitorPrediction {
   managerId: number;
@@ -35,7 +35,8 @@ class CompetitorPredictorService {
     gameweek: number,
     players: FPLPlayer[],
     fixtures: FPLFixture[],
-    teams: FPLTeam[]
+    teams: FPLTeam[],
+    gameweeks: FPLGameweek[]
   ): Promise<CompetitorPrediction[]> {
     const cacheKey = `${leagueId}-${gameweek}`;
     const cached = this.cache.get(cacheKey);
@@ -56,7 +57,8 @@ class CompetitorPredictorService {
           gameweek,
           players,
           fixtures,
-          teams
+          teams,
+          gameweeks
         );
         predictions.push(prediction);
       } catch (error) {
@@ -80,7 +82,8 @@ class CompetitorPredictorService {
     gameweek: number,
     players: FPLPlayer[],
     fixtures: FPLFixture[],
-    teams: FPLTeam[]
+    teams: FPLTeam[],
+    gameweeks: FPLGameweek[]
   ): Promise<CompetitorPrediction> {
     const managerDetails = await fplApi.getManagerDetails(managerId);
     
@@ -88,7 +91,6 @@ class CompetitorPredictorService {
     try {
       teamPicks = await fplApi.getManagerPicks(managerId, gameweek);
     } catch (error) {
-      const gameweeks = await fplApi.getGameweeks();
       const currentGW = gameweeks.find(gw => gw.is_current);
       if (currentGW && currentGW.id !== gameweek) {
         console.log(`[COMPETITOR PREDICTOR] GW${gameweek} picks not available for manager ${managerId}, falling back to GW${currentGW.id}`);

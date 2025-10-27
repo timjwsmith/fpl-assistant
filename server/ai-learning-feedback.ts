@@ -1,6 +1,5 @@
 import { storage } from './storage';
-import { fplApi } from './fpl-api';
-import type { GameweekPlan } from '../shared/schema';
+import type { GameweekPlan, FPLPlayer } from '../shared/schema';
 
 interface LearningInsight {
   gameweek: number;
@@ -43,8 +42,10 @@ interface AILearningContext {
 export class AILearningFeedbackService {
   /**
    * Generate learning context from past AI performance to improve future decisions
+   * @param userId - User ID
+   * @param players - Array of FPL players (from snapshot)
    */
-  async generateLearningContext(userId: number): Promise<AILearningContext> {
+  async generateLearningContext(userId: number, players: FPLPlayer[]): Promise<AILearningContext> {
     console.log(`[AILearning] Generating learning context for user ${userId}`);
 
     // Get all analyzed gameweek plans
@@ -73,13 +74,13 @@ export class AILearningFeedbackService {
     const predictionAccuracy = this.calculatePredictionAccuracy(plansWithPredictions);
 
     // Identify recent mistakes (last 5 gameweeks where AI hurt performance)
-    const recentMistakes = await this.identifyRecentMistakes(analyzedPlans.slice(-10), userId);
+    const recentMistakes = await this.identifyRecentMistakes(analyzedPlans.slice(-10), players);
 
     // Analyze captain decision patterns
-    const captainPatterns = await this.analyzeCaptainPatterns(analyzedPlans, userId);
+    const captainPatterns = await this.analyzeCaptainPatterns(analyzedPlans, players);
 
     // Analyze transfer patterns
-    const transferPatterns = await this.analyzeTransferPatterns(analyzedPlans, userId);
+    const transferPatterns = await this.analyzeTransferPatterns(analyzedPlans, players);
 
     // Generate key lessons from the data
     const keyLessons = this.generateKeyLessons(recentMistakes, captainPatterns, transferPatterns, averageImpact);
@@ -168,11 +169,12 @@ export class AILearningFeedbackService {
 
   /**
    * Identify specific mistakes from recent gameweeks
+   * @param recentPlans - Recent gameweek plans
+   * @param players - Array of FPL players (from snapshot)
    */
-  private async identifyRecentMistakes(recentPlans: GameweekPlan[], userId: number): Promise<LearningInsight[]> {
+  private async identifyRecentMistakes(recentPlans: GameweekPlan[], players: FPLPlayer[]): Promise<LearningInsight[]> {
     const insights: LearningInsight[] = [];
-    const allPlayers = await fplApi.getPlayers();
-    const playersMap = new Map(allPlayers.map(p => [p.id, p]));
+    const playersMap = new Map(players.map(p => [p.id, p]));
 
     for (const plan of recentPlans) {
       if (!plan.analysisCompletedAt || !plan.originalTeamSnapshot) continue;
@@ -221,13 +223,14 @@ export class AILearningFeedbackService {
 
   /**
    * Analyze patterns in captain decisions
+   * @param analyzedPlans - Analyzed gameweek plans
+   * @param players - Array of FPL players (from snapshot)
    */
-  private async analyzeCaptainPatterns(analyzedPlans: GameweekPlan[], userId: number): Promise<{
+  private async analyzeCaptainPatterns(analyzedPlans: GameweekPlan[], players: FPLPlayer[]): Promise<{
     successfulPicks: string[];
     failedPicks: string[];
   }> {
-    const allPlayers = await fplApi.getPlayers();
-    const playersMap = new Map(allPlayers.map(p => [p.id, p]));
+    const playersMap = new Map(players.map(p => [p.id, p]));
 
     const captainResults = new Map<number, { successes: number; failures: number; totalImpact: number }>();
 
@@ -270,13 +273,14 @@ export class AILearningFeedbackService {
 
   /**
    * Analyze patterns in transfer decisions
+   * @param analyzedPlans - Analyzed gameweek plans
+   * @param players - Array of FPL players (from snapshot)
    */
-  private async analyzeTransferPatterns(analyzedPlans: GameweekPlan[], userId: number): Promise<{
+  private async analyzeTransferPatterns(analyzedPlans: GameweekPlan[], players: FPLPlayer[]): Promise<{
     goodTransfers: string[];
     badTransfers: string[];
   }> {
-    const allPlayers = await fplApi.getPlayers();
-    const playersMap = new Map(allPlayers.map(p => [p.id, p]));
+    const playersMap = new Map(players.map(p => [p.id, p]));
 
     const goodTransfers: string[] = [];
     const badTransfers: string[] = [];

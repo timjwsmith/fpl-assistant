@@ -178,7 +178,7 @@ export default function Dashboard() {
               <div className="flex-1">
                 <h4 className="font-semibold mb-1 text-sm md:text-base">Team Modeller</h4>
                 <p className="text-xs md:text-sm text-muted-foreground">
-                  Use our AI-powered team builder to create and optimize your squad with
+                  Use our AI-powered team builder to create and optimise your squad with
                   real-time predictions and fixture analysis.
                 </p>
               </div>

@@ -117,14 +117,14 @@ export default function Captain() {
                   <Button>Connect Account</Button>
                 </Link>
                 <Button variant="outline" onClick={handleGetRecommendations} disabled={captainRecs.isPending}>
-                  {captainRecs.isPending ? "Analyzing..." : "Try Demo"}
+                  {captainRecs.isPending ? "Analysing..." : "Try Demo"}
                 </Button>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {captainRecs.isPending && <LoadingScreen message="Analyzing captain options..." />}
+        {captainRecs.isPending && <LoadingScreen message="Analysing captain options..." />}
 
         {captainRecs.error && (
           <ErrorState 

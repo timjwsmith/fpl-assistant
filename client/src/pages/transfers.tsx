@@ -98,14 +98,14 @@ export default function Transfers() {
                     <Button>Connect Account</Button>
                   </Link>
                   <Button variant="outline" onClick={handleGetRecommendations} disabled={transferRecs.isPending}>
-                    {transferRecs.isPending ? "Analyzing..." : "Try Demo"}
+                    {transferRecs.isPending ? "Analysing..." : "Try Demo"}
                   </Button>
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {transferRecs.isPending && <LoadingScreen message="Analyzing transfers..." />}
+          {transferRecs.isPending && <LoadingScreen message="Analysing transfers..." />}
 
           {transferRecs.error && (
             <ErrorState 
@@ -214,7 +214,7 @@ export default function Transfers() {
               <div>
                 <h4 className="font-semibold mb-2">1. Fixture Analysis</h4>
                 <p className="text-sm text-muted-foreground">
-                  AI analyzes upcoming fixtures to identify players with favorable schedules
+                  AI analyses upcoming fixtures to identify players with favourable schedules
                 </p>
               </div>
               <div>

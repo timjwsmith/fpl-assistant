@@ -100,12 +100,12 @@ export default function AIImpact() {
           {analyzeAllMutation.isPending ? (
             <>
               <RefreshCw className="h-4 w-4 animate-spin" />
-              Analyzing...
+              Analysing...
             </>
           ) : (
             <>
               <BarChart3 className="h-4 w-4" />
-              Analyze All Gameweeks
+              Analyse All Gameweeks
             </>
           )}
         </Button>
@@ -118,14 +118,14 @@ export default function AIImpact() {
             <BarChart3 className="h-16 w-16 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold mb-2">No Analysis Yet</h3>
             <p className="text-muted-foreground mb-6 max-w-md">
-              Click "Analyze All Gameweeks" to see how AI recommendations have impacted your scores
+              Click "Analyse All Gameweeks" to see how AI recommendations have impacted your scores
               for completed gameweeks.
             </p>
             <Button onClick={handleAnalyzeAll} disabled={analyzeAllMutation.isPending}>
               {analyzeAllMutation.isPending ? (
                 <>
                   <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                  Analyzing...
+                  Analysing...
                 </>
               ) : (
                 <>
@@ -145,7 +145,7 @@ export default function AIImpact() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Gameweeks Analyzed
+                  Gameweeks Analysed
                 </CardTitle>
               </CardHeader>
               <CardContent>

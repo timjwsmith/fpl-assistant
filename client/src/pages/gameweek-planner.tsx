@@ -426,7 +426,7 @@ export default function GameweekPlanner() {
                     </p>
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground mt-2 text-center">AI Optimized</p>
+                <p className="text-xs text-muted-foreground mt-2 text-center">AI Optimised</p>
               </CardContent>
             </Card>
 
@@ -460,7 +460,7 @@ export default function GameweekPlanner() {
               <CardContent className="p-6">
                 <p className="text-sm text-muted-foreground mb-2">Free Transfers</p>
                 <p className="text-4xl font-bold font-mono">{plan.freeTransfers || 1}</p>
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-xs text-muted-foreground mt-2 text-center">
                   Cost: {plan.transfersCost || 0} pts
                 </p>
               </CardContent>

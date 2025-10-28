@@ -552,7 +552,7 @@ export default function TeamModeller() {
       <div>
         <h1 className="text-4xl font-bold tracking-tight">Team Modeller</h1>
         <p className="text-muted-foreground mt-2">
-          Build and optimize your squad with drag-and-drop and real-time AI predictions.
+          Build and optimise your squad with drag-and-drop and real-time AI predictions.
         </p>
       </div>
 

@@ -75,16 +75,16 @@ export default function Chips() {
           <CardContent className="p-8 text-center space-y-4">
             <h3 className="font-semibold text-lg">Get AI Chip Strategy</h3>
             <p className="text-muted-foreground">
-              Let AI analyze upcoming fixtures and gameweeks to recommend the optimal timing for your chips.
+              Let AI analyse upcoming fixtures and gameweeks to recommend the optimal timing for your chips.
             </p>
             <Button onClick={handleGetStrategy} disabled={chipStrategy.isPending}>
-              {chipStrategy.isPending ? "Analyzing..." : "Get Recommendations"}
+              {chipStrategy.isPending ? "Analysing..." : "Get Recommendations"}
             </Button>
           </CardContent>
         </Card>
       )}
 
-      {chipStrategy.isPending && <LoadingScreen message="Analyzing chip strategy..." />}
+      {chipStrategy.isPending && <LoadingScreen message="Analysing chip strategy..." />}
 
       {chipStrategy.error && (
         <ErrorState 

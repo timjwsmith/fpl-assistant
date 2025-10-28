@@ -467,7 +467,7 @@ export default function GameweekPlanner() {
             </Card>
 
             <Card>
-              <CardContent className="p-6">
+              <CardContent className="p-6 text-center">
                 <p className="text-sm text-muted-foreground mb-2">Chip</p>
                 {plan.chipToPlay ? (
                   <>

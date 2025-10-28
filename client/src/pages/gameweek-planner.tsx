@@ -419,8 +419,14 @@ export default function GameweekPlanner() {
                   <p className="text-sm text-muted-foreground">Formation</p>
                   <LayoutGrid className="h-4 w-4 text-fpl-cyan" />
                 </div>
-                <p className="text-4xl font-bold font-mono text-fpl-cyan">{plan.formation}</p>
-                <p className="text-xs text-muted-foreground mt-2">AI Optimized</p>
+                <div className="flex flex-col items-center gap-0.5">
+                  {plan.formation.split('-').map((num, idx) => (
+                    <p key={idx} className="text-4xl font-bold font-mono text-fpl-cyan leading-none">
+                      {num}
+                    </p>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2 text-center">AI Optimized</p>
               </CardContent>
             </Card>
 
@@ -462,7 +468,7 @@ export default function GameweekPlanner() {
 
             <Card>
               <CardContent className="p-6">
-                <p className="text-sm text-muted-foreground mb-2">Chip Recommendation</p>
+                <p className="text-sm text-muted-foreground mb-2">Chip</p>
                 {plan.chipToPlay ? (
                   <>
                     <Badge variant="default" className="text-sm capitalize">
@@ -471,7 +477,7 @@ export default function GameweekPlanner() {
                     <p className="text-xs text-muted-foreground mt-2">Recommended</p>
                   </>
                 ) : (
-                  <p className="text-sm text-muted-foreground">None</p>
+                  <p className="text-4xl font-bold font-mono text-muted-foreground">—</p>
                 )}
               </CardContent>
             </Card>

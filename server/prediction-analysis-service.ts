@@ -292,9 +292,9 @@ ${underperformersText}
 
 ${fixturesText}
 
-YOUR TASK: In 2-4 bullet points, explain WHY predictions were inaccurate for the ACTUAL team and decisions used.
+YOUR TASK: In 2-4 bullet points, explain WHY predictions were inaccurate using ONLY definitive statements based on exact data.
 
-CRITICAL RULES - ZERO SPECULATION ALLOWED:
+CRITICAL RULES - ABSOLUTELY ZERO SPECULATION OR HEDGING:
 1. ONLY explain why predictions for actual players were wrong
 2. Use the EXACT point breakdown provided [90 mins: +2, 1YC: -1, etc.] - DO NOT speculate
 3. For defenders/GKs: NO clean sheet in breakdown = their team DEFINITELY conceded (not "likely", not "probably")
@@ -303,26 +303,38 @@ CRITICAL RULES - ZERO SPECULATION ALLOWED:
 6. Focus on prediction errors, not alternative strategies
 7. ${!context.recommendedCaptainFollowed && context.planWasApplied ? 'Note: Different captain was chosen than recommended - this may explain part of the error' : 'Analyze why predicted performance differed from actual'}
 
-BANNED PHRASES - NEVER USE THESE:
+BANNED WORDS & PHRASES - THESE WILL FAIL YOUR ANALYSIS:
+❌ "likely" (in any context)
+❌ "probably" 
+❌ "may have"
+❌ "might have"
+❌ "appears to"
+❌ "seems to"
+❌ "could have"
+❌ "would have"
+❌ "potentially"
+❌ "possibly"
+❌ "The prediction likely overestimated" → ✅ "The prediction overestimated - he scored X pts [breakdown] versus predicted Y pts"
 ❌ "likely conceded" → ✅ "conceded 2 goals (seen in 0-2 result)"
 ❌ "probably didn't get clean sheet" → ✅ "no clean sheet (team conceded 2 goals)"
 ❌ "may have received yellow card" → ✅ "received 1 yellow card (shown in breakdown)"
-❌ "appears to have" → ✅ Just state the fact directly
+❌ "appears to have underperformed" → ✅ "underperformed - scored X pts instead of predicted Y pts"
 
 NEVER suggest players that weren't in the team or weren't recommended by the AI.
 NEVER say "you should have done X" unless the AI specifically recommended X in the original plan.
-You have the EXACT data - use it. No hedging, no speculation, no weasel words.
+You have the EXACT data - use it. No hedging, no speculation, no weasel words. DEFINITIVE STATEMENTS ONLY.
 
 Examples of EXACT analysis (use these patterns):
 ✅ "Leno scored 2 pts [90 mins: +2]. Fulham conceded 2 goals (0-2 vs Man City), no clean sheet."
 ✅ "Cucurella scored 1 pt [90 mins: +2, 1YC: -1]. Chelsea conceded in their match (no clean sheet), and the yellow card cost him."
-✅ "Semenyo (captain) scored 6 pts [90 mins: +2, 1G: +4] in Bournemouth's 3-3 draw. Only 1 goal involvement despite high xG prediction."
+✅ "Semenyo (captain) scored 6 pts [90 mins: +2, 1G: +4] in Bournemouth's 3-3 draw. The prediction overestimated his attacking output - only 1 goal involvement versus expected 2+."
 ✅ "Mitoma scored 1 pt [58 mins: +1]. Subbed off at 58 minutes, missing the 60-minute bonus point."
-❌ "Leno only got 2 points, likely due to conceding goals" (SPECULATION - you can see the 0-2 score!)
-❌ "Cucurella underperformed defensively, likely due to conceding goals or receiving a yellow card" (VAGUE!)
+❌ "Leno only got 2 points, likely due to conceding goals" (BANNED WORD "likely" - you can see the exact 0-2 score!)
+❌ "The prediction likely overestimated his attacking output, as he did not register a goal or assist" (BANNED PHRASE - state definitively!)
+❌ "Cucurella underperformed defensively, likely due to conceding goals or receiving a yellow card" (VAGUE AND BANNED!)
 ❌ "You should have captained Haaland" (NEVER suggest alternatives not recommended!)
 
-Format as bullet points starting with "• ". Max 4 bullets.`;
+Format as bullet points starting with "• ". Max 4 bullets. REVIEW YOUR OUTPUT BEFORE RESPONDING TO ENSURE ZERO SPECULATION.`;
 
     try {
       const response = await openai.chat.completions.create({
@@ -330,14 +342,14 @@ Format as bullet points starting with "• ". Max 4 bullets.`;
         messages: [
           {
             role: 'system',
-            content: 'You are a collaborative FPL analyst helping understand prediction accuracy. Provide SPECIFIC, factual explanations using actual player names, teams, and scores. Focus on learning and improvement, not blame. Be educational and objective.',
+            content: 'You are a precise FPL data analyst. You ONLY make definitive statements based on exact data. You NEVER use speculation words like "likely", "probably", "may have", or "could have". Every statement must be a provable fact from the provided data. If you use any banned speculation words, your analysis fails. Be factual, direct, and educational.',
           },
           {
             role: 'user',
             content: prompt,
           },
         ],
-        temperature: 0.2, // Lower temperature for more factual analysis
+        temperature: 0.1, // Extremely low temperature for purely factual analysis
         max_tokens: 400,
       });
 

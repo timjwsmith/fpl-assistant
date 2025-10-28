@@ -294,53 +294,33 @@ ${fixturesText}
 
 YOUR TASK: In 2-4 bullet points, explain WHY predictions were inaccurate using ONLY definitive statements based on exact data.
 
-CRITICAL RULES - ABSOLUTELY ZERO SPECULATION OR HEDGING:
-1. ONLY explain why predictions for actual players were wrong
-2. Use the EXACT point breakdown provided [90 mins: +2, 1YC: -1, etc.] - DO NOT speculate
-3. STATE EXACT POINT VALUES for every factor: "yellow card cost him 1 point", "no clean sheet cost him 4 points" (DEF/GKP only)
-4. For defenders/GKs: NO clean sheet in breakdown = their team DEFINITELY conceded (not "likely", not "probably")
-5. Match results show EXACT scores - use them: "Fulham 0-2 Man City" means Leno conceded 2 goals (FACT, not speculation)
-6. Name specific players with EXACT breakdown + EXACT match result + EXACT point impacts: "Leno scored 2 pts [90 mins: +2]. Fulham conceded 2 goals (0-2 vs Man City), no clean sheet cost him 4 points."
-7. Focus on prediction errors, not alternative strategies
-8. ${!context.recommendedCaptainFollowed && context.planWasApplied ? 'Note: Different captain was chosen than recommended - this may explain part of the error' : 'Analyze why predicted performance differed from actual'}
+REQUIRED FORMAT - Use these patterns:
+1. Start with player name and exact score with breakdown: "Player scored X pts [breakdown]"
+2. State exact point impacts: "yellow card cost him 1 point", "no clean sheet cost him 4 points"
+3. For defenders/goalkeepers without clean sheet in breakdown: team definitely conceded goals
+4. Use match results with exact scores: "Team vs Opponent: X-Y"
+5. State exact prediction differences: "expected X pts but scored Y pts"
+6. ${!context.recommendedCaptainFollowed && context.planWasApplied ? 'Note: Different captain was chosen than recommended' : 'Focus on actual performance vs prediction'}
 
-BANNED WORDS & PHRASES - THESE WILL FAIL YOUR ANALYSIS:
-❌ "likely" (in any context)
-❌ "probably" 
-❌ "may have"
-❌ "might have"
-❌ "appears to"
-❌ "seems to"
-❌ "could have"
-❌ "would have"
-❌ "potentially"
-❌ "possibly"
-❌ "The prediction likely overestimated" → ✅ "The prediction overestimated - he scored X pts [breakdown] versus predicted Y pts"
-❌ "likely conceded" → ✅ "conceded 2 goals (seen in 0-2 result)"
-❌ "probably didn't get clean sheet" → ✅ "no clean sheet (team conceded 2 goals)"
-❌ "may have received yellow card" → ✅ "received 1 yellow card (shown in breakdown) costing him 1 point"
-❌ "appears to have underperformed" → ✅ "underperformed - scored X pts instead of predicted Y pts"
-❌ "the yellow card cost him" → ✅ "the yellow card cost him 1 point"
-❌ "no clean sheet" → ✅ "no clean sheet cost him 4 points" (for DEF/GKP)
+WRITE ONLY DEFINITIVE STATEMENTS:
+• Never use: "likely", "probably", "may have", "might have", "appears to", "seems to", "could have", "would have", "potentially", "possibly"
+• Always include exact point values for every factor
+• Use the exact point breakdown provided [90 mins: +2, 1YC: -1, etc.]
+• For missing clean sheets: always state "no clean sheet cost him 4 points" (DEF/GKP)
+• For yellow cards: always state "yellow card cost him 1 point"
 
-NEVER suggest players that weren't in the team or weren't recommended by the AI.
-NEVER say "you should have done X" unless the AI specifically recommended X in the original plan.
-You have the EXACT data - use it. No hedging, no speculation, no weasel words. DEFINITIVE STATEMENTS ONLY.
+CORRECT EXAMPLES (copy these patterns):
+"Leno scored 2 pts [90 mins: +2]. Fulham conceded 2 goals (0-2 vs Man City), no clean sheet cost him 4 points."
 
-Examples of EXACT analysis with EXACT point values (use these patterns):
-✅ "Leno scored 2 pts [90 mins: +2]. Fulham conceded 2 goals (0-2 vs Man City), no clean sheet cost him 4 points."
-✅ "Cucurella scored 1 pt [90 mins: +2, 1YC: -1]. Chelsea conceded (no clean sheet cost him 4 points), and the yellow card cost him 1 point."
-✅ "Semenyo (captain) scored 6 pts [90 mins: +2, 1G: +4] in Bournemouth's 3-3 draw. The prediction overestimated by 6 points - expected 2 goal involvements (12 pts) but only had 1 goal involvement (6 pts)."
-✅ "Mitoma scored 1 pt [58 mins: +1]. Subbed off at 58 minutes, missing 1 appearance point (would have been +2 for 60+ mins)."
-✅ "Saliba scored 2 pts [90 mins: +2]. Arsenal conceded 1 goal vs Bournemouth, no clean sheet cost him 4 points."
-❌ "Leno only got 2 points, likely due to conceding goals" (BANNED WORD "likely" - you can see the exact 0-2 score!)
-❌ "The prediction likely overestimated his attacking output, as he did not register a goal or assist" (BANNED PHRASE - state definitively!)
-❌ "Cucurella underperformed defensively, likely due to conceding goals or receiving a yellow card" (VAGUE AND BANNED!)
-❌ "the yellow card cost him" (MISSING POINT VALUE - say "cost him 1 point")
-❌ "no clean sheet" (MISSING POINT VALUE - say "no clean sheet cost him 4 points" for DEF/GKP)
-❌ "You should have captained Haaland" (NEVER suggest alternatives not recommended!)
+"Cucurella scored 1 pt [90 mins: +2, 1YC: -1]. Chelsea conceded (no clean sheet cost him 4 points), and the yellow card cost him 1 point."
 
-Format as bullet points starting with "• ". Max 4 bullets. REVIEW YOUR OUTPUT BEFORE RESPONDING TO ENSURE ZERO SPECULATION.`;
+"Semenyo (captain) scored 6 pts [90 mins: +2, 1G: +4] in Bournemouth's 3-3 draw. The prediction overestimated by 6 points - expected 2 goal involvements (12 pts) but only had 1 goal involvement (6 pts)."
+
+"Saliba scored 2 pts [90 mins: +2]. Arsenal conceded 1 goal vs Bournemouth, no clean sheet cost him 4 points."
+
+"Mitoma scored 1 pt [58 mins: +1]. Subbed off at 58 minutes, missing 1 appearance point (would have been +2 for 60+ mins)."
+
+Format as bullet points starting with "• ". Max 4 bullets.`;
 
     try {
       const response = await openai.chat.completions.create({

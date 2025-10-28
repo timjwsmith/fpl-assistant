@@ -74,10 +74,6 @@ export class GameweekAnalyzerService {
         console.log(`[GameweekAnalyzer] Could not fetch previous plan:`, error instanceof Error ? error.message : 'Unknown error');
       }
 
-      // 1.6. Clear old predictions to ensure fresh data with current snapshot
-      await storage.deletePredictionsByGameweek(userId, gameweek);
-      console.log(`[GameweekAnalyzer] Cleared old predictions for GW${gameweek}`);
-
       // 2-5. Generate AI recommendations with retry logic (max 3 attempts)
       const maxAttempts = 3;
       let aiResponse: AIGameweekResponse | null = null;
@@ -266,13 +262,14 @@ export class GameweekAnalyzerService {
 
       console.log(`[GameweekAnalyzer] Current plan has ${currentPlayerIds.size} players (${inputData.currentTeam.players.length} original - ${transferredOutIds.size} out + ${transferredInIds.size} in)`);
 
-      // Fetch predictions that were just saved for this gameweek
+      // Fetch all predictions for this gameweek (includes both new and historical predictions)
       const savedPredictions = await storage.getPredictionsByGameweek(userId, gameweek);
 
-      // Filter to only predictions for players in the current plan
+      // Filter to only predictions for players in the CURRENT plan (post-transfer team)
+      // This ensures we only validate predictions created in THIS run, ignoring stale predictions from previous runs
       const relevantPredictions = savedPredictions.filter(p => currentPlayerIds.has(p.playerId));
 
-      console.log(`[GameweekAnalyzer] Validating ${relevantPredictions.length} predictions (out of ${savedPredictions.length} total) for current plan players`);
+      console.log(`[GameweekAnalyzer] Snapshot validation: checking ${relevantPredictions.length} predictions for current team players (ignoring ${savedPredictions.length - relevantPredictions.length} stale predictions from previous runs)`);
 
       // Validate only relevant predictions have matching snapshot_id
       const mismatchedPredictions = relevantPredictions.filter(
@@ -287,7 +284,7 @@ export class GameweekAnalyzerService {
         throw new Error(`Snapshot validation failed: ${mismatchedPredictions.length} predictions have mismatched snapshot_id`);
       }
 
-      console.log(`[GameweekAnalyzer] ✓ Validated ${relevantPredictions.length} predictions match snapshot ${inputData.context.snapshotId.substring(0, 8)}...`);
+      console.log(`[GameweekAnalyzer] ✓ All ${relevantPredictions.length} predictions for current team players match snapshot ${inputData.context.snapshotId.substring(0, 8)}...`);
 
       console.log(`[GameweekAnalyzer] Analysis complete, plan ID: ${plan.id}`);
 

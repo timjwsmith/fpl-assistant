@@ -25,6 +25,42 @@ const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
 });
 
+function calculateSuspensionRisk(yellowCards: number, currentGameweek: number): {
+  risk: 'critical' | 'high' | 'moderate' | 'low';
+  description: string;
+  yellowsToSuspension: number;
+} {
+  if (currentGameweek <= 19) {
+    if (yellowCards === 4) {
+      return { risk: 'critical', description: 'Next yellow = 1-match ban', yellowsToSuspension: 1 };
+    } else if (yellowCards === 3) {
+      return { risk: 'high', description: '2 yellows from 1-match ban', yellowsToSuspension: 2 };
+    } else if (yellowCards >= 2) {
+      return { risk: 'moderate', description: `${5 - yellowCards} yellows from ban`, yellowsToSuspension: 5 - yellowCards };
+    }
+  }
+  
+  if (currentGameweek <= 32) {
+    if (yellowCards === 9) {
+      return { risk: 'critical', description: 'Next yellow = 2-match ban', yellowsToSuspension: 1 };
+    } else if (yellowCards === 8) {
+      return { risk: 'high', description: '2 yellows from 2-match ban', yellowsToSuspension: 2 };
+    } else if (yellowCards >= 6) {
+      return { risk: 'moderate', description: `${10 - yellowCards} yellows from 2-match ban`, yellowsToSuspension: 10 - yellowCards };
+    }
+  }
+  
+  if (yellowCards === 14) {
+    return { risk: 'critical', description: 'Next yellow = 3-match ban', yellowsToSuspension: 1 };
+  } else if (yellowCards === 13) {
+    return { risk: 'high', description: '2 yellows from 3-match ban', yellowsToSuspension: 2 };
+  } else if (yellowCards >= 11) {
+    return { risk: 'moderate', description: `${15 - yellowCards} yellows from 3-match ban`, yellowsToSuspension: 15 - yellowCards };
+  }
+  
+  return { risk: 'low', description: 'Low suspension risk', yellowsToSuspension: 5 };
+}
+
 interface SquadValidation {
   isValid: boolean;
   errors: string[];
@@ -676,6 +712,8 @@ If significant changes occurred → Explain EXACTLY what changed (with specific 
             return `GW${f.event}: ${isHome ? 'H' : 'A'} vs ${opponent?.short_name} (Diff: ${difficulty})`;
           });
 
+        const suspensionRisk = calculateSuspensionRisk(player.yellow_cards, gameweek);
+        
         return {
           id: player.id,
           name: player.web_name,
@@ -692,6 +730,12 @@ If significant changes occurred → Explain EXACTLY what changed (with specific 
           xG: parseFloat(player.expected_goals || '0'),
           xA: parseFloat(player.expected_assists || '0'),
           ict: parseFloat(player.ict_index || '0'),
+          yellow_cards: player.yellow_cards,
+          red_cards: player.red_cards,
+          suspension_risk: suspensionRisk.description,
+          influence: parseFloat(player.influence || '0'),
+          creativity: parseFloat(player.creativity || '0'),
+          threat: parseFloat(player.threat || '0'),
           fixtures: playerFixtures.join(', ') || 'No upcoming fixtures',
         };
       })
@@ -708,7 +752,11 @@ If significant changes occurred → Explain EXACTLY what changed (with specific 
     const topPlayersInfo = Object.entries(topPlayersByPosition).map(([position, players]) => {
       const playerList = players.map((p: FPLPlayer) => {
         const team = teams.find((t: FPLTeam) => t.id === p.team);
-        return `ID:${p.id} ${p.web_name} (${team?.short_name}) £${(p.now_cost / 10).toFixed(1)}m PPG:${p.points_per_game} Form:${p.form}`;
+        const suspensionRisk = calculateSuspensionRisk(p.yellow_cards, gameweek);
+        const riskWarning = suspensionRisk.risk === 'critical' || suspensionRisk.risk === 'high' 
+          ? ` ⚠️${suspensionRisk.description}` 
+          : p.yellow_cards >= 2 ? ` [${p.yellow_cards}YC]` : '';
+        return `ID:${p.id} ${p.web_name} (${team?.short_name}) £${(p.now_cost / 10).toFixed(1)}m PPG:${p.points_per_game} Form:${p.form}${riskWarning}`;
       }).join('\n');
       return `${position}:\n${playerList}`;
     }).join('\n\n');
@@ -1047,6 +1095,54 @@ DO NOT just mention differentials in strategic insights - ACT ON THEM by recomme
 - Team composition (replace injured starters)
 
 **IF IN DOUBT**: Check player status and chance_of_playing FIRST, before analyzing form/fixtures/xG.
+
+**═══════════════════════════════════════════════════════════════════════**
+**⚠️ DISCIPLINARY RISK MANAGEMENT - SUSPENSION RULES ⚠️**
+**═══════════════════════════════════════════════════════════════════════**
+
+**PREMIER LEAGUE YELLOW CARD SUSPENSION RULES (2024-25):**
+1. **5 yellow cards by GW19** = 1-match ban (threshold expires after GW19)
+2. **10 yellow cards by GW32** = 2-match ban (threshold expires after GW32)
+3. **15 yellow cards total** = 3-match ban (applies all season)
+4. Yellow cards ACCUMULATE all season, only thresholds expire
+5. Bans are automatic and apply only to Premier League matches
+
+**YOUR DISCIPLINARY RISK ANALYSIS:**
+Each player in your squad now includes:
+- yellow_cards: Total yellow cards this season
+- red_cards: Total red cards this season
+- suspension_risk: Description (e.g., "Next yellow = 1-match ban", "2 yellows from 2-match ban")
+- influence, creativity, threat: Playing style metrics
+
+**DISCIPLINARY RISK RULES:**
+1. **CRITICAL RISK (1 yellow from ban)**: AVOID transferring in, AVOID captaining, STRONGLY CONSIDER transferring out
+   - These players will miss a match if they receive one yellow card
+   - Expected points for next 6 GWs MUST factor in likely suspension
+   - Example: "Palmer has 4 yellows (critical risk: next yellow = 1-match ban). Reduce his 6-GW expected points by approximately 1 gameweek's worth (e.g., if 7 pts/game, reduce total by 7 pts)"
+
+2. **HIGH RISK (2 yellows from ban)**: Consider carefully, factor risk into expected points
+   - Discount 6-GW expected points by 20-30% for suspension probability
+   - Example: "Salah has 3 yellows (2 from ban). Expected 48 pts over 6 GWs, but adjust to ~40 pts accounting for suspension risk"
+
+3. **MODERATE RISK (3+ yellows from ban)**: Monitor but can still recommend
+   - Mention in reasoning if recommending transfer or captain
+   - Example: "Haaland has 2 yellows (3 from ban) - manageable risk given his output"
+
+4. **Calculate adjusted expected points:**
+   - Critical risk (1 from ban): Reduce by 1 full gameweek's expected points
+   - High risk (2 from ban): Reduce total by 20-30%
+   - Moderate risk (3 from ban): Reduce total by 5-10%
+
+5. **Red cards:** Players with recent red cards likely have temperament issues - factor this into risk assessment
+
+**DISCIPLINARY REASONING EXAMPLES:**
+❌ BAD: "Transfer in Palmer (excellent form)"
+✅ GOOD: "Avoid Palmer despite excellent form (7.5 PPG). He has 4 yellow cards and is one booking away from a 1-match ban. Over the next 6 gameweeks, his expected 45 points must be reduced to approximately 38 points accounting for likely suspension. Better alternatives exist with similar output and lower risk."
+
+❌ BAD: "Captain Salah (best expected points)"
+✅ GOOD: "Captain Haaland over Salah. While Salah has slightly better fixtures (expected 14 pts vs Haaland's 13), Salah carries 3 yellow cards and is 2 bookings from a 1-match ban which increases suspension risk. Haaland has only 1 yellow card and presents lower disciplinary risk for the same expected output."
+
+**YOU MUST:** Factor disciplinary risk into ALL transfer recommendations and captain selections by adjusting expected points calculations.
 
 **═══════════════════════════════════════════════════════════════════════**
 

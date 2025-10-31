@@ -425,6 +425,16 @@ export const gameweekPlans = pgTable('gameweek_plans', {
     reasoning: string;
     priority: 'high' | 'medium' | 'low';
     cost_impact: number;
+    substitution_details?: {
+      benched_player_id: number;
+      benched_player_name: string;
+      benched_player_position: string;
+      benched_player_predicted_points: number;
+      incoming_player_name: string;
+      incoming_player_position: string;
+      incoming_player_predicted_points: number;
+      bench_reason: string;
+    };
   }>>(),
   captainId: integer('captain_id'),
   viceCaptainId: integer('vice_captain_id'),

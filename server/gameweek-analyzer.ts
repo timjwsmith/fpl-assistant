@@ -176,6 +176,16 @@ interface AIGameweekResponse {
     reasoning: string;
     priority: 'high' | 'medium' | 'low';
     cost_impact: number;
+    substitution_details?: {
+      benched_player_id: number;
+      benched_player_name: string;
+      benched_player_position: string;
+      benched_player_predicted_points: number;
+      incoming_player_name: string;
+      incoming_player_position: string;
+      incoming_player_predicted_points: number;
+      bench_reason: string;
+    };
   }>;
   captain_id: number;
   vice_captain_id: number;
@@ -661,18 +671,29 @@ export class GameweekAnalyzerService {
                   }
                 }
                 
-                // Build the lineup substitution message
-                let lineupSubInfo = ` → This will bring ${transferredInPlayer.web_name} into the starting XI, with ${benchedPlayer.web_name} moving to the bench`;
+                // Get position name for the benched player
+                const positionNames = ['', 'GK', 'DEF', 'MID', 'FWD'];
+                const benchedPlayerPosition = positionNames[benchedPlayer.element_type] || 'Unknown';
+                const transferredInPlayerPosition = positionNames[transferredInPlayer.element_type] || 'Unknown';
                 
-                if (reasons.length > 0) {
-                  lineupSubInfo += `. ${benchedPlayer.web_name} benched due to: ${reasons.join(', ')}.`;
-                } else {
-                  lineupSubInfo += '.';
-                }
+                // Build the bench reason message
+                const benchReason = reasons.length > 0 
+                  ? reasons.join(', ')
+                  : 'Tactical decision based on predicted points';
                 
-                transfer.reasoning += lineupSubInfo;
+                // Store substitution details in the transfer object
+                transfer.substitution_details = {
+                  benched_player_id: benchedPlayerId,
+                  benched_player_name: benchedPlayer.web_name,
+                  benched_player_position: benchedPlayerPosition,
+                  benched_player_predicted_points: benchedPrediction,
+                  incoming_player_name: transferredInPlayer.web_name,
+                  incoming_player_position: transferredInPlayerPosition,
+                  incoming_player_predicted_points: transferredInPrediction,
+                  bench_reason: benchReason,
+                };
                 
-                console.log(`  ✅ Enhanced reasoning added: "${lineupSubInfo}"`);
+                console.log(`  ✅ Substitution details stored: ${benchedPlayer.web_name} (${benchedPlayerPosition}, ${benchedPrediction}pts) will be benched for ${transferredInPlayer.web_name} (${transferredInPlayerPosition}, ${transferredInPrediction}pts)`);
                 console.log(`[GameweekAnalyzer] Transfer ${transfer.player_out_id} → ${transfer.player_in_id}: ${benchedPlayer.web_name} will be benched for ${transferredInPlayer.web_name} (reasons: ${reasons.join('; ') || 'none specified'})`);
               }
             }
@@ -1515,7 +1536,7 @@ Provide a strategic gameweek plan in this EXACT JSON format with VERBOSE, DATA-D
       "player_in_id": <NUMERIC ID>,
       "expected_points_gain": <number>,
       "expected_points_gain_timeframe": "6 gameweeks",
-      "reasoning": "<VERBOSE explanation with specific stats, fixtures, ownership, prices, AND THE FULL CALCULATION showing new player's expected points over 6 GWs minus old player's expected points over 6 GWs>",
+      "reasoning": "<VERBOSE explanation with specific stats, fixtures, ownership, prices, AND THE FULL CALCULATION showing new player's expected points over 6 GWs minus old player's expected points over 6 GWs. IMPORTANT: Focus ONLY on comparing the player being transferred OUT vs the player being transferred IN (their points, form, fixtures, etc). DO NOT mention which starting XI player will be benched or lineup changes - this is handled automatically by the system and will be appended to your reasoning.>",
       "priority": "high|medium|low",
       "cost_impact": <number>
     }
@@ -1524,14 +1545,14 @@ Provide a strategic gameweek plan in this EXACT JSON format with VERBOSE, DATA-D
   "vice_captain_id": <NUMERIC ID from squad>,
   "chip_to_play": <"wildcard"|"freehit"|"benchboost"|"triplecaptain"|null>,
   "formation": "<e.g., 3-4-3, 4-4-2>",
-  "predicted_points": <number>,
+  "predicted_points": <number AFTER any transfer penalties - this is the FINAL expected points that will be displayed to the user>,
   "confidence": <0-100>,
   "strategic_insights": [
     "<DETAILED insight with data - e.g., 'Top 3 managers all own Haaland (£14.0m, Form 9.5, 3 green fixtures) - essential coverage'>",
     "<DETAILED insight with data - e.g., 'Differential pick: Isak (owned by 0/5 leaders, Form 7.2, vs SHU/BUR/LUT avg diff 1.8)'>",
     "<DETAILED insight with data - e.g., 'GW15-18 fixture swing: Sell Arsenal assets (4 red fixtures), buy Liverpool (4 green fixtures)'>"
   ],
-  "reasoning": "<OVERALL STRATEGY with specific data, league context, fixture analysis, and risk assessment>",
+  "reasoning": "<OVERALL STRATEGY with specific data, league context, fixture analysis, and risk assessment. IMPORTANT: When mentioning predicted points in your reasoning, you MUST state the FINAL value (after transfer penalties) that matches the predicted_points field above. For example: 'This plan is expected to deliver 62 points this gameweek' (NOT '66 points before the -4 hit'). If you want to explain the calculation, write it clearly: 'The team would score 66 points, but with the -4 transfer penalty, the net expected points are 62 for this gameweek.' Always ensure the final number in your reasoning matches the predicted_points field.>",
   "previous_plan_reviewed": <true|false - true if a previous plan existed, false if this is first plan>,
   "recommendations_changed": <true|false - true ONLY if your recommendations differ from previous plan>,
   "change_reasoning": "<REQUIRED if recommendations_changed=true: SPECIFIC data that changed with before/after values. Examples: 'Salah injured (75% chance → 25% chance)' or 'Haaland returned from injury (unavailable → available, form 0.0 → 8.5)'. If recommendations_changed=false, write 'No significant data changes - maintaining previous recommendations for consistency'>"

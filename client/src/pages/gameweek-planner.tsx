@@ -528,96 +528,164 @@ export default function GameweekPlanner() {
                   const teamIn = getTeamById(playerIn?.team);
 
                   return (
-                    <Card key={i} className="hover-elevate" data-testid={`transfer-${i}`}>
-                      <CardContent className="p-6">
-                        <div className="flex items-start justify-between gap-4 mb-4">
-                          <Badge variant={getPriorityColor(transfer.priority)} className="capitalize">
-                            {transfer.priority} Priority
-                          </Badge>
-                          <div className="flex flex-col items-end gap-1">
-                            <div className="flex items-center gap-2 text-sm font-semibold text-chart-2">
-                              <TrendingUp className="h-4 w-4" />
-                              +{transfer.expected_points_gain.toFixed(1)} pts
+                    <div key={i}>
+                      <Card className="hover-elevate" data-testid={`transfer-${i}`}>
+                        <CardContent className="p-6">
+                          <div className="flex items-start justify-between gap-4 mb-4">
+                            <Badge variant={getPriorityColor(transfer.priority)} className="capitalize">
+                              {transfer.priority} Priority
+                            </Badge>
+                            <div className="flex flex-col items-end gap-1">
+                              <div className="flex items-center gap-2 text-sm font-semibold text-chart-2">
+                                <TrendingUp className="h-4 w-4" />
+                                +{transfer.expected_points_gain.toFixed(1)} pts
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                over {transfer.expected_points_gain_timeframe || '6 gameweeks'}
+                              </span>
                             </div>
-                            <span className="text-xs text-muted-foreground">
-                              over {transfer.expected_points_gain_timeframe || '6 gameweeks'}
-                            </span>
                           </div>
-                        </div>
 
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="flex-1 p-3 rounded-md bg-destructive/10 border border-destructive/30">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-12 w-12 border-2 border-destructive/30">
-                                <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${playerOut?.photo?.replace('.jpg', '.png')}`} />
-                                <AvatarFallback className="text-xs font-semibold">
-                                  {playerOut?.web_name.substring(0, 2).toUpperCase() || '??'}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs text-muted-foreground mb-1">Out</p>
-                                <p className="font-semibold truncate">{playerOut?.web_name || 'Unknown'}</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  {teamOut?.code && (
-                                    <img 
-                                      src={`https://resources.premierleague.com/premierleague/badges/t${teamOut.code}.png`}
-                                      alt={teamOut.short_name}
-                                      className="h-4 w-4 object-contain"
-                                      onError={(e) => {
-                                        e.currentTarget.style.display = 'none';
-                                      }}
-                                    />
-                                  )}
-                                  <p className="text-xs text-muted-foreground">
-                                    {teamOut?.short_name} • {positionNames[playerOut?.element_type || 0]}
-                                  </p>
-                                  <Badge variant="outline" className="text-xs">
-                                    £{((playerOut?.now_cost || 0) / 10).toFixed(1)}m
-                                  </Badge>
+                          <div className="flex items-center gap-4 mb-4">
+                            <div className="flex-1 p-3 rounded-md bg-destructive/10 border border-destructive/30">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-12 w-12 border-2 border-destructive/30">
+                                  <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${playerOut?.photo?.replace('.jpg', '.png')}`} />
+                                  <AvatarFallback className="text-xs font-semibold">
+                                    {playerOut?.web_name.substring(0, 2).toUpperCase() || '??'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs text-muted-foreground mb-1">Out</p>
+                                  <p className="font-semibold truncate">{playerOut?.web_name || 'Unknown'}</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    {teamOut?.code && (
+                                      <img 
+                                        src={`https://resources.premierleague.com/premierleague/badges/t${teamOut.code}.png`}
+                                        alt={teamOut.short_name}
+                                        className="h-4 w-4 object-contain"
+                                        onError={(e) => {
+                                          e.currentTarget.style.display = 'none';
+                                        }}
+                                      />
+                                    )}
+                                    <p className="text-xs text-muted-foreground">
+                                      {teamOut?.short_name} • {positionNames[playerOut?.element_type || 0]}
+                                    </p>
+                                    <Badge variant="outline" className="text-xs">
+                                      £{((playerOut?.now_cost || 0) / 10).toFixed(1)}m
+                                    </Badge>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <ArrowRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+
+                            <div className="flex-1 p-3 rounded-md bg-chart-2/10 border border-chart-2/30">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-12 w-12 border-2 border-chart-2/30">
+                                  <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${playerIn?.photo?.replace('.jpg', '.png')}`} />
+                                  <AvatarFallback className="text-xs font-semibold">
+                                    {playerIn?.web_name.substring(0, 2).toUpperCase() || '??'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs text-muted-foreground mb-1">In</p>
+                                  <p className="font-semibold truncate">{playerIn?.web_name || 'Unknown'}</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    {teamIn?.code && (
+                                      <img 
+                                        src={`https://resources.premierleague.com/premierleague/badges/t${teamIn.code}.png`}
+                                        alt={teamIn.short_name}
+                                        className="h-4 w-4 object-contain"
+                                        onError={(e) => {
+                                          e.currentTarget.style.display = 'none';
+                                        }}
+                                      />
+                                    )}
+                                    <p className="text-xs text-muted-foreground">
+                                      {teamIn?.short_name} • {positionNames[playerIn?.element_type || 0]}
+                                    </p>
+                                    <Badge variant="outline" className="text-xs">
+                                      £{((playerIn?.now_cost || 0) / 10).toFixed(1)}m
+                                    </Badge>
+                                  </div>
                                 </div>
                               </div>
                             </div>
                           </div>
 
-                          <ArrowRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                          <p className="text-sm text-muted-foreground">{transfer.reasoning}</p>
+                        </CardContent>
+                      </Card>
 
-                          <div className="flex-1 p-3 rounded-md bg-chart-2/10 border border-chart-2/30">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-12 w-12 border-2 border-chart-2/30">
-                                <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${playerIn?.photo?.replace('.jpg', '.png')}`} />
-                                <AvatarFallback className="text-xs font-semibold">
-                                  {playerIn?.web_name.substring(0, 2).toUpperCase() || '??'}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs text-muted-foreground mb-1">In</p>
-                                <p className="font-semibold truncate">{playerIn?.web_name || 'Unknown'}</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  {teamIn?.code && (
-                                    <img 
-                                      src={`https://resources.premierleague.com/premierleague/badges/t${teamIn.code}.png`}
-                                      alt={teamIn.short_name}
-                                      className="h-4 w-4 object-contain"
-                                      onError={(e) => {
-                                        e.currentTarget.style.display = 'none';
-                                      }}
-                                    />
-                                  )}
-                                  <p className="text-xs text-muted-foreground">
-                                    {teamIn?.short_name} • {positionNames[playerIn?.element_type || 0]}
-                                  </p>
-                                  <Badge variant="outline" className="text-xs">
-                                    £{((playerIn?.now_cost || 0) / 10).toFixed(1)}m
-                                  </Badge>
+                      {/* Substitution Details Card - only show if substitution_details exists */}
+                      {transfer.substitution_details && (
+                        <Card className="mt-2 bg-fpl-purple/5 border-fpl-purple/20">
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <ArrowRight className="h-4 w-4 text-fpl-purple" />
+                              <h4 className="text-sm font-semibold text-fpl-purple">Lineup Substitution</h4>
+                            </div>
+                            
+                            <div className="flex items-center gap-4">
+                              {/* Benched Player */}
+                              <div className="flex-1 p-3 rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                                <div className="flex items-center gap-3">
+                                  <div className="flex-shrink-0 h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900 flex items-center justify-center">
+                                    <span className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                                      {transfer.substitution_details.benched_player_name.substring(0, 2).toUpperCase()}
+                                    </span>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs text-amber-600 dark:text-amber-400 mb-0.5">Benched</p>
+                                    <p className="text-sm font-semibold truncate">{transfer.substitution_details.benched_player_name}</p>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <Badge variant="outline" className="text-xs border-amber-300 dark:border-amber-700">
+                                        {transfer.substitution_details.benched_player_position}
+                                      </Badge>
+                                      <span className="text-xs text-muted-foreground">
+                                        {transfer.substitution_details.benched_player_predicted_points.toFixed(1)} pts
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+
+                              {/* Starting Player */}
+                              <div className="flex-1 p-3 rounded-md bg-chart-2/10 border border-chart-2/30">
+                                <div className="flex items-center gap-3">
+                                  <div className="flex-shrink-0 h-10 w-10 rounded-full bg-chart-2/20 flex items-center justify-center">
+                                    <span className="text-xs font-bold text-chart-2">
+                                      {transfer.substitution_details.incoming_player_name.substring(0, 2).toUpperCase()}
+                                    </span>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs text-chart-2 mb-0.5">Starting</p>
+                                    <p className="text-sm font-semibold truncate">{transfer.substitution_details.incoming_player_name}</p>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <Badge variant="outline" className="text-xs border-chart-2/30">
+                                        {transfer.substitution_details.incoming_player_position}
+                                      </Badge>
+                                      <span className="text-xs text-muted-foreground">
+                                        {transfer.substitution_details.incoming_player_predicted_points.toFixed(1)} pts
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        </div>
 
-                        <p className="text-sm text-muted-foreground">{transfer.reasoning}</p>
-                      </CardContent>
-                    </Card>
+                            <p className="text-xs text-muted-foreground mt-3 italic">
+                              {transfer.substitution_details.bench_reason}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
                   );
                 })}
               </div>

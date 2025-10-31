@@ -81,17 +81,17 @@ function DraggablePlayerSlot({ slot, onRemove }: DraggablePlayerSlotProps) {
             </AvatarFallback>
           </Avatar>
           {slot.isCaptain && (
-            <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-primary text-xs font-bold">
+            <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-primary text-xs font-bold z-10 shadow-lg">
               C
             </Badge>
           )}
           {slot.isViceCaptain && (
-            <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-secondary text-xs font-bold">
+            <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-secondary text-xs font-bold z-10 shadow-lg">
               V
             </Badge>
           )}
         </div>
-        <div className="text-center">
+        <div className="text-center mt-0.5">
           <p className="text-xs font-semibold text-foreground max-w-[80px] truncate">
             {slot.player.web_name}
           </p>

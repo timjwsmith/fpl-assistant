@@ -87,13 +87,13 @@ export function StartingXI({ lineup, allPlayers, allTeams, formation }: Starting
                         {(lineupPlayer.is_captain || lineupPlayer.is_vice_captain) && (
                           <Badge
                             variant={lineupPlayer.is_captain ? "default" : "secondary"}
-                            className="absolute -top-1 -right-1 h-6 w-6 p-0 flex items-center justify-center text-xs font-bold"
+                            className="absolute -top-1 -right-1 h-6 w-6 p-0 flex items-center justify-center text-xs font-bold z-10 shadow-lg"
                           >
                             {lineupPlayer.is_captain ? 'C' : 'V'}
                           </Badge>
                         )}
                       </div>
-                      <div className="bg-primary/10 border border-primary/30 rounded-lg px-2 py-1 text-center">
+                      <div className="bg-primary/10 border border-primary/30 rounded-lg px-2 py-1 text-center mt-0.5">
                         <p className="text-xs md:text-sm font-semibold text-white whitespace-nowrap">
                           {player.web_name}
                         </p>

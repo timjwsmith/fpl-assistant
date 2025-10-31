@@ -105,10 +105,10 @@ export function StartingXI({ lineup, allPlayers, allTeams, formation }: Starting
             ))}
           </div>
         </div>
-        <p className="text-xs text-muted-foreground mt-3 text-center">
+        <div className="text-xs text-muted-foreground mt-3 text-center">
           <Badge variant="default" className="mr-2">C</Badge> Captain
           <Badge variant="secondary" className="ml-4 mr-2">V</Badge> Vice-Captain
-        </p>
+        </div>
       </CardContent>
     </Card>
   );

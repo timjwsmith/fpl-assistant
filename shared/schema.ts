@@ -282,6 +282,7 @@ export const userTeams = pgTable('user_teams', {
   transfersMade: integer('transfers_made').notNull().default(0),
   lastDeadlineBank: integer('last_deadline_bank').notNull().default(0),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
 }, (table) => ({
   userIdIdx: index('user_teams_user_id_idx').on(table.userId),
   gameweekIdx: index('user_teams_gameweek_idx').on(table.gameweek),
@@ -289,7 +290,7 @@ export const userTeams = pgTable('user_teams', {
   userGameweekUnique: uniqueIndex('user_teams_user_gameweek_unique').on(table.userId, table.gameweek),
 }));
 
-export const insertUserTeamSchema = createInsertSchema(userTeams).omit({ id: true, createdAt: true });
+export const insertUserTeamSchema = createInsertSchema(userTeams).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertUserTeam = z.infer<typeof insertUserTeamSchema>;
 export type UserTeam = typeof userTeams.$inferSelect;
 

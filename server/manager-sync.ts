@@ -169,7 +169,7 @@ export class ManagerSyncService {
         viceCaptainId: viceCaptainPlayer?.player_id || null,
         gameweek: team.gameweek,
         formation: team.formation,
-        lastSyncTime: team.createdAt.toISOString(),
+        lastSyncTime: team.updatedAt.toISOString(),
       };
     } catch (error) {
       console.error("Error getting manager status:", error);

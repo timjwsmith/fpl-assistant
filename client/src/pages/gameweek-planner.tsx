@@ -710,78 +710,52 @@ export default function GameweekPlanner() {
             </div>
           )}
 
-          {plan.formation && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-primary" />
-                  Formation & Lineup
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center mb-4">
-                  <Badge variant="outline" className="text-lg px-4 py-2">
-                    {plan.formation}
-                  </Badge>
-                </div>
-                {plan.lineup && plan.lineup.length > 0 ? (
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm font-semibold mb-2">Starting XI</p>
-                      <div className="grid gap-2 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                        {plan.lineup.filter(p => p.position <= 11).map((pick, idx) => {
-                          const player = getPlayerById(pick.player_id);
-                          const team = getTeamById(player?.team);
-                          return (
-                            <div key={idx} className="p-2 rounded-md border bg-card flex items-center gap-2">
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player?.photo?.replace('.jpg', '.png')}`} />
-                                <AvatarFallback className="text-xs">
-                                  {player?.web_name.substring(0, 2).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium truncate">{player?.web_name}</p>
-                                <p className="text-xs text-muted-foreground">{team?.short_name}</p>
-                              </div>
-                              {pick.is_captain && <Badge className="text-xs">C</Badge>}
-                              {pick.is_vice_captain && <Badge variant="outline" className="text-xs">VC</Badge>}
+          {plan.formation && plan.lineup && plan.lineup.length > 0 && (
+            <>
+              <StartingXI
+                lineup={plan.lineup.filter(p => p.position <= 11)}
+                allPlayers={players as FPLPlayer[]}
+                allTeams={teams as FPLTeam[]}
+                formation={plan.formation}
+              />
+              {plan.lineup.filter(p => p.position > 11).length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5 text-muted-foreground" />
+                      Bench
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-2 grid-cols-2 md:grid-cols-4">
+                      {plan.lineup.filter(p => p.position > 11).map((pick, idx) => {
+                        const player = getPlayerById(pick.player_id);
+                        const team = getTeamById(player?.team);
+                        const teamCode = player?.team_code || team?.code;
+                        const positionNames = ['', 'GK', 'DEF', 'MID', 'FWD'];
+                        return (
+                          <div key={idx} className="p-3 rounded-md border bg-muted/30 flex items-center gap-2">
+                            <Avatar className="h-10 w-10 border-2 border-muted">
+                              <AvatarImage 
+                                src={teamCode ? `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}-110.png` : undefined}
+                                alt={`${player?.web_name} shirt`}
+                              />
+                              <AvatarFallback className="text-xs font-semibold">
+                                {player?.web_name.substring(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold truncate">{player?.web_name}</p>
+                              <p className="text-xs text-muted-foreground">{team?.short_name} • {positionNames[player?.element_type || 0]}</p>
                             </div>
-                          );
-                        })}
-                      </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold mb-2">Bench</p>
-                      <div className="grid gap-2 grid-cols-2 md:grid-cols-4">
-                        {plan.lineup.filter(p => p.position > 11).map((pick, idx) => {
-                          const player = getPlayerById(pick.player_id);
-                          const team = getTeamById(player?.team);
-                          return (
-                            <div key={idx} className="p-2 rounded-md border bg-muted/50 flex items-center gap-2">
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player?.photo?.replace('.jpg', '.png')}`} />
-                                <AvatarFallback className="text-xs">
-                                  {player?.web_name.substring(0, 2).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium truncate">{player?.web_name}</p>
-                                <p className="text-xs text-muted-foreground">{team?.short_name}</p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center">
-                    Lineup details not available
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              )}
+            </>
           )}
 
           {plan.strategicInsights && plan.strategicInsights.length > 0 && (

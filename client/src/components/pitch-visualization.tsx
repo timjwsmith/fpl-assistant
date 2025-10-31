@@ -73,7 +73,7 @@ function DraggablePlayerSlot({ slot, onRemove }: DraggablePlayerSlotProps) {
         <div className="relative w-fit">
           <Avatar className="h-14 w-14 border-2 border-background ring-2 ring-primary/50">
             <AvatarImage 
-              src={slot.teamCode ? getPlayerShirtUrl(slot.teamCode, 110) : undefined}
+              src={getPlayerShirtUrl(slot.player.team_code, 110)}
               alt={`${slot.player.web_name} shirt`}
             />
             <AvatarFallback className="text-xs font-semibold bg-primary/20">

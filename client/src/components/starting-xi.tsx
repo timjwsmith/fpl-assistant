@@ -66,9 +66,6 @@ export function StartingXI({ lineup, allPlayers, allTeams, formation }: Starting
                   const player = getPlayerDetails(lineupPlayer.player_id);
                   if (!player) return null;
 
-                  const team = allTeams?.find(t => t.id === player.team);
-                  const teamCode = team?.code;
-
                   return (
                     <div
                       key={lineupPlayer.player_id}
@@ -77,7 +74,7 @@ export function StartingXI({ lineup, allPlayers, allTeams, formation }: Starting
                       <div className="relative w-fit">
                         <Avatar className="h-14 w-14 md:h-16 md:w-16 border-2 border-primary/30">
                           <AvatarImage 
-                            src={teamCode ? getPlayerShirtUrl(teamCode, 110) : undefined} 
+                            src={getPlayerShirtUrl(player.team_code, 110)} 
                             alt={`${player.web_name} shirt`}
                           />
                           <AvatarFallback className="text-xs font-semibold">

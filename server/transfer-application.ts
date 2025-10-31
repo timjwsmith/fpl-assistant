@@ -208,9 +208,13 @@ class TransferApplicationService {
         players = snapshot.data.players;
       }
       
+      if (!players) {
+        throw new Error('Players data not available');
+      }
+      
       const transferPayloads: TransferPayload[] = transfers.map(transfer => {
-        const playerIn = players.find(p => p.id === transfer.player_in_id);
-        const playerOut = players.find(p => p.id === transfer.player_out_id);
+        const playerIn = players!.find(p => p.id === transfer.player_in_id);
+        const playerOut = players!.find(p => p.id === transfer.player_out_id);
         
         if (!playerIn || !playerOut) {
           throw new Error(`Player not found: in=${transfer.player_in_id}, out=${transfer.player_out_id}`);

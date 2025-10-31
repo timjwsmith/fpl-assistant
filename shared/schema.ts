@@ -10,6 +10,7 @@ export const fplPlayerSchema = z.object({
   first_name: z.string(),
   second_name: z.string(),
   team: z.number(),
+  team_code: z.number(), // Team code for shirt images (matches team.code)
   element_type: z.number(), // 1=GK, 2=DEF, 3=MID, 4=FWD
   now_cost: z.number(), // Price in tenths (divide by 10)
   selected_by_percent: z.string(),

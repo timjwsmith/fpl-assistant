@@ -313,9 +313,8 @@ export default function TeamModeller() {
 
   // Load saved team when data is available
   useEffect(() => {
-    if (savedTeamData && players && teams) {
+    if (savedTeamData && players) {
       const playerMap = new Map((players as FPLPlayer[]).map(p => [p.id, p]));
-      const teamMap = new Map((teams as { id: number; code: number }[]).map(t => [t.id, t.code]));
       
       const loadedSlots = savedTeamData.players.map((slotData: any) => {
         const player = slotData.player_id ? playerMap.get(slotData.player_id) || null : null;
@@ -324,7 +323,7 @@ export default function TeamModeller() {
           position: slotData.position,
           isCaptain: slotData.is_captain,
           isViceCaptain: slotData.is_vice_captain,
-          teamCode: player ? teamMap.get(player.team) : undefined,
+          teamCode: player?.team_code,
         };
       });
 
@@ -333,7 +332,7 @@ export default function TeamModeller() {
         setSavedTeam(savedTeamData);
       }
     }
-  }, [savedTeamData, players, teams]);
+  }, [savedTeamData, players]);
 
   const handlePlayerSwap = (fromPosition: number, toPosition: number) => {
     setSlots(prev => {
@@ -472,9 +471,8 @@ export default function TeamModeller() {
       }
     }
 
-    const team = (teams as { id: number; code: number }[])?.find(t => t.id === player.team);
     setSlots(prev => prev.map(s => 
-      s.position === selectedSlot ? { ...s, player, teamCode: team?.code } : s
+      s.position === selectedSlot ? { ...s, player, teamCode: player.team_code } : s
     ));
     setSelectedSlot(null);
 

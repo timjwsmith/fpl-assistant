@@ -442,7 +442,18 @@ export class GameweekAnalyzerService {
         }
       }
 
-      // 8. Generate starting XI lineup
+      // 8. Generate starting XI lineup - first generate current lineup (before transfers) to compare
+      console.log(`[GameweekAnalyzer] Generating current lineup (before transfers) for comparison...`);
+      const currentLineup = await this.generateLineup(
+        inputData.currentTeam,
+        [], // No transfers - current lineup
+        aiResponse.formation,
+        aiResponse.captain_id,
+        aiResponse.vice_captain_id,
+        inputData.context.snapshot.data.players,
+        Array.from(predictionsMap.entries()).map(([playerId, predictedPoints]) => ({ playerId, predictedPoints }))
+      );
+      
       console.log(`[GameweekAnalyzer] Generating starting XI lineup with ${predictionsMap.size} player predictions...`);
       const lineup = await this.generateLineup(
         inputData.currentTeam,
@@ -453,6 +464,49 @@ export class GameweekAnalyzerService {
         inputData.context.snapshot.data.players,
         Array.from(predictionsMap.entries()).map(([playerId, predictedPoints]) => ({ playerId, predictedPoints }))
       );
+
+      // 8.5. Enhance transfer reasoning with lineup substitution details
+      if (aiResponse.transfers.length > 0) {
+        console.log(`[GameweekAnalyzer] Analyzing lineup changes for ${aiResponse.transfers.length} transfers...`);
+        
+        // Create a map of player positions in both lineups
+        const currentLineupMap = new Map(currentLineup.map(p => [p.player_id, p.position]));
+        const newLineupMap = new Map(lineup.map(p => [p.player_id, p.position]));
+        
+        for (const transfer of aiResponse.transfers) {
+          const playerOutPosition = currentLineupMap.get(transfer.player_out_id);
+          const playerInPosition = newLineupMap.get(transfer.player_in_id);
+          
+          // Check if this transfer involves a bench player being transferred out
+          // and the new player getting into the starting XI
+          const playerOutWasBench = !playerOutPosition || playerOutPosition > 11;
+          const playerInIsStarting = playerInPosition && playerInPosition <= 11;
+          
+          if (playerOutWasBench && playerInIsStarting) {
+            // Find which starting XI player from current lineup is now benched
+            const currentStartingXI = currentLineup.filter(p => p.position <= 11).map(p => p.player_id);
+            const newStartingXI = lineup.filter(p => p.position <= 11).map(p => p.player_id);
+            
+            // Find player who was in starting XI but is now benched
+            const benchedPlayerId = currentStartingXI.find(playerId => 
+              !newStartingXI.includes(playerId) && playerId !== transfer.player_out_id
+            );
+            
+            if (benchedPlayerId) {
+              const benchedPlayer = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === benchedPlayerId);
+              const transferredInPlayer = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === transfer.player_in_id);
+              
+              if (benchedPlayer && transferredInPlayer) {
+                // Append lineup substitution info to the transfer reasoning
+                const lineupSubInfo = ` → This will bring ${transferredInPlayer.web_name} into the starting XI, with ${benchedPlayer.web_name} moving to the bench.`;
+                transfer.reasoning += lineupSubInfo;
+                
+                console.log(`[GameweekAnalyzer] Transfer ${transfer.player_out_id} → ${transfer.player_in_id}: ${benchedPlayer.web_name} will be benched for ${transferredInPlayer.web_name}`);
+              }
+            }
+          }
+        }
+      }
 
       // Update the plan with the lineup
       await storage.updateGameweekPlanLineup(plan.id, lineup);

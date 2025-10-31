@@ -30,35 +30,135 @@ function calculateSuspensionRisk(yellowCards: number, currentGameweek: number): 
   description: string;
   yellowsToSuspension: number;
 } {
-  if (currentGameweek <= 19) {
-    if (yellowCards === 4) {
-      return { risk: 'critical', description: 'Next yellow = 1-match ban', yellowsToSuspension: 1 };
-    } else if (yellowCards === 3) {
-      return { risk: 'high', description: '2 yellows from 1-match ban', yellowsToSuspension: 2 };
-    } else if (yellowCards >= 2) {
-      return { risk: 'moderate', description: `${5 - yellowCards} yellows from ban`, yellowsToSuspension: 5 - yellowCards };
-    }
-  }
+  // Premier League suspension thresholds:
+  // - 5 yellows (before GW19): 1-match ban
+  // - 10 yellows (before GW32): 2-match ban  
+  // - 15 yellows (any time): 3-match ban
+  //
+  // CRITICAL FIX: Check ALL thresholds in priority order (highest to lowest)
+  // regardless of current gameweek to handle all edge cases correctly
   
-  if (currentGameweek <= 32) {
-    if (yellowCards === 9) {
-      return { risk: 'critical', description: 'Next yellow = 2-match ban', yellowsToSuspension: 1 };
-    } else if (yellowCards === 8) {
-      return { risk: 'high', description: '2 yellows from 2-match ban', yellowsToSuspension: 2 };
-    } else if (yellowCards >= 6) {
-      return { risk: 'moderate', description: `${10 - yellowCards} yellows from 2-match ban`, yellowsToSuspension: 10 - yellowCards };
-    }
+  // Priority 1-3: 15-yellow threshold (always active, final threshold)
+  if (yellowCards >= 15) {
+    // Use >= for final threshold to handle 16+ yellows gracefully
+    return {
+      risk: 'critical',
+      description: 'At 15-yellow threshold',
+      yellowsToSuspension: 0
+    };
   }
   
   if (yellowCards === 14) {
-    return { risk: 'critical', description: 'Next yellow = 3-match ban', yellowsToSuspension: 1 };
-  } else if (yellowCards === 13) {
-    return { risk: 'high', description: '2 yellows from 3-match ban', yellowsToSuspension: 2 };
-  } else if (yellowCards >= 11) {
-    return { risk: 'moderate', description: `${15 - yellowCards} yellows from 3-match ban`, yellowsToSuspension: 15 - yellowCards };
+    return {
+      risk: 'critical',
+      description: 'Next yellow = 3-match ban',
+      yellowsToSuspension: 1
+    };
   }
   
-  return { risk: 'low', description: 'Low suspension risk', yellowsToSuspension: 5 };
+  if (yellowCards === 13) {
+    return {
+      risk: 'high',
+      description: '2 yellows from 3-match ban',
+      yellowsToSuspension: 2
+    };
+  }
+  
+  // Priority 4-6: 10-yellow threshold (active until GW32)
+  if (currentGameweek <= 32) {
+    // Use === for intermediate thresholds to allow progression to next threshold
+    if (yellowCards === 10) {
+      return {
+        risk: 'critical',
+        description: 'At 10-yellow threshold',
+        yellowsToSuspension: 0
+      };
+    }
+    
+    if (yellowCards === 9) {
+      return {
+        risk: 'critical',
+        description: 'Next yellow = 2-match ban',
+        yellowsToSuspension: 1
+      };
+    }
+    
+    if (yellowCards === 8) {
+      return {
+        risk: 'high',
+        description: '2 yellows from 2-match ban',
+        yellowsToSuspension: 2
+      };
+    }
+  }
+  
+  // Priority 7-9: 5-yellow threshold (active until GW19)
+  if (currentGameweek <= 19) {
+    // Use === for intermediate thresholds to allow progression to next threshold
+    if (yellowCards === 5) {
+      return {
+        risk: 'critical',
+        description: 'At 5-yellow threshold',
+        yellowsToSuspension: 0
+      };
+    }
+    
+    if (yellowCards === 4) {
+      return {
+        risk: 'critical',
+        description: 'Next yellow = 1-match ban',
+        yellowsToSuspension: 1
+      };
+    }
+    
+    if (yellowCards === 3) {
+      return {
+        risk: 'high',
+        description: '2 yellows from 1-match ban',
+        yellowsToSuspension: 2
+      };
+    }
+  }
+  
+  // Priority 10-12: Moderate risk - tracking towards future thresholds
+  // Player has passed previous threshold and is accumulating towards next
+  
+  if (yellowCards >= 11) {
+    // Between 10-yellow and 15-yellow thresholds
+    const yellowsTo15 = 15 - yellowCards;
+    return {
+      risk: 'moderate',
+      description: `${yellowsTo15} yellows from 3-match ban`,
+      yellowsToSuspension: yellowsTo15
+    };
+  }
+  
+  if (yellowCards >= 6 && currentGameweek <= 32) {
+    // Between 5-yellow and 10-yellow thresholds
+    const yellowsTo10 = 10 - yellowCards;
+    return {
+      risk: 'moderate',
+      description: `${yellowsTo10} yellows from 2-match ban`,
+      yellowsToSuspension: yellowsTo10
+    };
+  }
+  
+  if (yellowCards >= 2 && currentGameweek <= 19) {
+    // Approaching 5-yellow threshold
+    const yellowsTo5 = 5 - yellowCards;
+    return {
+      risk: 'moderate',
+      description: `${yellowsTo5} yellows from 1-match ban`,
+      yellowsToSuspension: yellowsTo5
+    };
+  }
+  
+  // Priority 13: Default - low risk (0-1 yellows)
+  return {
+    risk: 'low',
+    description: 'Low suspension risk',
+    yellowsToSuspension: 0
+  };
 }
 
 interface SquadValidation {

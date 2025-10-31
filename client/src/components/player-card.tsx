@@ -47,14 +47,35 @@ export function PlayerCard({
 
   const getDisciplinaryBadge = () => {
     const yellows = player.yellow_cards || 0;
-    if (yellows >= 4) {
+    
+    // Don't show disciplinary badge if already showing suspension status badge
+    // (getStatusBadge handles player.status === 's')
+    if (player.status === 's') {
+      return null;
+    }
+    
+    // Yellow card warnings based on Premier League suspension thresholds (5, 10, 15)
+    // Critical: 1 yellow away from ban
+    if (yellows === 4 || yellows === 9 || yellows === 14) {
       return (
-        <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-600 dark:text-amber-400 flex items-center gap-1">
+        <Badge variant="outline" className="text-xs border-amber-600 bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400 flex items-center gap-1">
           <AlertTriangle className="h-3 w-3" />
-          {yellows} YC - High Risk
+          Next yellow = BAN
         </Badge>
       );
     }
+    
+    // At a threshold: Show critical risk but NOT "SUSPENDED" (status badge handles that)
+    if (yellows === 5 || yellows === 10 || yellows === 15) {
+      return (
+        <Badge variant="outline" className="text-xs border-amber-600/70 text-amber-600 dark:text-amber-400 flex items-center gap-1">
+          <AlertCircle className="h-3 w-3" />
+          {yellows} YC - At threshold
+        </Badge>
+      );
+    }
+    
+    // Show for 3+ yellows (moderate risk approaching thresholds)
     if (yellows >= 3) {
       return (
         <Badge variant="outline" className="text-xs border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center gap-1">
@@ -62,6 +83,7 @@ export function PlayerCard({
         </Badge>
       );
     }
+    
     return null;
   };
 

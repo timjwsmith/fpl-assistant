@@ -69,10 +69,37 @@ export class PredictionAnalysisService {
   }
 
   /**
+   * Aggregate scoring breakdown across all fixtures from FPL explain array
+   * CRITICAL FOR DOUBLE GAMEWEEKS - must sum, not overwrite
+   * PUBLIC for testing to prevent regression bugs
+   */
+  public aggregateExplainArray(explainArray: any[]): Record<string, { points: number; value: number }> {
+    const scoringBreakdown: Record<string, { points: number; value: number }> = {};
+    
+    for (const fixture of explainArray) {
+      for (const stat of fixture.stats) {
+        // Initialize if not exists
+        if (!scoringBreakdown[stat.identifier]) {
+          scoringBreakdown[stat.identifier] = {
+            points: 0,
+            value: 0,
+          };
+        }
+        // CRITICAL: Aggregate points and values across all fixtures (must use += not =)
+        scoringBreakdown[stat.identifier].points += stat.points;
+        scoringBreakdown[stat.identifier].value += stat.value;
+      }
+    }
+    
+    return scoringBreakdown;
+  }
+
+  /**
    * Format scoring breakdown into human-readable strings
    * Handles ALL FPL identifiers to prevent silent data loss
+   * PUBLIC for testing to ensure regression prevention
    */
-  private formatScoringBreakdown(scoringBreakdown: any): string[] {
+  public formatScoringBreakdown(scoringBreakdown: any): string[] {
     const breakdown: string[] = [];
     
     for (const [identifier, data] of Object.entries(scoringBreakdown)) {
@@ -202,23 +229,9 @@ export class PredictionAnalysisService {
           
           // Parse the explain array to get actual scoring breakdown
           // AGGREGATE across all fixtures (important for double gameweeks)
-          const scoringBreakdown: any = {};
-          if (liveElement?.explain && liveElement.explain.length > 0) {
-            for (const fixture of liveElement.explain) {
-              for (const stat of fixture.stats) {
-                // Initialize if not exists
-                if (!scoringBreakdown[stat.identifier]) {
-                  scoringBreakdown[stat.identifier] = {
-                    points: 0,
-                    value: 0,
-                  };
-                }
-                // Aggregate points and values across all fixtures
-                scoringBreakdown[stat.identifier].points += stat.points;
-                scoringBreakdown[stat.identifier].value += stat.value;
-              }
-            }
-          }
+          const scoringBreakdown = liveElement?.explain && liveElement.explain.length > 0
+            ? this.aggregateExplainArray(liveElement.explain)
+            : {};
           
           return {
             name: playerData?.web_name || 'Unknown',

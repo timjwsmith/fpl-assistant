@@ -427,6 +427,13 @@ export const gameweekPlans = pgTable('gameweek_plans', {
   viceCaptainId: integer('vice_captain_id'),
   chipToPlay: text('chip_to_play', { enum: ['wildcard', 'freehit', 'benchboost', 'triplecaptain'] }),
   formation: text('formation').notNull(),
+  lineup: jsonb('lineup').$type<Array<{
+    player_id: number;
+    position: number;
+    is_captain: boolean;
+    is_vice_captain: boolean;
+    multiplier: number;
+  }>>(),
   predictedPoints: integer('predicted_points').notNull(),
   confidence: integer('confidence').notNull(),
   aiReasoning: text('ai_reasoning').notNull(),

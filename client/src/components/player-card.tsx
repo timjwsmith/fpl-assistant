@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { TrendingUp, TrendingDown, Minus, AlertCircle } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, AlertCircle, AlertTriangle } from "lucide-react";
 import { type FPLPlayer } from "@shared/schema";
 import { cn, getPlayerShirtUrl } from "@/lib/utils";
 
@@ -41,6 +41,27 @@ export function PlayerCard({
     if (player.status === 'i') return <Badge variant="destructive" className="text-xs">Injured</Badge>;
     if (player.status === 'd') return <Badge variant="outline" className="text-xs border-destructive/50 text-destructive">Doubtful</Badge>;
     if (player.status === 'u') return <Badge variant="outline" className="text-xs">Unavailable</Badge>;
+    if (player.status === 's') return <Badge variant="destructive" className="text-xs">Suspended</Badge>;
+    return null;
+  };
+
+  const getDisciplinaryBadge = () => {
+    const yellows = player.yellow_cards || 0;
+    if (yellows >= 4) {
+      return (
+        <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-600 dark:text-amber-400 flex items-center gap-1">
+          <AlertTriangle className="h-3 w-3" />
+          {yellows} YC - High Risk
+        </Badge>
+      );
+    }
+    if (yellows >= 3) {
+      return (
+        <Badge variant="outline" className="text-xs border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center gap-1">
+          {yellows} Yellow Cards
+        </Badge>
+      );
+    }
     return null;
   };
 
@@ -103,6 +124,7 @@ export function PlayerCard({
 
             <div className="mt-2 flex items-center gap-2 flex-wrap">
               {getStatusBadge()}
+              {getDisciplinaryBadge()}
               {player.news && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <AlertCircle className="h-3 w-3" />

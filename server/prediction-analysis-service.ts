@@ -88,6 +88,10 @@ export class PredictionAnalysisService {
       
       console.log(`[PredictionAnalysis] Using snapshot from ${new Date(snapshot.timestamp).toISOString()}`);
 
+      // Fetch gameweek-specific live data for accurate historical player points
+      const liveData = await fplApi.getLiveGameweekData(gameweek);
+      console.log(`[PredictionAnalysis] Fetched live data for GW${gameweek} with ${liveData.elements?.length || 0} player records`);
+
       // Extract data from snapshot
       const gameweeks = snapshot.data.gameweeks;
       const gw = gameweeks.find((g: any) => g.id === gameweek);
@@ -112,13 +116,22 @@ export class PredictionAnalysisService {
         };
       }
 
+      // Create lookup map for live gameweek data (player_id -> stats)
+      const livePlayerStats = new Map<number, any>();
+      if (liveData.elements) {
+        for (const element of liveData.elements) {
+          livePlayerStats.set(element.id, element.stats);
+        }
+      }
+
       // Get captain info
       let captain: { name: string; points: number } | null = null;
       const captainInfo = userTeam.players.find((p: any) => p.is_captain);
       if (captainInfo?.player_id) {
         const captainPlayer = allPlayers.find((p: any) => p.id === captainInfo.player_id);
-        if (captainPlayer) {
-          const gwPoints = captainPlayer.event_points || 0;
+        const liveStats = livePlayerStats.get(captainInfo.player_id);
+        if (captainPlayer && liveStats) {
+          const gwPoints = liveStats.total_points || 0;
           captain = {
             name: captainPlayer.web_name,
             points: gwPoints * 2, // Captain gets double points
@@ -127,12 +140,13 @@ export class PredictionAnalysisService {
       }
 
       // Get all players who actually played
-      // Include: Starting XI (positions 1-11) OR bench players who got minutes (event_points > 0)
+      // Include: Starting XI (positions 1-11) OR bench players who got minutes (total_points > 0)
       const teamPerformance = userTeam.players
         .filter((p: any) => p.player_id) // Filter out null player_ids
         .map((p: any) => {
           const playerData = allPlayers.find((pl: any) => pl.id === p.player_id);
-          const eventPoints = playerData?.event_points || 0;
+          const liveStats = livePlayerStats.get(p.player_id);
+          const eventPoints = liveStats?.total_points || 0;
           return {
             name: playerData?.web_name || 'Unknown',
             points: eventPoints,
@@ -140,15 +154,15 @@ export class PredictionAnalysisService {
             isCaptain: p.is_captain,
             lineupPosition: p.position, // 1-15 lineup slot
             playedFromBench: p.position > 11 && eventPoints > 0, // Bench player who came on
-            // Detailed stats breakdown for analysis
-            minutes: playerData?.minutes || 0,
-            goalsScored: playerData?.goals_scored || 0,
-            assists: playerData?.assists || 0,
-            cleanSheets: playerData?.clean_sheets || 0,
-            yellowCards: playerData?.yellow_cards || 0,
-            redCards: playerData?.red_cards || 0,
-            bonus: playerData?.bonus || 0,
-            saves: playerData?.saves || 0,
+            // Detailed stats breakdown for analysis - use gameweek-specific live data
+            minutes: liveStats?.minutes || 0,
+            goalsScored: liveStats?.goals_scored || 0,
+            assists: liveStats?.assists || 0,
+            cleanSheets: liveStats?.clean_sheets || 0,
+            yellowCards: liveStats?.yellow_cards || 0,
+            redCards: liveStats?.red_cards || 0,
+            bonus: liveStats?.bonus || 0,
+            saves: liveStats?.saves || 0,
           };
         })
         .filter((p: any) => 

@@ -79,15 +79,16 @@ export function DeadlineCountdown({ gameweek }: DeadlineCountdownProps) {
             )}
             <div>
               <h3 className="font-semibold text-sm text-muted-foreground mb-1">
-                {isExpired ? "Deadline Passed" : "Deadline"}
+                {isExpired ? "Deadline Passed" : "Deadline (Your Time)"}
               </h3>
               <p className="text-xs text-muted-foreground">
-                {new Date(gameweek.deadline_time).toLocaleDateString('en-GB', {
+                {new Date(gameweek.deadline_time).toLocaleString(undefined, {
                   weekday: 'short',
                   day: 'numeric',
                   month: 'short',
                   hour: '2-digit',
-                  minute: '2-digit'
+                  minute: '2-digit',
+                  hour12: true
                 })}
               </p>
             </div>

@@ -428,7 +428,12 @@ export class GameweekAnalyzerService {
       // to ensure they're properly considered for the starting XI
       const predictionsMap = new Map(relevantPredictions.map(p => [p.playerId, p.predictedPoints]));
       
+      console.log(`[GameweekAnalyzer] Initial predictionsMap has ${predictionsMap.size} players before adding transferred-in estimates`);
+      
       for (const transfer of aiResponse.transfers) {
+        const playerInName = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === transfer.player_in_id)?.web_name || `Player ${transfer.player_in_id}`;
+        const playerOutName = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === transfer.player_out_id)?.web_name || `Player ${transfer.player_out_id}`;
+        
         if (!predictionsMap.has(transfer.player_in_id)) {
           // Find the player being transferred out to use as baseline
           const playerOutPrediction = predictionsMap.get(transfer.player_out_id) || 2;
@@ -436,11 +441,21 @@ export class GameweekAnalyzerService {
           // Estimate new player's points as: old player's points + expected gain
           const estimatedPoints = Math.max(0, Math.round(playerOutPrediction + transfer.expected_points_gain));
           
-          console.log(`[GameweekAnalyzer] Generating estimated prediction for transferred-in player ${transfer.player_in_id}: ${estimatedPoints} pts (baseline: ${playerOutPrediction}, gain: ${transfer.expected_points_gain})`);
+          console.log(`[GameweekAnalyzer] ✅ Adding estimate for transferred-in player ${playerInName} (ID: ${transfer.player_in_id}): ${estimatedPoints} pts (baseline from ${playerOutName}: ${playerOutPrediction}, gain: ${transfer.expected_points_gain})`);
           
           predictionsMap.set(transfer.player_in_id, estimatedPoints);
+        } else {
+          const existingPrediction = predictionsMap.get(transfer.player_in_id);
+          console.log(`[GameweekAnalyzer] ⚠️ Transferred-in player ${playerInName} (ID: ${transfer.player_in_id}) already has prediction: ${existingPrediction} pts - NOT adding estimate`);
         }
       }
+      
+      console.log(`[GameweekAnalyzer] 📊 Final predictionsMap contents before enhancement loop (${predictionsMap.size} players):`);
+      const predictionsArray = Array.from(predictionsMap.entries()).map(([playerId, pts]) => {
+        const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === playerId);
+        return { playerId, name: player?.web_name || 'Unknown', predictedPoints: pts };
+      }).sort((a, b) => b.predictedPoints - a.predictedPoints);
+      console.log(predictionsArray.slice(0, 15).map(p => `  ${p.name}: ${p.predictedPoints} pts`).join('\n'));
 
       // 8. Generate starting XI lineup - first generate current lineup (before transfers) to compare
       console.log(`[GameweekAnalyzer] Generating current lineup (before transfers) for comparison...`);
@@ -467,30 +482,118 @@ export class GameweekAnalyzerService {
 
       // 8.5. Enhance transfer reasoning with lineup substitution details
       if (aiResponse.transfers.length > 0) {
-        console.log(`[GameweekAnalyzer] Analyzing lineup changes for ${aiResponse.transfers.length} transfers...`);
+        console.log(`\n[GameweekAnalyzer] 🔄 Analyzing lineup changes for ${aiResponse.transfers.length} transfers...`);
         
-        // Create a map of player positions in both lineups
+        // Create a map of player positions in the current lineup (before transfers)
         const currentLineupMap = new Map(currentLineup.map(p => [p.player_id, p.position]));
-        const newLineupMap = new Map(lineup.map(p => [p.player_id, p.position]));
         
+        console.log(`[GameweekAnalyzer] Current lineup (before ANY transfers):`);
+        const currentStartingXI = currentLineup.filter(p => p.position <= 11);
+        const currentBench = currentLineup.filter(p => p.position > 11);
+        console.log(`  Starting XI (${currentStartingXI.length}): ${currentStartingXI.map(p => {
+          const player = inputData.context.snapshot.data.players.find((pl: FPLPlayer) => pl.id === p.player_id);
+          const prediction = predictionsMap.get(p.player_id) || 0;
+          return `${player?.web_name}(${prediction}pts)`;
+        }).join(', ')}`);
+        console.log(`  Bench (${currentBench.length}): ${currentBench.map(p => {
+          const player = inputData.context.snapshot.data.players.find((pl: FPLPlayer) => pl.id === p.player_id);
+          const prediction = predictionsMap.get(p.player_id) || 0;
+          return `${player?.web_name}(${prediction}pts)`;
+        }).join(', ')}`);
+        
+        // Analyze each transfer individually by comparing:
+        // - Current lineup (before ANY transfers)
+        // - Lineup after applying ONLY this single transfer
         for (const transfer of aiResponse.transfers) {
+          const playerInName = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === transfer.player_in_id)?.web_name || `Player ${transfer.player_in_id}`;
+          const playerOutName = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === transfer.player_out_id)?.web_name || `Player ${transfer.player_out_id}`;
+          
+          console.log(`\n[GameweekAnalyzer] 🔍 Analyzing transfer: ${playerOutName} (ID: ${transfer.player_out_id}) → ${playerInName} (ID: ${transfer.player_in_id})`);
+          
+          // Verify predictions for both players
+          const playerOutPrediction = predictionsMap.get(transfer.player_out_id);
+          const playerInPrediction = predictionsMap.get(transfer.player_in_id);
+          console.log(`  ${playerOutName} prediction: ${playerOutPrediction !== undefined ? playerOutPrediction + ' pts' : 'MISSING ⚠️'}`);
+          console.log(`  ${playerInName} prediction: ${playerInPrediction !== undefined ? playerInPrediction + ' pts' : 'MISSING ⚠️'}`);
+          
+          if (playerInPrediction === undefined) {
+            console.error(`  ❌ ERROR: Missing prediction for transferred-in player ${playerInName}! This will cause lineup generation to fail.`);
+          }
+          
+          // Generate lineup with ONLY this transfer applied
+          const predictionsForLineup = Array.from(predictionsMap.entries()).map(([playerId, predictedPoints]) => ({ playerId, predictedPoints }));
+          console.log(`  Generating lineup with ${predictionsForLineup.length} predictions (including ${playerInName})...`);
+          
+          const lineupWithThisTransfer = await this.generateLineup(
+            inputData.currentTeam,
+            [transfer], // Only this transfer
+            aiResponse.formation,
+            aiResponse.captain_id,
+            aiResponse.vice_captain_id,
+            inputData.context.snapshot.data.players,
+            predictionsForLineup
+          );
+          
+          console.log(`  New lineup (with ${playerOutName} → ${playerInName}):`);
+          const newStartingXI = lineupWithThisTransfer.filter(p => p.position <= 11);
+          const newBench = lineupWithThisTransfer.filter(p => p.position > 11);
+          console.log(`    Starting XI (${newStartingXI.length}): ${newStartingXI.map(p => {
+            const player = inputData.context.snapshot.data.players.find((pl: FPLPlayer) => pl.id === p.player_id);
+            const prediction = predictionsMap.get(p.player_id) || 0;
+            return `${player?.web_name}(${prediction}pts)`;
+          }).join(', ')}`);
+          console.log(`    Bench (${newBench.length}): ${newBench.map(p => {
+            const player = inputData.context.snapshot.data.players.find((pl: FPLPlayer) => pl.id === p.player_id);
+            const prediction = predictionsMap.get(p.player_id) || 0;
+            return `${player?.web_name}(${prediction}pts)`;
+          }).join(', ')}`);
+          
+          const lineupWithThisTransferMap = new Map(lineupWithThisTransfer.map(p => [p.player_id, p.position]));
+          
           const playerOutPosition = currentLineupMap.get(transfer.player_out_id);
-          const playerInPosition = newLineupMap.get(transfer.player_in_id);
+          const playerInPosition = lineupWithThisTransferMap.get(transfer.player_in_id);
+          
+          console.log(`  Position check: ${playerOutName} was at position ${playerOutPosition || 'NOT FOUND'}, ${playerInName} now at position ${playerInPosition || 'NOT FOUND'}`);
           
           // Check if this transfer involves a bench player being transferred out
           // and the new player getting into the starting XI
           const playerOutWasBench = !playerOutPosition || playerOutPosition > 11;
           const playerInIsStarting = playerInPosition && playerInPosition <= 11;
           
+          console.log(`  Transfer scenario: ${playerOutName} was ${playerOutWasBench ? 'on BENCH' : 'STARTING'}, ${playerInName} is ${playerInIsStarting ? 'STARTING' : 'on BENCH'}`);
+          
           if (playerOutWasBench && playerInIsStarting) {
-            // Find which starting XI player from current lineup is now benched
-            const currentStartingXI = currentLineup.filter(p => p.position <= 11).map(p => p.player_id);
-            const newStartingXI = lineup.filter(p => p.position <= 11).map(p => p.player_id);
+            console.log(`  ✅ Bench → Starting transfer detected! Looking for benched player...`);
             
-            // Find player who was in starting XI but is now benched
+            // Find which starting XI player from current lineup is now benched in the new lineup
+            const currentStartingXI = currentLineup.filter(p => p.position <= 11).map(p => p.player_id);
+            const newStartingXI = lineupWithThisTransfer.filter(p => p.position <= 11).map(p => p.player_id);
+            
+            console.log(`  Current starting XI (${currentStartingXI.length} players): ${currentStartingXI.map(id => {
+              const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id);
+              return player?.web_name || id;
+            }).join(', ')}`);
+            console.log(`  New starting XI (${newStartingXI.length} players): ${newStartingXI.map(id => {
+              const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id);
+              return player?.web_name || id;
+            }).join(', ')}`);
+            
+            // Find player who was in starting XI but is now benched (excluding the player being transferred out)
             const benchedPlayerId = currentStartingXI.find(playerId => 
               !newStartingXI.includes(playerId) && playerId !== transfer.player_out_id
             );
+            
+            if (benchedPlayerId) {
+              const benchedPlayerName = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === benchedPlayerId)?.web_name || `Player ${benchedPlayerId}`;
+              console.log(`  🎯 Found benched player: ${benchedPlayerName} (ID: ${benchedPlayerId})`);
+            } else {
+              console.log(`  ⚠️ NO benched player found! This is unexpected - lineups may be identical.`);
+              console.log(`  Diagnosis: Current starting XI = ${currentStartingXI.length}, New starting XI = ${newStartingXI.length}`);
+              const playersOnlyInCurrent = currentStartingXI.filter(id => !newStartingXI.includes(id) && id !== transfer.player_out_id);
+              const playersOnlyInNew = newStartingXI.filter(id => !currentStartingXI.includes(id));
+              console.log(`  Players only in current XI (excluding ${playerOutName}): ${playersOnlyInCurrent.map(id => inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id)?.web_name || id).join(', ') || 'NONE'}`);
+              console.log(`  Players only in new XI: ${playersOnlyInNew.map(id => inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id)?.web_name || id).join(', ') || 'NONE'}`);
+            }
             
             if (benchedPlayerId) {
               const benchedPlayer = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === benchedPlayerId);
@@ -569,11 +672,18 @@ export class GameweekAnalyzerService {
                 
                 transfer.reasoning += lineupSubInfo;
                 
+                console.log(`  ✅ Enhanced reasoning added: "${lineupSubInfo}"`);
                 console.log(`[GameweekAnalyzer] Transfer ${transfer.player_out_id} → ${transfer.player_in_id}: ${benchedPlayer.web_name} will be benched for ${transferredInPlayer.web_name} (reasons: ${reasons.join('; ') || 'none specified'})`);
               }
             }
+          } else {
+            console.log(`  ⏭️  Skipping enhancement: Transfer doesn't bring player from bench to starting XI`);
           }
         }
+        
+        // BUG FIX: Save enhanced transfers to database (Bug 1)
+        await storage.updateGameweekPlanTransfers(plan.id, aiResponse.transfers);
+        console.log(`[GameweekAnalyzer] Enhanced transfer reasoning saved to database for plan ${plan.id}`);
       }
 
       // Update the plan with the lineup

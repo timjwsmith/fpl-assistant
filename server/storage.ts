@@ -112,6 +112,15 @@ export interface IStorage {
     analysisCompletedAt: Date;
   }): Promise<void>;
   updatePredictionAnalysis(planId: number, analysis: string): Promise<void>;
+  updateGameweekPlanTransfers(planId: number, transfers: Array<{
+    player_out_id: number;
+    player_in_id: number;
+    expected_points_gain: number;
+    expected_points_gain_timeframe: string;
+    reasoning: string;
+    priority: 'high' | 'medium' | 'low';
+    cost_impact: number;
+  }>): Promise<void>;
 
   // Change History
   saveChangeHistory(change: InsertChangeHistory): Promise<ChangeHistory>;
@@ -719,6 +728,23 @@ export class PostgresStorage implements IStorage {
       .update(gameweekPlans)
       .set({
         lineup: lineup as any,
+      })
+      .where(eq(gameweekPlans.id, planId));
+  }
+
+  async updateGameweekPlanTransfers(planId: number, transfers: Array<{
+    player_out_id: number;
+    player_in_id: number;
+    expected_points_gain: number;
+    expected_points_gain_timeframe: string;
+    reasoning: string;
+    priority: 'high' | 'medium' | 'low';
+    cost_impact: number;
+  }>): Promise<void> {
+    await db
+      .update(gameweekPlans)
+      .set({
+        transfers: transfers as any,
       })
       .where(eq(gameweekPlans.id, planId));
   }

@@ -108,7 +108,7 @@ export class PredictionAnalysisService {
           breakdown.push(`${value} saves: +${points}`);
           break;
         case 'goals_conceded':
-          breakdown.push(`GC: ${points}`);
+          breakdown.push(`${value} GC: ${points}`);
           break;
         case 'penalties_saved':
           breakdown.push(`${value} pen saved: +${points}`);
@@ -401,7 +401,10 @@ YOUR TASK: In 2-4 bullet points, explain WHY predictions were inaccurate using O
 REQUIRED FORMAT - Use these patterns:
 1. Start with player name and exact score with breakdown: "Player scored X pts [breakdown]"
 2. State exact point impacts: "yellow card cost him 1 point", "no clean sheet cost him 4 points"
-3. For defenders/goalkeepers without clean sheet in breakdown: team definitely conceded goals
+3. For defenders/goalkeepers, use the EXACT DATA from scoringBreakdown to determine what happened:
+   - If "goals_conceded" appears: Team conceded X goals (use exact value from breakdown)
+   - If NO "goals_conceded" AND player has 60+ minutes: Team kept a clean sheet
+   - If NO "goals_conceded" AND player has <60 minutes: Cannot state team conceded - player simply didn't reach 60-min threshold for clean sheet points
 4. Use match results with exact scores: "Team vs Opponent: X-Y"
 5. State exact prediction differences: "expected X pts but scored Y pts"
 6. ${!context.recommendedCaptainFollowed && context.planWasApplied ? 'Note: Different captain was chosen than recommended' : 'Focus on actual performance vs prediction'}
@@ -410,31 +413,37 @@ FPL SCORING RULES (2025/26):
 • Minutes: 60+ mins = +2 pts, 1-59 mins = +1 pt
 • Goals: FWD +4, MID +5, DEF +6
 • Assists: +3 pts
-• Clean Sheet: GKP/DEF +4 pts, MID +1 pt (60+ mins, no goals conceded)
+• Clean Sheet: GKP/DEF +4 pts, MID +1 pt (requires BOTH 60+ mins AND no goals conceded)
 • Defensive Contribution (NEW): DEF 10+ CBITs = +2 pts, MID/FWD 12+ CBIRTs = +2 pts
 • Yellow Card: -1 pt
 • Red Card: -3 pts
 • Bonus: +1/+2/+3 pts
 • Saves: GKP +1 pt per 3 saves
 
+CRITICAL CLEAN SHEET LOGIC:
+• If scoringBreakdown contains "goals_conceded": Team conceded goals (state exact number)
+• If scoringBreakdown has NO "goals_conceded" entry AND player played 60+ minutes: Team kept a clean sheet
+• If scoringBreakdown has NO "goals_conceded" entry AND player played <60 minutes: Player missed clean sheet points due to insufficient playing time (team may or may not have conceded - don't assume!)
+
 WRITE ONLY DEFINITIVE STATEMENTS:
 • Never use: "likely", "probably", "may have", "might have", "appears to", "seems to", "could have", "would have", "potentially", "possibly"
 • Always include exact point values for every factor
 • Use the exact point breakdown provided [90 mins: +2, Def: +2, 1YC: -1, etc.]
-• For missing clean sheets: always state "no clean sheet cost him 4 points" (DEF/GKP)
+• For missing clean sheets DUE TO GOALS CONCEDED: state "no clean sheet cost him 4 points" (DEF/GKP)
+• For missing clean sheets DUE TO <60 MINUTES: state "missed clean sheet points due to insufficient playing time" (DEF/GKP)
 • For yellow cards: always state "yellow card cost him 1 point"
 • "Def: +2" means defensive contribution bonus (10+ defensive actions for DEF, 12+ for MID/FWD)
 
 CORRECT EXAMPLES (copy these patterns):
-"Leno scored 2 pts [90 mins: +2]. Fulham conceded 2 goals (0-2 vs Man City), no clean sheet cost him 4 points."
+"Leno scored 2 pts [90 mins: +2, 2 GC: -1]. Fulham conceded 2 goals, no clean sheet cost him 4 points. The prediction overestimated by 4 points, expecting a clean sheet."
 
-"Cucurella scored 1 pt [90 mins: +2, 1YC: -1]. Chelsea conceded (no clean sheet cost him 4 points), and the yellow card cost him 1 point."
+"Cucurella scored 1 pt [90 mins: +2, 2 GC: -1, 1YC: -1]. Chelsea conceded 2 goals, no clean sheet cost him 4 points, and the yellow card cost him 1 point. The prediction overestimated by 5 points."
 
-"Semenyo (captain) scored 6 pts [90 mins: +2, 1G: +4] in Bournemouth's 3-3 draw. The prediction overestimated by 6 points - expected 2 goal involvements (12 pts) but only had 1 goal involvement (6 pts)."
+"Semenyo (captain) scored 6 pts [90 mins: +2, 1G: +4]. The prediction overestimated by 6 points, expecting 2 goal involvements (12 pts) but only 1 goal involvement (6 pts) was delivered."
 
-"Saliba scored 2 pts [90 mins: +2]. Arsenal conceded 1 goal vs Bournemouth, no clean sheet cost him 4 points."
+"Saliba scored 2 pts [90 mins: +2, 1 GC: -1]. Arsenal conceded 1 goal, no clean sheet cost him 4 points. The prediction overestimated by 5 points, expecting a clean sheet."
 
-"Mitoma scored 1 pt [58 mins: +1]. Subbed off at 58 minutes, missing 1 appearance point (would have been +2 for 60+ mins)."
+"Mitoma scored 1 pt [45 mins: +1]. Subbed off at halftime (45 minutes), missing the 60-minute threshold for +2 appearance points. He also missed clean sheet points (+4) due to insufficient playing time."
 
 Format as bullet points starting with "• ". Max 4 bullets.`;
 

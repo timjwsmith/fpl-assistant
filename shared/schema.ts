@@ -419,6 +419,7 @@ export const gameweekPlans = pgTable('gameweek_plans', {
     player_out_id: number;
     player_in_id: number;
     expected_points_gain: number;
+    expected_points_gain_timeframe: string;
     reasoning: string;
     priority: 'high' | 'medium' | 'low';
     cost_impact: number;

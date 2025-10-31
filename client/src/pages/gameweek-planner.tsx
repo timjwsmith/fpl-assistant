@@ -533,9 +533,14 @@ export default function GameweekPlanner() {
                           <Badge variant={getPriorityColor(transfer.priority)} className="capitalize">
                             {transfer.priority} Priority
                           </Badge>
-                          <div className="flex items-center gap-2 text-sm font-semibold text-chart-2">
-                            <TrendingUp className="h-4 w-4" />
-                            +{transfer.expected_points_gain.toFixed(1)} pts
+                          <div className="flex flex-col items-end gap-1">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-chart-2">
+                              <TrendingUp className="h-4 w-4" />
+                              +{transfer.expected_points_gain.toFixed(1)} pts
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              over {transfer.expected_points_gain_timeframe || '6 gameweeks'}
+                            </span>
                           </div>
                         </div>
 

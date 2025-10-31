@@ -36,6 +36,7 @@ interface AIGameweekResponse {
     player_out_id: number;
     player_in_id: number;
     expected_points_gain: number;
+    expected_points_gain_timeframe: string; // e.g., "6 gameweeks"
     reasoning: string;
     priority: 'high' | 'medium' | 'low';
     cost_impact: number;
@@ -894,12 +895,22 @@ Write ALL reasoning in PURE NATURAL LANGUAGE - like you're explaining to a frien
 For EACH TRANSFER, write a natural paragraph like:
 "I recommend transferring out [Player Name] who costs 6.5 million because he has only averaged 2.1 points per game which is well below the squad average of 3.5. His upcoming fixtures are difficult with matches against Tottenham and Manchester City where the average difficulty rating is 4.5 out of 5. His price is also falling by 0.1 million. Instead, bring in [Player Name] who costs 7.0 million. With your current bank of 0.5 million plus selling [Out Player] for 6.5 million, you will have exactly 7.0 million available which covers the cost. He is in excellent form with 8.2 points in recent matches, his next six fixtures are favorable with an average difficulty of just 2.1, he takes penalties for his team, and 65 percent of league leaders already own him."
 
-**CRITICAL FOR TRANSFERS**: You MUST explicitly calculate and state the budget in EVERY transfer reasoning:
+**CRITICAL FOR TRANSFERS**: You MUST explicitly calculate and state BOTH the budget AND the 6-gameweek points gain in EVERY transfer reasoning:
+
+**BUDGET CALCULATION (REQUIRED):**
 - State OUT player's selling price
 - State current bank balance  
 - Calculate available funds (bank + selling price)
 - State IN player's cost
 - Confirm the transfer is affordable OR if recommending expensive players like Haaland, provide a MULTI-STEP plan showing which 2-3 additional players need downgrading
+
+**6-GAMEWEEK POINTS CALCULATION (REQUIRED):**
+- State the NEW player's expected points per gameweek AND total over 6 gameweeks
+- State the OLD player's expected points per gameweek AND total over 6 gameweeks
+- Calculate the difference: "New player will score approximately X points per gameweek over the next 6 gameweeks totalling Y points. Old player would score approximately A points per gameweek totalling B points. This gives a gain of C points over 6 gameweeks."
+- This calculation MUST appear in the reasoning text
+- The expected_points_gain field MUST match this 6-gameweek calculation
+- ALWAYS set expected_points_gain_timeframe to "6 gameweeks"
 
 For CAPTAIN CHOICE, write naturally:
 "Captain [Player Name] this week. He is playing at home against Bournemouth who have conceded an average of 2.3 goals per game recently. His expected goals rate over the last five matches is 0.8 per game and he has scored in four out of his last five appearances. Importantly, 80 percent of league leaders are also captaining him. Last season against Bournemouth he scored 12 points."
@@ -1048,7 +1059,8 @@ Provide a strategic gameweek plan in this EXACT JSON format with VERBOSE, DATA-D
       "player_out_id": <NUMERIC ID>,
       "player_in_id": <NUMERIC ID>,
       "expected_points_gain": <number>,
-      "reasoning": "<VERBOSE explanation with specific stats, fixtures, ownership, prices>",
+      "expected_points_gain_timeframe": "6 gameweeks",
+      "reasoning": "<VERBOSE explanation with specific stats, fixtures, ownership, prices, AND THE FULL CALCULATION showing new player's expected points over 6 GWs minus old player's expected points over 6 GWs>",
       "priority": "high|medium|low",
       "cost_impact": <number>
     }
@@ -1217,6 +1229,12 @@ CRITICAL REQUIREMENTS:
           
           if (!fixed && (!outPlayerExists || !inPlayerExists)) {
             console.error(`[GameweekAnalyzer] Could not fix invalid player IDs for transfer:`, transfer);
+          }
+          
+          // Validate expected_points_gain_timeframe field exists
+          if (!transfer.expected_points_gain_timeframe) {
+            console.warn(`[GameweekAnalyzer] Missing expected_points_gain_timeframe for transfer, defaulting to "6 gameweeks"`);
+            transfer.expected_points_gain_timeframe = "6 gameweeks";
           }
         }
 

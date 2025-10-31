@@ -10,6 +10,7 @@ import { useFPLGameweeks, useFPLPlayers, useFPLTeams, useFPLFixtures } from "@/h
 import { LoadingScreen } from "@/components/loading-screen";
 import { ErrorState } from "@/components/error-state";
 import { PredictionAccuracy } from "@/components/prediction-accuracy";
+import { DeadlineCountdown } from "@/components/deadline-countdown";
 import { useQuery } from "@tanstack/react-query";
 import type { FPLPlayer, FPLTeam, FPLGameweek, FPLFixture, UserSettings } from "@shared/schema";
 
@@ -107,6 +108,10 @@ export default function Dashboard() {
           description={managerStatus ? "Players in squad" : "Sync team to view"}
         />
       </div>
+
+      {planningGameweek && (
+        <DeadlineCountdown gameweek={planningGameweek} />
+      )}
 
       {settings?.manager_id && managerStatusError && (
         <Card className="border-destructive/50 bg-destructive/5">

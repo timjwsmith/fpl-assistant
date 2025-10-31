@@ -70,7 +70,7 @@ function DraggablePlayerSlot({ slot, onRemove }: DraggablePlayerSlotProps) {
       data-testid={`draggable-player-${slot.position}`}
     >
       <div className="relative flex flex-col items-center gap-1 hover-elevate active-elevate-2 rounded-lg p-2 -m-2">
-        <div className="relative">
+        <div className="relative w-fit">
           <Avatar className="h-14 w-14 border-2 border-background ring-2 ring-primary/50">
             <AvatarImage 
               src={slot.teamCode ? getPlayerShirtUrl(slot.teamCode, 110) : undefined}
@@ -81,14 +81,14 @@ function DraggablePlayerSlot({ slot, onRemove }: DraggablePlayerSlotProps) {
             </AvatarFallback>
           </Avatar>
           {slot.isCaptain && (
-            <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-primary text-xs font-bold z-10 shadow-lg">
+            <div className="absolute -top-1 -right-1 h-5 w-5 rounded-md bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold z-10 shadow-lg">
               C
-            </Badge>
+            </div>
           )}
           {slot.isViceCaptain && (
-            <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-secondary text-xs font-bold z-10 shadow-lg">
+            <div className="absolute -top-1 -right-1 h-5 w-5 rounded-md bg-secondary text-secondary-foreground flex items-center justify-center text-xs font-bold z-10 shadow-lg">
               V
-            </Badge>
+            </div>
           )}
         </div>
         <div className="text-center mt-0.5">

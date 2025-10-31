@@ -74,7 +74,7 @@ export function StartingXI({ lineup, allPlayers, allTeams, formation }: Starting
                       key={lineupPlayer.player_id}
                       className="flex flex-col items-center gap-1 min-w-[70px] md:min-w-[90px]"
                     >
-                      <div className="relative">
+                      <div className="relative w-fit">
                         <Avatar className="h-14 w-14 md:h-16 md:w-16 border-2 border-primary/30">
                           <AvatarImage 
                             src={teamCode ? getPlayerShirtUrl(teamCode, 110) : undefined} 
@@ -84,13 +84,15 @@ export function StartingXI({ lineup, allPlayers, allTeams, formation }: Starting
                             {player.web_name.substring(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        {(lineupPlayer.is_captain || lineupPlayer.is_vice_captain) && (
-                          <Badge
-                            variant={lineupPlayer.is_captain ? "default" : "secondary"}
-                            className="absolute -top-1 -right-1 h-6 w-6 p-0 flex items-center justify-center text-xs font-bold z-10 shadow-lg"
-                          >
-                            {lineupPlayer.is_captain ? 'C' : 'V'}
-                          </Badge>
+                        {lineupPlayer.is_captain && (
+                          <div className="absolute -top-1 -right-1 h-6 w-6 rounded-md bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold z-10 shadow-lg border border-primary-foreground/20">
+                            C
+                          </div>
+                        )}
+                        {lineupPlayer.is_vice_captain && (
+                          <div className="absolute -top-1 -right-1 h-6 w-6 rounded-md bg-secondary text-secondary-foreground flex items-center justify-center text-xs font-bold z-10 shadow-lg border border-secondary-foreground/20">
+                            V
+                          </div>
                         )}
                       </div>
                       <div className="bg-primary/10 border border-primary/30 rounded-lg px-2 py-1 text-center mt-0.5">

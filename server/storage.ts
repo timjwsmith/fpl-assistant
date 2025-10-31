@@ -708,6 +708,21 @@ export class PostgresStorage implements IStorage {
       .where(eq(gameweekPlans.id, planId));
   }
 
+  async updateGameweekPlanLineup(planId: number, lineup: Array<{
+    player_id: number;
+    position: number;
+    is_captain: boolean;
+    is_vice_captain: boolean;
+    multiplier: number;
+  }>): Promise<void> {
+    await db
+      .update(gameweekPlans)
+      .set({
+        lineup: lineup as any,
+      })
+      .where(eq(gameweekPlans.id, planId));
+  }
+
   async saveChangeHistory(change: InsertChangeHistory): Promise<ChangeHistory> {
     const inserted = await db
       .insert(changeHistory)

@@ -21,6 +21,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFPLPlayers, useFPLTeams, useFPLGameweeks } from "@/hooks/use-fpl-data";
 import { LoadingScreen } from "@/components/loading-screen";
 import { ErrorState } from "@/components/error-state";
+import { StartingXI } from "@/components/starting-xi";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { GameweekPlan, ChangeHistory, FPLPlayer, FPLTeam, FPLGameweek, UserSettings } from "@shared/schema";
@@ -28,12 +29,6 @@ import type { GameweekPlan, ChangeHistory, FPLPlayer, FPLTeam, FPLGameweek, User
 interface PlanData extends GameweekPlan {
   freeTransfers?: number;
   transfersCost?: number;
-  lineup?: Array<{
-    player_id: number;
-    position: number;
-    is_captain: boolean;
-    is_vice_captain: boolean;
-  }>;
   strategicInsights?: string[];
 }
 
@@ -512,6 +507,14 @@ export default function GameweekPlanner() {
               </Collapsible>
             </CardContent>
           </Card>
+
+          {plan.lineup && plan.lineup.length > 0 && players && (
+            <StartingXI
+              lineup={plan.lineup}
+              allPlayers={players as FPLPlayer[]}
+              formation={plan.formation}
+            />
+          )}
 
           <div>
             <h2 className="text-2xl font-semibold mb-4">Transfer Recommendations</h2>

@@ -286,6 +286,22 @@ export class GameweekAnalyzerService {
 
       console.log(`[GameweekAnalyzer] ✓ All ${relevantPredictions.length} predictions for current team players match snapshot ${inputData.context.snapshotId.substring(0, 8)}...`);
 
+      // 8. Generate starting XI lineup
+      console.log(`[GameweekAnalyzer] Generating starting XI lineup...`);
+      const lineup = await this.generateLineup(
+        inputData.currentTeam,
+        aiResponse.transfers,
+        aiResponse.formation,
+        aiResponse.captain_id,
+        aiResponse.vice_captain_id,
+        inputData.context.snapshot.data.players,
+        relevantPredictions.map(p => ({ playerId: p.playerId, predictedPoints: p.predictedPoints }))
+      );
+
+      // Update the plan with the lineup
+      await storage.updateGameweekPlanLineup(plan.id, lineup);
+      plan.lineup = lineup as any; // Update local object
+
       console.log(`[GameweekAnalyzer] Analysis complete, plan ID: ${plan.id}`);
 
       // Log the decision to audit trail
@@ -1199,6 +1215,121 @@ CRITICAL REQUIREMENTS:
     // If we get here, all retries failed
     console.error('[GameweekAnalyzer] AI API error after retries:', lastError);
     throw new Error(`AI analysis failed: ${lastError?.message || 'Unknown error'}`);
+  }
+
+  private async generateLineup(
+    currentTeam: UserTeam,
+    transfers: Array<{player_out_id: number; player_in_id: number}>,
+    formation: string,
+    captainId: number,
+    viceCaptainId: number,
+    allPlayers: FPLPlayer[],
+    predictions: Array<{playerId: number; predictedPoints: number}>
+  ): Promise<Array<{
+    player_id: number;
+    position: number;
+    is_captain: boolean;
+    is_vice_captain: boolean;
+    multiplier: number;
+  }>> {
+    // Apply transfers to get final squad
+    const transferredOutIds = new Set(transfers.map(t => t.player_out_id));
+    const transferredInIds = transfers.map(t => t.player_in_id);
+    
+    const finalSquad = currentTeam.players
+      .filter(p => p.player_id && !transferredOutIds.has(p.player_id))
+      .map(p => p.player_id!);
+    
+    finalSquad.push(...transferredInIds);
+    
+    // Parse formation (e.g., "3-4-3" -> [3, 4, 3])
+    const formationParts = formation.split('-').map(Number);
+    const [defenders, midfielders, forwards] = formationParts;
+    
+    // Group players by position type
+    const playersByPosition: {[key: number]: Array<{id: number; predictedPoints: number}>} = {
+      1: [], // GK
+      2: [], // DEF
+      3: [], // MID
+      4: [], // FWD
+    };
+    
+    for (const playerId of finalSquad) {
+      const player = allPlayers.find(p => p.id === playerId);
+      if (!player) continue;
+      
+      const prediction = predictions.find(p => p.playerId === playerId);
+      const predictedPoints = prediction?.predictedPoints || 0;
+      
+      playersByPosition[player.element_type].push({
+        id: playerId,
+        predictedPoints,
+      });
+    }
+    
+    // Sort each position by predicted points (highest first)
+    for (const posType in playersByPosition) {
+      playersByPosition[posType].sort((a, b) => b.predictedPoints - a.predictedPoints);
+    }
+    
+    // Select starting XI based on formation
+    const lineup: Array<{
+      player_id: number;
+      position: number;
+      is_captain: boolean;
+      is_vice_captain: boolean;
+      multiplier: number;
+    }> = [];
+    
+    let position = 1;
+    
+    // Always 1 goalkeeper
+    if (playersByPosition[1].length > 0) {
+      lineup.push({
+        player_id: playersByPosition[1][0].id,
+        position: position++,
+        is_captain: playersByPosition[1][0].id === captainId,
+        is_vice_captain: playersByPosition[1][0].id === viceCaptainId,
+        multiplier: playersByPosition[1][0].id === captainId ? 2 : 1,
+      });
+    }
+    
+    // Add defenders
+    for (let i = 0; i < defenders && i < playersByPosition[2].length; i++) {
+      lineup.push({
+        player_id: playersByPosition[2][i].id,
+        position: position++,
+        is_captain: playersByPosition[2][i].id === captainId,
+        is_vice_captain: playersByPosition[2][i].id === viceCaptainId,
+        multiplier: playersByPosition[2][i].id === captainId ? 2 : 1,
+      });
+    }
+    
+    // Add midfielders
+    for (let i = 0; i < midfielders && i < playersByPosition[3].length; i++) {
+      lineup.push({
+        player_id: playersByPosition[3][i].id,
+        position: position++,
+        is_captain: playersByPosition[3][i].id === captainId,
+        is_vice_captain: playersByPosition[3][i].id === viceCaptainId,
+        multiplier: playersByPosition[3][i].id === captainId ? 2 : 1,
+      });
+    }
+    
+    // Add forwards
+    for (let i = 0; i < forwards && i < playersByPosition[4].length; i++) {
+      lineup.push({
+        player_id: playersByPosition[4][i].id,
+        position: position++,
+        is_captain: playersByPosition[4][i].id === captainId,
+        is_vice_captain: playersByPosition[4][i].id === viceCaptainId,
+        multiplier: playersByPosition[4][i].id === captainId ? 2 : 1,
+      });
+    }
+    
+    console.log(`[GameweekAnalyzer] Generated starting XI with ${lineup.length} players in ${formation} formation`);
+    
+    return lineup;
   }
 
   private async validateFPLRules(

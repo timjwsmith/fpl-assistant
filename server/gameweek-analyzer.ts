@@ -286,8 +286,27 @@ export class GameweekAnalyzerService {
 
       console.log(`[GameweekAnalyzer] ✓ All ${relevantPredictions.length} predictions for current team players match snapshot ${inputData.context.snapshotId.substring(0, 8)}...`);
 
+      // CRITICAL FIX: Generate predictions for transferred-in players
+      // These players don't have predictions yet, so we need to estimate their points
+      // to ensure they're properly considered for the starting XI
+      const predictionsMap = new Map(relevantPredictions.map(p => [p.playerId, p.predictedPoints]));
+      
+      for (const transfer of aiResponse.transfers) {
+        if (!predictionsMap.has(transfer.player_in_id)) {
+          // Find the player being transferred out to use as baseline
+          const playerOutPrediction = predictionsMap.get(transfer.player_out_id) || 2;
+          
+          // Estimate new player's points as: old player's points + expected gain
+          const estimatedPoints = Math.max(0, Math.round(playerOutPrediction + transfer.expected_points_gain));
+          
+          console.log(`[GameweekAnalyzer] Generating estimated prediction for transferred-in player ${transfer.player_in_id}: ${estimatedPoints} pts (baseline: ${playerOutPrediction}, gain: ${transfer.expected_points_gain})`);
+          
+          predictionsMap.set(transfer.player_in_id, estimatedPoints);
+        }
+      }
+
       // 8. Generate starting XI lineup
-      console.log(`[GameweekAnalyzer] Generating starting XI lineup...`);
+      console.log(`[GameweekAnalyzer] Generating starting XI lineup with ${predictionsMap.size} player predictions...`);
       const lineup = await this.generateLineup(
         inputData.currentTeam,
         aiResponse.transfers,
@@ -295,7 +314,7 @@ export class GameweekAnalyzerService {
         aiResponse.captain_id,
         aiResponse.vice_captain_id,
         inputData.context.snapshot.data.players,
-        relevantPredictions.map(p => ({ playerId: p.playerId, predictedPoints: p.predictedPoints }))
+        Array.from(predictionsMap.entries()).map(([playerId, predictedPoints]) => ({ playerId, predictedPoints }))
       );
 
       // Update the plan with the lineup

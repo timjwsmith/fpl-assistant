@@ -497,11 +497,79 @@ export class GameweekAnalyzerService {
               const transferredInPlayer = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === transfer.player_in_id);
               
               if (benchedPlayer && transferredInPlayer) {
-                // Append lineup substitution info to the transfer reasoning
-                const lineupSubInfo = ` → This will bring ${transferredInPlayer.web_name} into the starting XI, with ${benchedPlayer.web_name} moving to the bench.`;
+                // Get predicted points for comparison
+                const benchedPrediction = predictionsMap.get(benchedPlayerId) || 0;
+                const transferredInPrediction = predictionsMap.get(transfer.player_in_id) || 0;
+                
+                // Build reasoning for why the benched player was chosen
+                const reasons: string[] = [];
+                
+                // Compare predicted points
+                if (transferredInPrediction > benchedPrediction) {
+                  const diff = (transferredInPrediction - benchedPrediction).toFixed(1);
+                  reasons.push(`${transferredInPlayer.web_name} has higher predicted points (${transferredInPrediction.toFixed(1)} vs ${benchedPrediction.toFixed(1)}, +${diff})`);
+                } else if (benchedPrediction > 0) {
+                  reasons.push(`lower predicted points (${benchedPrediction.toFixed(1)})`);
+                }
+                
+                // Compare form
+                const benchedForm = parseFloat(benchedPlayer.form || '0');
+                const transferredInForm = parseFloat(transferredInPlayer.form || '0');
+                if (benchedForm < transferredInForm && benchedForm < 4.0) {
+                  reasons.push(`poor form (${benchedForm.toFixed(1)})`);
+                } else if (transferredInForm > benchedForm) {
+                  reasons.push(`better form for ${transferredInPlayer.web_name} (${transferredInForm.toFixed(1)} vs ${benchedForm.toFixed(1)})`);
+                }
+                
+                // Check if player is flagged (injured/doubtful)
+                if (benchedPlayer.chance_of_playing_next_round !== null && benchedPlayer.chance_of_playing_next_round < 100) {
+                  reasons.push(`injury doubt (${benchedPlayer.chance_of_playing_next_round}% chance of playing)`);
+                }
+                
+                // Compare fixture difficulty (get from snapshot data)
+                const benchedTeam = inputData.context.snapshot.data.teams.find((t: FPLTeam) => t.id === benchedPlayer.team);
+                const transferredInTeam = inputData.context.snapshot.data.teams.find((t: FPLTeam) => t.id === transferredInPlayer.team);
+                
+                if (benchedTeam && transferredInTeam) {
+                  // Get next fixture for each team
+                  const nextFixtures = inputData.context.snapshot.data.fixtures.filter((f: FPLFixture) => 
+                    f.event === gameweek && !f.finished
+                  );
+                  
+                  const benchedFixture = nextFixtures.find((f: FPLFixture) => 
+                    f.team_h === benchedTeam.id || f.team_a === benchedTeam.id
+                  );
+                  const transferredInFixture = nextFixtures.find((f: FPLFixture) => 
+                    f.team_h === transferredInTeam.id || f.team_a === transferredInTeam.id
+                  );
+                  
+                  if (benchedFixture && transferredInFixture) {
+                    const benchedDifficulty = benchedFixture.team_h === benchedTeam.id 
+                      ? benchedFixture.team_h_difficulty 
+                      : benchedFixture.team_a_difficulty;
+                    const transferredInDifficulty = transferredInFixture.team_h === transferredInTeam.id 
+                      ? transferredInFixture.team_h_difficulty 
+                      : transferredInFixture.team_a_difficulty;
+                    
+                    if (benchedDifficulty > transferredInDifficulty && benchedDifficulty >= 4) {
+                      const difficultyNames = ['', 'very easy', 'easy', 'moderate', 'tough', 'very tough'];
+                      reasons.push(`tough fixture (${difficultyNames[benchedDifficulty]} vs ${difficultyNames[transferredInDifficulty]} for ${transferredInPlayer.web_name})`);
+                    }
+                  }
+                }
+                
+                // Build the lineup substitution message
+                let lineupSubInfo = ` → This will bring ${transferredInPlayer.web_name} into the starting XI, with ${benchedPlayer.web_name} moving to the bench`;
+                
+                if (reasons.length > 0) {
+                  lineupSubInfo += `. ${benchedPlayer.web_name} benched due to: ${reasons.join(', ')}.`;
+                } else {
+                  lineupSubInfo += '.';
+                }
+                
                 transfer.reasoning += lineupSubInfo;
                 
-                console.log(`[GameweekAnalyzer] Transfer ${transfer.player_out_id} → ${transfer.player_in_id}: ${benchedPlayer.web_name} will be benched for ${transferredInPlayer.web_name}`);
+                console.log(`[GameweekAnalyzer] Transfer ${transfer.player_out_id} → ${transfer.player_in_id}: ${benchedPlayer.web_name} will be benched for ${transferredInPlayer.web_name} (reasons: ${reasons.join('; ') || 'none specified'})`);
               }
             }
           }

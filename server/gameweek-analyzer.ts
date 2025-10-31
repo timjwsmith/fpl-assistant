@@ -1200,21 +1200,43 @@ DO NOT just mention differentials in strategic insights - ACT ON THEM by recomme
 **⚠️ DISCIPLINARY RISK MANAGEMENT - SUSPENSION RULES ⚠️**
 **═══════════════════════════════════════════════════════════════════════**
 
-**PREMIER LEAGUE YELLOW CARD SUSPENSION RULES (2024-25):**
+**PREMIER LEAGUE SUSPENSION RULES (2024-25):**
+
+**YELLOW CARD ACCUMULATION BANS:**
 1. **5 yellow cards by GW19** = 1-match ban (threshold expires after GW19)
 2. **10 yellow cards by GW32** = 2-match ban (threshold expires after GW32)
 3. **15 yellow cards total** = 3-match ban (applies all season)
 4. Yellow cards ACCUMULATE all season, only thresholds expire
-5. Bans are automatic and apply only to Premier League matches
+5. Bans are automatic and apply to all domestic competitions
+
+**RED CARD SUSPENSION RULES:**
+1. **Two yellows in same game** → Sent off with red card = 1-match ban (automatic, cannot appeal)
+   - The two yellows still count towards 5/10/15 accumulation thresholds
+   - Example: Player on 3 yellows gets 2 more yellows in one game → 1-match ban PLUS now at 5 yellows total
+
+2. **Straight red card ban lengths** (vary by offense severity):
+   - **Professional foul (DOGSO - Denying Obvious Goal-Scoring Opportunity)**: 1-match ban
+   - **Dissent**: 2-match ban
+   - **Violent conduct / Serious foul play**: 3-match ban (minimum)
+   - **Spitting at opponent**: 6-match ban (minimum)
+   - **Multiple reds in season**: Additional game added per subsequent red (2nd red = base + 1 extra match)
+
+3. **DATA LIMITATION - IMPORTANT**: The FPL API only provides total 'red_cards' count, NOT the type of red or ban length
+   - You CANNOT determine from the data whether a red was from 2 yellows or straight red
+   - You CANNOT calculate exact ban length from API data alone
+   - ALWAYS check the 'news' field for details about recent red cards and current ban status
+   - If 'status=s' (suspended), the player is CURRENTLY serving a ban
 
 **YOUR DISCIPLINARY RISK ANALYSIS:**
-Each player in your squad now includes:
+Each player includes:
 - yellow_cards: Total yellow cards this season
-- red_cards: Total red cards this season
-- suspension_risk: Description (e.g., "Next yellow = 1-match ban", "2 yellows from 2-match ban")
+- red_cards: Total red cards this season (cannot distinguish type from data alone)
+- suspension_risk: Yellow card threshold description (e.g., "Next yellow = 1-match ban")
+- news: Player news often mentions recent red cards, ban length, and return date
+- status: 's' means currently suspended, 'a' means available
 - influence, creativity, threat: Playing style metrics
 
-**DISCIPLINARY RISK RULES:**
+**YELLOW CARD RISK RULES:**
 1. **CRITICAL RISK (1 yellow from ban)**: AVOID transferring in, AVOID captaining, STRONGLY CONSIDER transferring out
    - These players will miss a match if they receive one yellow card
    - Expected points for next 6 GWs MUST factor in likely suspension
@@ -1233,7 +1255,12 @@ Each player in your squad now includes:
    - High risk (2 from ban): Reduce total by 20-30%
    - Moderate risk (3 from ban): Reduce total by 5-10%
 
-5. **Red cards:** Players with recent red cards likely have temperament issues - factor this into risk assessment
+**RED CARD TEMPERAMENT RISK:**
+- **Players with red_cards > 0**: Flag temperament concerns and increased disciplinary risk
+- **Players with red_cards >= 2**: SERIOUS temperament issues - significantly increase expected yellow card probability
+- Example: "Avoid Bruno Fernandes despite fixtures. He has 2 red cards this season showing poor discipline. His temperament issues increase both yellow card risk (currently 3 yellows) and future red card risk"
+- **Special consideration for 2-yellow reds**: If a player's red came from 2 yellows in one game, they likely play on the edge and carry higher yellow card risk
+- ALWAYS check 'news' field to understand context of recent red cards
 
 **DISCIPLINARY REASONING EXAMPLES:**
 ❌ BAD: "Transfer in Palmer (excellent form)"

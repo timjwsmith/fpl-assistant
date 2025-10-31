@@ -47,6 +47,7 @@ export function PlayerCard({
 
   const getDisciplinaryBadge = () => {
     const yellows = player.yellow_cards || 0;
+    const reds = player.red_cards || 0;
     
     // Don't show disciplinary badge if already showing suspension status badge
     // (getStatusBadge handles player.status === 's')
@@ -54,6 +55,27 @@ export function PlayerCard({
       return null;
     }
     
+    // RED CARD BADGES - HIGHEST PRIORITY (before yellow cards)
+    // 2+ red cards: High risk temperament issues
+    if (reds >= 2) {
+      return (
+        <Badge variant="destructive" className="text-xs flex items-center gap-1">
+          <AlertTriangle className="h-3 w-3" />
+          {reds} Red Cards - High Risk
+        </Badge>
+      );
+    }
+    
+    // 1 red card: Flag temperament concerns
+    if (reds === 1) {
+      return (
+        <Badge variant="outline" className="text-xs border-red-500 text-red-600 dark:text-red-400 flex items-center gap-1">
+          1 Red Card
+        </Badge>
+      );
+    }
+    
+    // YELLOW CARD BADGES - Show after red cards
     // Yellow card warnings based on Premier League suspension thresholds (5, 10, 15)
     // Critical: 1 yellow away from ban
     if (yellows === 4 || yellows === 9 || yellows === 14) {

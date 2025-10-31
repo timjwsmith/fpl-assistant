@@ -69,11 +69,75 @@ export class PredictionAnalysisService {
   }
 
   /**
+   * Format scoring breakdown into human-readable strings
+   * Handles ALL FPL identifiers to prevent silent data loss
+   */
+  private formatScoringBreakdown(scoringBreakdown: any): string[] {
+    const breakdown: string[] = [];
+    
+    for (const [identifier, data] of Object.entries(scoringBreakdown)) {
+      const points = (data as any).points;
+      const value = (data as any).value;
+      
+      switch (identifier) {
+        case 'minutes':
+          breakdown.push(`${value} mins: ${points > 0 ? '+' : ''}${points}`);
+          break;
+        case 'goals_scored':
+          breakdown.push(`${value}G: +${points}`);
+          break;
+        case 'assists':
+          breakdown.push(`${value}A: +${points}`);
+          break;
+        case 'clean_sheets':
+          breakdown.push(`CS: +${points}`);
+          break;
+        case 'defensive_contribution':
+          breakdown.push(`Def: +${points}`);
+          break;
+        case 'yellow_cards':
+          breakdown.push(`${value}YC: ${points}`);
+          break;
+        case 'red_cards':
+          breakdown.push(`${value}RC: ${points}`);
+          break;
+        case 'bonus':
+          breakdown.push(`Bonus: +${points}`);
+          break;
+        case 'saves':
+          breakdown.push(`${value} saves: +${points}`);
+          break;
+        case 'goals_conceded':
+          breakdown.push(`GC: ${points}`);
+          break;
+        case 'penalties_saved':
+          breakdown.push(`${value} pen saved: +${points}`);
+          break;
+        case 'penalties_missed':
+          breakdown.push(`${value} pen missed: ${points}`);
+          break;
+        case 'own_goals':
+          breakdown.push(`${value}OG: ${points}`);
+          break;
+        case 'penalties_conceded':
+          breakdown.push(`${value} pen conceded: ${points}`);
+          break;
+        default:
+          // Handle any unknown identifiers to ensure no silent omissions
+          breakdown.push(`${identifier}: ${points > 0 ? '+' : ''}${points}`);
+          break;
+      }
+    }
+    
+    return breakdown;
+  }
+
+  /**
    * Get gameweek context for AI analysis with REAL data
    */
   private async getGameweekContext(gameweek: number, userId: number, plan: GameweekPlan): Promise<{
     avgScore: number;
-    captain: { name: string; points: number } | null;
+    captain: { name: string; points: number; scoringBreakdown: any; position: string } | null;
     topUnderperformers: Array<{ name: string; points: number; position: string }>;
     fixtureResults: Array<{ team: string; opponent: string; result: string }>;
     teamSummary: string;
@@ -116,37 +180,46 @@ export class PredictionAnalysisService {
         };
       }
 
-      // Create lookup map for live gameweek data (player_id -> stats)
-      const livePlayerStats = new Map<number, any>();
+      // Create lookup map for live gameweek data (player_id -> full element data)
+      const livePlayerData = new Map<number, any>();
       if (liveData.elements) {
         for (const element of liveData.elements) {
-          livePlayerStats.set(element.id, element.stats);
+          livePlayerData.set(element.id, element);
         }
       }
 
-      // Get captain info
-      let captain: { name: string; points: number } | null = null;
+      // Store captain info for later use
       const captainInfo = userTeam.players.find((p: any) => p.is_captain);
-      if (captainInfo?.player_id) {
-        const captainPlayer = allPlayers.find((p: any) => p.id === captainInfo.player_id);
-        const liveStats = livePlayerStats.get(captainInfo.player_id);
-        if (captainPlayer && liveStats) {
-          const gwPoints = liveStats.total_points || 0;
-          captain = {
-            name: captainPlayer.web_name,
-            points: gwPoints * 2, // Captain gets double points
-          };
-        }
-      }
-
+      
       // Get all players who actually played
       // Include: Starting XI (positions 1-11) OR bench players who got minutes (total_points > 0)
       const teamPerformance = userTeam.players
         .filter((p: any) => p.player_id) // Filter out null player_ids
         .map((p: any) => {
           const playerData = allPlayers.find((pl: any) => pl.id === p.player_id);
-          const liveStats = livePlayerStats.get(p.player_id);
-          const eventPoints = liveStats?.total_points || 0;
+          const liveElement = livePlayerData.get(p.player_id);
+          const eventPoints = liveElement?.stats.total_points || 0;
+          
+          // Parse the explain array to get actual scoring breakdown
+          // AGGREGATE across all fixtures (important for double gameweeks)
+          const scoringBreakdown: any = {};
+          if (liveElement?.explain && liveElement.explain.length > 0) {
+            for (const fixture of liveElement.explain) {
+              for (const stat of fixture.stats) {
+                // Initialize if not exists
+                if (!scoringBreakdown[stat.identifier]) {
+                  scoringBreakdown[stat.identifier] = {
+                    points: 0,
+                    value: 0,
+                  };
+                }
+                // Aggregate points and values across all fixtures
+                scoringBreakdown[stat.identifier].points += stat.points;
+                scoringBreakdown[stat.identifier].value += stat.value;
+              }
+            }
+          }
+          
           return {
             name: playerData?.web_name || 'Unknown',
             points: eventPoints,
@@ -154,15 +227,12 @@ export class PredictionAnalysisService {
             isCaptain: p.is_captain,
             lineupPosition: p.position, // 1-15 lineup slot
             playedFromBench: p.position > 11 && eventPoints > 0, // Bench player who came on
-            // Detailed stats breakdown for analysis - use gameweek-specific live data
-            minutes: liveStats?.minutes || 0,
-            goalsScored: liveStats?.goals_scored || 0,
-            assists: liveStats?.assists || 0,
-            cleanSheets: liveStats?.clean_sheets || 0,
-            yellowCards: liveStats?.yellow_cards || 0,
-            redCards: liveStats?.red_cards || 0,
-            bonus: liveStats?.bonus || 0,
-            saves: liveStats?.saves || 0,
+            // Use the actual scoring breakdown from the explain array
+            scoringBreakdown,
+            // Keep basic stats for reference
+            minutes: liveElement?.stats.minutes || 0,
+            goalsScored: liveElement?.stats.goals_scored || 0,
+            assists: liveElement?.stats.assists || 0,
           };
         })
         .filter((p: any) => 
@@ -170,11 +240,31 @@ export class PredictionAnalysisService {
           (p.lineupPosition > 11 && p.points > 0) // Bench player who actually played
         );
       
+      // Get captain info from teamPerformance (which already has scoringBreakdown from FPL API)
+      let captain: { name: string; points: number; scoringBreakdown: any; position: string } | null = null;
+      const captainPlayer = teamPerformance.find((p: any) => p.isCaptain);
+      if (captainPlayer) {
+        console.log(`[PredictionAnalysis] Captain player found: ${captainPlayer.name} with ${Object.keys(captainPlayer.scoringBreakdown).length} breakdown items`);
+        console.log(`[PredictionAnalysis] Captain object created: ${captainPlayer.name} ${captainPlayer.points} pts, breakdown: ${JSON.stringify(captainPlayer.scoringBreakdown)}`);
+        captain = {
+          name: captainPlayer.name,
+          points: captainPlayer.points * 2, // Captain gets double points
+          scoringBreakdown: captainPlayer.scoringBreakdown,
+          position: captainPlayer.position,
+        };
+      }
+      
       // Find underperformers (players who scored 2 or fewer points)
       const underperformers = teamPerformance
         .filter((p: any) => p.points <= 2)
         .sort((a: any, b: any) => a.points - b.points)
         .slice(0, 5);
+      
+      // Debug: Log underperformers breakdown
+      console.log(`[PredictionAnalysis] Found ${underperformers.length} underperformers for GW${gameweek}:`);
+      for (const player of underperformers) {
+        console.log(`[PredictionAnalysis]   - ${player.name}: ${player.points} pts, breakdown: ${JSON.stringify(player.scoringBreakdown)}`);
+      }
 
       // Get relevant fixtures for teams in squad (players who actually played)
       const relevantTeamIds = new Set(
@@ -266,22 +356,22 @@ export class PredictionAnalysisService {
     const biasDirection = bias > 0 ? 'over-predicted' : 'under-predicted';
 
     // Build specific context with real data
-    const captainText = context.captain 
-      ? `Captain: ${context.captain.name} scored ${context.captain.points} pts (including captaincy)`
-      : 'Captain: Unknown';
+    let captainText = 'Captain: Unknown';
+    if (context.captain) {
+      // Use comprehensive formatter to handle ALL identifiers
+      const breakdown = this.formatScoringBreakdown(context.captain.scoringBreakdown);
+      
+      const basePoints = context.captain.points / 2;
+      const breakdownText = breakdown.join(', ');
+      const totalPts = breakdown.length > 0 ? `= ${basePoints} pts` : '';
+      captainText = `Captain: ${context.captain.name} scored ${context.captain.points} pts (with captaincy) [base points: ${breakdownText} ${totalPts}]`;
+      console.log(`[PredictionAnalysis] Captain breakdown for GW${plan.gameweek}: ${captainText}`);
+    }
 
     const underperformersText = context.topUnderperformers.length > 0
       ? `Players who scored ≤2 pts (with exact breakdown):\n${context.topUnderperformers.map((p: any) => {
-          const breakdown: string[] = [];
-          if (p.minutes >= 60) breakdown.push(`${p.minutes} mins: +2`);
-          else if (p.minutes > 0) breakdown.push(`${p.minutes} mins: +1`);
-          if (p.goalsScored > 0) breakdown.push(`${p.goalsScored}G: +${p.goalsScored * (p.position === 'FWD' ? 4 : p.position === 'MID' ? 5 : 6)}`);
-          if (p.assists > 0) breakdown.push(`${p.assists}A: +${p.assists * 3}`);
-          if (p.cleanSheets > 0 && (p.position === 'GKP' || p.position === 'DEF')) breakdown.push(`CS: +4`);
-          if (p.yellowCards > 0) breakdown.push(`${p.yellowCards}YC: -${p.yellowCards}`);
-          if (p.redCards > 0) breakdown.push(`${p.redCards}RC: -${p.redCards * 3}`);
-          if (p.bonus > 0) breakdown.push(`Bonus: +${p.bonus}`);
-          if (p.saves >= 3) breakdown.push(`${p.saves} saves: +${Math.floor(p.saves / 3)}`);
+          // Use comprehensive formatter to handle ALL identifiers
+          const breakdown = this.formatScoringBreakdown(p.scoringBreakdown);
           return `  - ${p.name} (${p.position}): ${p.points} pts [${breakdown.join(', ')}]`;
         }).join('\n')}`
       : 'No major underperformers';
@@ -316,12 +406,24 @@ REQUIRED FORMAT - Use these patterns:
 5. State exact prediction differences: "expected X pts but scored Y pts"
 6. ${!context.recommendedCaptainFollowed && context.planWasApplied ? 'Note: Different captain was chosen than recommended' : 'Focus on actual performance vs prediction'}
 
+FPL SCORING RULES (2025/26):
+• Minutes: 60+ mins = +2 pts, 1-59 mins = +1 pt
+• Goals: FWD +4, MID +5, DEF +6
+• Assists: +3 pts
+• Clean Sheet: GKP/DEF +4 pts, MID +1 pt (60+ mins, no goals conceded)
+• Defensive Contribution (NEW): DEF 10+ CBITs = +2 pts, MID/FWD 12+ CBIRTs = +2 pts
+• Yellow Card: -1 pt
+• Red Card: -3 pts
+• Bonus: +1/+2/+3 pts
+• Saves: GKP +1 pt per 3 saves
+
 WRITE ONLY DEFINITIVE STATEMENTS:
 • Never use: "likely", "probably", "may have", "might have", "appears to", "seems to", "could have", "would have", "potentially", "possibly"
 • Always include exact point values for every factor
-• Use the exact point breakdown provided [90 mins: +2, 1YC: -1, etc.]
+• Use the exact point breakdown provided [90 mins: +2, Def: +2, 1YC: -1, etc.]
 • For missing clean sheets: always state "no clean sheet cost him 4 points" (DEF/GKP)
 • For yellow cards: always state "yellow card cost him 1 point"
+• "Def: +2" means defensive contribution bonus (10+ defensive actions for DEF, 12+ for MID/FWD)
 
 CORRECT EXAMPLES (copy these patterns):
 "Leno scored 2 pts [90 mins: +2]. Fulham conceded 2 goals (0-2 vs Man City), no clean sheet cost him 4 points."

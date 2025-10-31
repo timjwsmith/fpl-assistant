@@ -1,7 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Users } from "lucide-react";
-import type { FPLPlayer } from "@shared/schema";
+import { getPlayerShirtUrl } from "@/lib/utils";
+import type { FPLPlayer, FPLTeam } from "@shared/schema";
 
 interface LineupPlayer {
   player_id: number;
@@ -14,10 +16,11 @@ interface LineupPlayer {
 interface StartingXIProps {
   lineup: LineupPlayer[];
   allPlayers: FPLPlayer[];
+  allTeams?: FPLTeam[];
   formation: string;
 }
 
-export function StartingXI({ lineup, allPlayers, formation }: StartingXIProps) {
+export function StartingXI({ lineup, allPlayers, allTeams, formation }: StartingXIProps) {
   if (!lineup || lineup.length === 0) {
     return null;
   }
@@ -63,25 +66,37 @@ export function StartingXI({ lineup, allPlayers, formation }: StartingXIProps) {
                   const player = getPlayerDetails(lineupPlayer.player_id);
                   if (!player) return null;
 
+                  const team = allTeams?.find(t => t.id === player.team);
+                  const teamCode = team?.code;
+
                   return (
                     <div
                       key={lineupPlayer.player_id}
                       className="flex flex-col items-center gap-1 min-w-[70px] md:min-w-[90px]"
                     >
                       <div className="relative">
-                        <div className="bg-primary/10 border border-primary/30 rounded-lg px-2 py-1.5 md:px-3 md:py-2 text-center hover:bg-primary/20 transition-colors">
-                          <p className="text-xs md:text-sm font-semibold text-white whitespace-nowrap">
-                            {player.web_name}
-                          </p>
-                          {(lineupPlayer.is_captain || lineupPlayer.is_vice_captain) && (
-                            <Badge
-                              variant={lineupPlayer.is_captain ? "default" : "secondary"}
-                              className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs font-bold"
-                            >
-                              {lineupPlayer.is_captain ? 'C' : 'V'}
-                            </Badge>
-                          )}
-                        </div>
+                        <Avatar className="h-14 w-14 md:h-16 md:w-16 border-2 border-primary/30">
+                          <AvatarImage 
+                            src={teamCode ? getPlayerShirtUrl(teamCode, 110) : undefined} 
+                            alt={`${player.web_name} shirt`}
+                          />
+                          <AvatarFallback className="text-xs font-semibold">
+                            {player.web_name.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        {(lineupPlayer.is_captain || lineupPlayer.is_vice_captain) && (
+                          <Badge
+                            variant={lineupPlayer.is_captain ? "default" : "secondary"}
+                            className="absolute -top-1 -right-1 h-6 w-6 p-0 flex items-center justify-center text-xs font-bold"
+                          >
+                            {lineupPlayer.is_captain ? 'C' : 'V'}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="bg-primary/10 border border-primary/30 rounded-lg px-2 py-1 text-center">
+                        <p className="text-xs md:text-sm font-semibold text-white whitespace-nowrap">
+                          {player.web_name}
+                        </p>
                       </div>
                     </div>
                   );

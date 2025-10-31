@@ -512,6 +512,7 @@ export default function GameweekPlanner() {
             <StartingXI
               lineup={plan.lineup}
               allPlayers={players as FPLPlayer[]}
+              allTeams={teams as FPLTeam[]}
               formation={plan.formation}
             />
           )}

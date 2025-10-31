@@ -52,6 +52,16 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - **Deterministic Predictions**: AI predictions are perfectly deterministic, ensuring identical results for identical input data.
 - **Dynamic Gameweek Planning**: The app dynamically identifies and plans for the next editable gameweek using FPL's `is_next` flag.
 - **Prediction Accuracy System**: Automated tracking service fetches actual gameweek scores from FPL API, compares against AI predictions, calculates accuracy metrics, and displays results on Dashboard.
+- **Comprehensive Test Suite**: 58 tests using Vitest testing REAL production code to prevent regression bugs. Tests cover scoring breakdown formatting, double gameweek aggregation logic, and analysis validation patterns.
+
+### Test Suite Architecture
+- **Framework**: Vitest with TypeScript path alias resolution
+- **Coverage**: 58 tests across 3 test files
+  - **Unit Tests** (26): Test REAL production methods `formatScoringBreakdown()` and `aggregateExplainArray()` - exposed as public methods specifically for testing
+  - **Integration Tests** (18): Static pattern validation to detect speculative language, clean sheet logic errors, and output format regressions
+  - **Validator Tests** (14): Runtime validation helper for AI-generated text and mathematical checks
+- **Regression Prevention**: Tests use actual GW8/GW9 data from FPL API and will immediately fail if production code regresses (e.g., aggregation changing from `+=` to `=`, goals conceded format reverting to "GC: -1")
+- **Test Command**: `npm test` - runs all tests with coverage reporting
 
 ## External Dependencies
 - **Official FPL API**: For all Fantasy Premier League game data.

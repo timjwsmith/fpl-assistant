@@ -65,18 +65,21 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 
 ## Recent Changes
 
-### 2025-11-01: Fixed Impossible Substitution Logic Bug
-**Problem**: System showed one goalkeeper (Dúbravka) being benched for TWO different outfield players (Mbeumo AND Van de Ven) - logically impossible.
+### 2025-11-01: Fixed Impossible Substitution Logic Bug (Position-Aware Fix)
+**Problem**: System showed goalkeeper (Dúbravka) being "benched for midfielder (Mbeumo)" - violates fundamental FPL position rules where goalkeepers can only be replaced by goalkeepers.
 
-**Root Cause**: Transfer analysis loop processed each transfer INDEPENDENTLY, comparing the ORIGINAL starting XI against each transfer's new lineup. With multiple transfers, both detected the same player being displaced.
+**Root Causes**:
+1. Transfer analysis compared starting XIs using simple set differences without position awareness
+2. Transferred-out players (like Dúbravka in a GK→GK swap) were treated as "benched" instead of "replaced"
+3. No validation that substitutions follow FPL position constraints (GK↔GK only, outfield can swap)
 
-**Fix**: Implemented **cumulative transfer processing** (server/gameweek-analyzer.ts):
-- Each transfer is now analyzed against the state AFTER all previous transfers
-- Maintains a rolling `baselineStartingXI` that updates after each transfer
-- Prevents the same player from being marked as benched multiple times
-- Architect-approved solution maintaining existing UI semantics
+**Fix**: Implemented **position-aware substitution detection** (server/gameweek-analyzer.ts):
+- Track all transferred-out player IDs and exclude them from substitution logic
+- Validate position compatibility: GK can only substitute for GK, outfield players (DEF/MID/FWD) can swap with each other
+- Skip invalid substitutions (e.g., GK↔MID) with clear console warnings
+- Architect-approved solution ensuring transfers respect FPL position rules
 
-**Files Modified**: `server/gameweek-analyzer.ts` (lines 625-860)
+**Files Modified**: `server/gameweek-analyzer.ts` (lines 654-876)
 
 ## External Dependencies
 - **Official FPL API**: For all Fantasy Premier League game data.

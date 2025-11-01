@@ -4418,7 +4418,7 @@ var GameweekAnalyzerService = class {
       const plan = await storage.saveGameweekPlan({
         userId,
         gameweek,
-        transfers: aiResponse.transfers,
+        transfers: aiResponse.transfers.map((t) => ({ ...t, accepted: true })),
         captainId: aiResponse.captain_id,
         viceCaptainId: aiResponse.vice_captain_id,
         chipToPlay: aiResponse.chip_to_play,
@@ -4846,7 +4846,8 @@ var GameweekAnalyzerService = class {
               starting_player_name: transfer.substitution_details.incoming_player_name,
               starting_player_position: transfer.substitution_details.incoming_player_position,
               starting_player_predicted_points: transfer.substitution_details.incoming_player_predicted_points,
-              reasoning: transfer.substitution_details.bench_reason
+              reasoning: transfer.substitution_details.bench_reason,
+              accepted: true
             });
             console.log(`    \u2705 Added: ${transfer.substitution_details.benched_player_name} benched for ${transfer.substitution_details.incoming_player_name}`);
             delete transfer.substitution_details;

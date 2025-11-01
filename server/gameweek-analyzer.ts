@@ -424,15 +424,18 @@ export class GameweekAnalyzerService {
 
       // 7. Save to database
       // Round predicted points since database column is integer (half-points from calculations)
+      // Add accepted: true to all transfers and lineup optimizations by default (user can override)
+      // Save baseline prediction (GROSS points before transfer cost) separately from final prediction (NET points)
       const plan = await storage.saveGameweekPlan({
         userId,
         gameweek,
-        transfers: aiResponse.transfers,
+        transfers: aiResponse.transfers.map(t => ({...t, accepted: true})),
         captainId: aiResponse.captain_id,
         viceCaptainId: aiResponse.vice_captain_id,
         chipToPlay: aiResponse.chip_to_play as 'wildcard' | 'freehit' | 'benchboost' | 'triplecaptain' | null,
         formation: aiResponse.formation,
         predictedPoints: Math.round(aiResponse.predicted_points - transferCost),
+        baselinePredictedPoints: Math.round(aiResponse.predicted_points), // Baseline AI prediction (GROSS, before transfer cost)
         confidence: aiResponse.confidence,
         aiReasoning: JSON.stringify({
           reasoning: aiResponse.reasoning,
@@ -1005,6 +1008,7 @@ export class GameweekAnalyzerService {
               starting_player_position: positionNames[startingPlayer.element_type],
               starting_player_predicted_points: startingPrediction,
               reasoning: benchReason,
+              accepted: true, // Default accepted for new recommendations
             });
             
             console.log(`  ✅ Created lineup optimization: ${benchedPlayer.web_name} (${benchedPrediction.toFixed(1)} pts) benched for ${startingPlayer.web_name} (${startingPrediction.toFixed(1)} pts)`);
@@ -1042,6 +1046,7 @@ export class GameweekAnalyzerService {
               starting_player_position: transfer.substitution_details.incoming_player_position,
               starting_player_predicted_points: transfer.substitution_details.incoming_player_predicted_points,
               reasoning: transfer.substitution_details.bench_reason,
+              accepted: true,
             });
             console.log(`    ✅ Added: ${transfer.substitution_details.benched_player_name} benched for ${transfer.substitution_details.incoming_player_name}`);
             

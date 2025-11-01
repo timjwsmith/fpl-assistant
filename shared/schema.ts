@@ -425,6 +425,7 @@ export const gameweekPlans = pgTable('gameweek_plans', {
     reasoning: string;
     priority: 'high' | 'medium' | 'low';
     cost_impact: number;
+    accepted: boolean;
   }>>(),
   lineupOptimizations: jsonb('lineup_optimizations').$type<Array<{
     benched_player_id: number;
@@ -436,6 +437,7 @@ export const gameweekPlans = pgTable('gameweek_plans', {
     starting_player_position: string;
     starting_player_predicted_points: number;
     reasoning: string;
+    accepted: boolean;
   }>>(),
   captainId: integer('captain_id'),
   viceCaptainId: integer('vice_captain_id'),
@@ -449,6 +451,7 @@ export const gameweekPlans = pgTable('gameweek_plans', {
     multiplier: number;
   }>>(),
   predictedPoints: integer('predicted_points').notNull(),
+  baselinePredictedPoints: integer('baseline_predicted_points'),
   confidence: integer('confidence').notNull(),
   aiReasoning: text('ai_reasoning').notNull(),
   status: text('status', { enum: ['pending', 'previewed', 'applied', 'rejected'] }).notNull().default('pending'),

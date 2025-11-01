@@ -11,6 +11,7 @@ interface RawGameweekPlan {
     reasoning: string;
     priority: 'high' | 'medium' | 'low';
     cost_impact: number;
+    accepted?: boolean;
   }>;
   lineupOptimizations: Array<{
     benched_player_id: number;
@@ -22,6 +23,7 @@ interface RawGameweekPlan {
     starting_player_position: string;
     starting_player_predicted_points: number;
     reasoning: string;
+    accepted?: boolean;
   }> | null;
   captainId: number | null;
   viceCaptainId: number | null;
@@ -50,6 +52,7 @@ interface HydratedGameweekPlan extends Omit<RawGameweekPlan, 'transfers' | 'line
     reasoning: string;
     priority: 'high' | 'medium' | 'low';
     cost_impact: number;
+    accepted: boolean;
   }>;
   lineupOptimizations: Array<{
     benched_player_id: number;
@@ -61,6 +64,7 @@ interface HydratedGameweekPlan extends Omit<RawGameweekPlan, 'transfers' | 'line
     starting_player_position: string;
     starting_player_predicted_points: number;
     reasoning: string;
+    accepted: boolean;
   }>;
   captainId: number | null;
   captainName?: string;
@@ -80,6 +84,7 @@ export class GameweekPlanHydrator {
     const playerMap = new Map(players.map(p => [p.id, p]));
 
     // Enrich transfers with player names (market transfers only)
+    // Add defensive default for 'accepted' field to handle legacy records
     const enrichedTransfers = rawPlan.transfers.map(transfer => ({
       player_out_id: transfer.player_out_id,
       player_out_name: playerMap.get(transfer.player_out_id)?.web_name || `Player ${transfer.player_out_id}`,
@@ -89,10 +94,15 @@ export class GameweekPlanHydrator {
       reasoning: transfer.reasoning,
       priority: transfer.priority,
       cost_impact: transfer.cost_impact,
+      accepted: transfer.accepted ?? true, // Defensive default for legacy records
     }));
 
     // Lineup optimizations are already enriched with names in the database
-    const lineupOptimizations = rawPlan.lineupOptimizations || [];
+    // Add defensive default for 'accepted' field to handle legacy records
+    const lineupOptimizations = (rawPlan.lineupOptimizations || []).map(lo => ({
+      ...lo,
+      accepted: lo.accepted ?? true, // Defensive default for legacy records
+    }));
 
     // Calculate free transfers and transfer cost
     const numTransfers = rawPlan.transfers.length;

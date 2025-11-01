@@ -159,6 +159,21 @@ export interface IStorage {
 }
 
 export class PostgresStorage implements IStorage {
+  // Helper function to add defensive defaults for 'accepted' field in legacy records
+  private addAcceptedDefaults(plan: GameweekPlan): GameweekPlan {
+    return {
+      ...plan,
+      transfers: (plan.transfers as any[])?.map(t => ({
+        ...t,
+        accepted: t.accepted ?? true
+      })) || [],
+      lineupOptimizations: (plan.lineupOptimizations as any[])?.map(lo => ({
+        ...lo,
+        accepted: lo.accepted ?? true
+      })) || []
+    };
+  }
+
   async getOrCreateUser(fplManagerId: number): Promise<User> {
     const existingUsers = await db
       .select()
@@ -652,7 +667,7 @@ export class PostgresStorage implements IStorage {
       .orderBy(desc(gameweekPlans.createdAt))
       .limit(1);
 
-    return results[0];
+    return results[0] ? this.addAcceptedDefaults(results[0]) : undefined;
   }
 
   async getGameweekPlanById(planId: number): Promise<GameweekPlan | undefined> {
@@ -662,7 +677,7 @@ export class PostgresStorage implements IStorage {
       .where(eq(gameweekPlans.id, planId))
       .limit(1);
 
-    return results[0];
+    return results[0] ? this.addAcceptedDefaults(results[0]) : undefined;
   }
 
   async getLatestGameweekPlan(userId: number): Promise<GameweekPlan | undefined> {
@@ -673,15 +688,17 @@ export class PostgresStorage implements IStorage {
       .orderBy(desc(gameweekPlans.createdAt))
       .limit(1);
 
-    return results[0];
+    return results[0] ? this.addAcceptedDefaults(results[0]) : undefined;
   }
 
   async getGameweekPlansByUser(userId: number): Promise<GameweekPlan[]> {
-    return db
+    const results = await db
       .select()
       .from(gameweekPlans)
       .where(eq(gameweekPlans.userId, userId))
       .orderBy(gameweekPlans.gameweek);
+
+    return results.map(plan => this.addAcceptedDefaults(plan));
   }
 
   async updateGameweekPlanStatus(planId: number, status: 'pending' | 'previewed' | 'applied' | 'rejected'): Promise<void> {
@@ -786,11 +803,18 @@ export class PostgresStorage implements IStorage {
     reasoning: string;
     priority: 'high' | 'medium' | 'low';
     cost_impact: number;
+    accepted?: boolean;
   }>): Promise<void> {
+    // Ensure all transfers have accepted field (default to true if not provided)
+    const transfersWithAccepted = transfers.map(t => ({
+      ...t,
+      accepted: t.accepted ?? true
+    }));
+
     await db
       .update(gameweekPlans)
       .set({
-        transfers: transfers as any,
+        transfers: transfersWithAccepted as any,
       })
       .where(eq(gameweekPlans.id, planId));
   }
@@ -805,11 +829,18 @@ export class PostgresStorage implements IStorage {
     starting_player_position: string;
     starting_player_predicted_points: number;
     reasoning: string;
+    accepted?: boolean;
   }>): Promise<void> {
+    // Ensure all lineup optimizations have accepted field (default to true if not provided)
+    const lineupOptimizationsWithAccepted = lineupOptimizations.map(lo => ({
+      ...lo,
+      accepted: lo.accepted ?? true
+    }));
+
     await db
       .update(gameweekPlans)
       .set({
-        lineupOptimizations: lineupOptimizations as any,
+        lineupOptimizations: lineupOptimizationsWithAccepted as any,
       })
       .where(eq(gameweekPlans.id, planId));
   }

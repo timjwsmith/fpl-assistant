@@ -105,7 +105,8 @@ export class GameweekPlanHydrator {
     }));
 
     // Calculate free transfers and transfer cost
-    const numTransfers = rawPlan.transfers.length;
+    // Only count ACCEPTED transfers for cost calculation
+    const numTransfers = rawPlan.transfers.filter(t => t.accepted ?? true).length;
     
     // Note: We should persist freeTransfers in the database in the future
     // For now, assume 1 free transfer per week (this is a simplification)

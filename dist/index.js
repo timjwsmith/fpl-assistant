@@ -4759,19 +4759,25 @@ var GameweekAnalyzerService = class {
             const benchedPrediction = predictionsMap.get(benchedPlayerId) || 0;
             const startingPrediction = predictionsMap.get(matchingStartingPlayerId) || 0;
             const reasons = [];
-            if (startingPrediction > benchedPrediction) {
-              const diff = (startingPrediction - benchedPrediction).toFixed(1);
-              reasons.push(`${startingPlayer.web_name} has higher predicted points (${startingPrediction.toFixed(1)} vs ${benchedPrediction.toFixed(1)}, +${diff})`);
-            }
             const benchedForm = parseFloat(benchedPlayer.form || "0");
             const startingForm = parseFloat(startingPlayer.form || "0");
-            if (startingForm > benchedForm) {
-              reasons.push(`better form for ${startingPlayer.web_name} (${startingForm.toFixed(1)} vs ${benchedForm.toFixed(1)})`);
+            if (startingPrediction > benchedPrediction) {
+              const diff = (startingPrediction - benchedPrediction).toFixed(1);
+              reasons.push(`I recommend starting ${startingPlayer.web_name} over ${benchedPlayer.web_name} because ${startingPlayer.web_name} is predicted to score ${startingPrediction.toFixed(1)} points this gameweek compared to ${benchedPrediction.toFixed(1)} points for ${benchedPlayer.web_name}, which represents a ${diff} point advantage`);
+            }
+            if (startingForm > benchedForm && startingForm - benchedForm >= 1) {
+              reasons.push(`${startingPlayer.web_name} is in significantly better form, averaging ${startingForm.toFixed(1)} points per game over recent matches compared to ${benchedForm.toFixed(1)} for ${benchedPlayer.web_name}`);
+            } else if (startingForm > benchedForm) {
+              reasons.push(`${startingPlayer.web_name} also has slightly better recent form at ${startingForm.toFixed(1)} points per game versus ${benchedForm.toFixed(1)}`);
             }
             if (benchedPlayer.chance_of_playing_next_round !== null && benchedPlayer.chance_of_playing_next_round < 100) {
-              reasons.push(`${benchedPlayer.web_name} injury doubt (${benchedPlayer.chance_of_playing_next_round}% chance of playing)`);
+              if (benchedPlayer.chance_of_playing_next_round < 50) {
+                reasons.push(`Additionally, ${benchedPlayer.web_name} is a major injury concern with only a ${benchedPlayer.chance_of_playing_next_round}% chance of playing, making ${startingPlayer.web_name} the safer and more reliable choice`);
+              } else {
+                reasons.push(`${benchedPlayer.web_name} also carries injury doubt at ${benchedPlayer.chance_of_playing_next_round}% chance of playing, adding risk to starting them`);
+              }
             }
-            const benchReason = reasons.length > 0 ? reasons.join(", ") : "Tactical decision based on predicted points";
+            const benchReason = reasons.length > 0 ? reasons.join(". ") + "." : `I recommend starting ${startingPlayer.web_name} over ${benchedPlayer.web_name} based on superior predicted points for this gameweek.`;
             if (!aiResponse.lineupOptimizations) {
               aiResponse.lineupOptimizations = [];
             }
@@ -5389,6 +5395,28 @@ Before finalizing your recommendations, YOU MUST explicitly analyze whether prem
 - Show the full calculation: "Player X will score ~15pts/gw over 6 GWs = 90pts total. Current player scores ~6pts/gw = 36pts. Gain: 54pts. Cost: -8 hit. Net benefit: +46pts over 6 gameweeks."
 
 **DO NOT** be conservative just to avoid point hits - if the math shows clear long-term benefit, RECOMMEND IT.
+
+**\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550**
+**\u{1F6A8} CRITICAL: TRANSFER COST EXPLANATION IN REASONING \u{1F6A8}**
+**\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550**
+
+You have ${inputData.freeTransfers} free transfer(s) available this gameweek. Any transfers beyond this will cost 4 points each.
+
+**MANDATORY: Your "reasoning" field MUST include a CLEAR explanation of transfer costs:**
+
+If making MORE transfers than free transfers available:
+- State total gross predicted points (before transfer cost deduction)
+- State number of transfers and the cost (number of extra transfers \xD7 4 points)
+- State final net predicted points (after deducting transfer cost)
+- Explain why the point hit is justified based on 6-gameweek ROI
+
+**EXAMPLE (3 transfers with 1 free transfer):**
+"This plan is projected to deliver 66 points this gameweek before accounting for transfer costs. With 3 transfers recommended and only 1 free transfer available, you will incur an 8-point deduction for the 2 additional transfers (2 \xD7 4 points). This brings the final predicted points to 58 for this gameweek. However, these transfers are strategically justified because the new players are expected to gain 42 additional points over the next 6 gameweeks compared to the outgoing players, meaning the 8-point hit will be recovered within 2 gameweeks and deliver a net benefit of 34 points over the medium term."
+
+**EXAMPLE (1 transfer with 1 free transfer):**
+"This plan is projected to deliver 58 points this gameweek with no transfer cost deduction since you have 1 free transfer available and are only making 1 transfer."
+
+**This explanation MUST appear at the start or end of your "reasoning" text so users understand the point deduction.**
 
 **CRITICAL: DIFFERENTIAL STRATEGY - YOU MUST ACT ON THESE**:
 When differential opportunities are identified in the league analysis, you MUST incorporate them into your actual transfer recommendations based on league position:

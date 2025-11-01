@@ -827,6 +827,17 @@ var init_storage = __esm({
           predictedPoints
         }).where(eq(gameweekPlans.id, planId));
       }
+      async updateGameweekPlanReasoning(planId, reasoning) {
+        const [plan] = await db.select({ aiReasoning: gameweekPlans.aiReasoning }).from(gameweekPlans).where(eq(gameweekPlans.id, planId));
+        if (plan?.aiReasoning) {
+          const existingReasoning = typeof plan.aiReasoning === "string" ? JSON.parse(plan.aiReasoning) : plan.aiReasoning;
+          const updatedReasoning = {
+            ...existingReasoning,
+            reasoning
+          };
+          await db.update(gameweekPlans).set({ aiReasoning: JSON.stringify(updatedReasoning) }).where(eq(gameweekPlans.id, planId));
+        }
+      }
       async updateGameweekPlanAnalysis(planId, analysis) {
         await db.update(gameweekPlans).set({
           actualPointsWithAI: analysis.actualPointsWithAI,
@@ -4904,7 +4915,9 @@ var GameweekAnalyzerService = class {
         for (const pattern of incorrectPatterns) {
           cleanedReasoning = cleanedReasoning.replace(pattern, "").trim();
         }
-        aiResponse.reasoning = correctExplanation + "\n\n" + cleanedReasoning;
+        const updatedReasoning = correctExplanation + "\n\n" + cleanedReasoning;
+        aiResponse.reasoning = updatedReasoning;
+        await storage.updateGameweekPlanReasoning(plan.id, updatedReasoning);
         console.log(`[GameweekAnalyzer] \u2705 Replaced AI transfer explanation with calculated GROSS: ${grossPoints} \u2192 NET: ${netPoints}`);
       } else if (transferCost > 0 && !predictionReliable) {
         console.warn(`[GameweekAnalyzer] \u26A0\uFE0F  Cannot add transfer cost explanation - predictions incomplete, cannot verify GROSS value`);

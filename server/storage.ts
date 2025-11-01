@@ -712,6 +712,31 @@ export class PostgresStorage implements IStorage {
       .where(eq(gameweekPlans.id, planId));
   }
 
+  async updateGameweekPlanReasoning(planId: number, reasoning: string): Promise<void> {
+    // Get existing aiReasoning, update just the reasoning field
+    const [plan] = await db
+      .select({ aiReasoning: gameweekPlans.aiReasoning })
+      .from(gameweekPlans)
+      .where(eq(gameweekPlans.id, planId));
+    
+    if (plan?.aiReasoning) {
+      // Parse the JSON string, update the reasoning field, and stringify back
+      const existingReasoning = typeof plan.aiReasoning === 'string' 
+        ? JSON.parse(plan.aiReasoning)
+        : plan.aiReasoning;
+      
+      const updatedReasoning = {
+        ...existingReasoning,
+        reasoning: reasoning,
+      };
+      
+      await db
+        .update(gameweekPlans)
+        .set({ aiReasoning: JSON.stringify(updatedReasoning) })
+        .where(eq(gameweekPlans.id, planId));
+    }
+  }
+
   async updateGameweekPlanAnalysis(planId: number, analysis: {
     actualPointsWithAI: number;
     actualPointsWithoutAI: number;

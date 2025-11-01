@@ -1157,7 +1157,11 @@ export class GameweekAnalyzerService {
         }
         
         // Add correct explanation at the start
-        aiResponse.reasoning = correctExplanation + '\n\n' + cleanedReasoning;
+        const updatedReasoning = correctExplanation + '\n\n' + cleanedReasoning;
+        aiResponse.reasoning = updatedReasoning;
+        
+        // Update the stored reasoning in the database
+        await storage.updateGameweekPlanReasoning(plan.id, updatedReasoning);
         console.log(`[GameweekAnalyzer] ✅ Replaced AI transfer explanation with calculated GROSS: ${grossPoints} → NET: ${netPoints}`);
       } else if (transferCost > 0 && !predictionReliable) {
         console.warn(`[GameweekAnalyzer] ⚠️  Cannot add transfer cost explanation - predictions incomplete, cannot verify GROSS value`);

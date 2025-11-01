@@ -1638,6 +1638,7 @@ Provide a strategic gameweek plan in this EXACT JSON format with VERBOSE, DATA-D
   - You have ${freeTransfers} free transfer${freeTransfers !== 1 ? 's' : ''}
   - Each additional transfer beyond free transfers costs -4 points
   - Formula: Transfer penalty = max(0, (number of transfers - free transfers) × 4)
+  - **IMPORTANT**: If you're using Wildcard or Free Hit chip, ALL transfers are free (transfer penalty = 0)
   
   **Example calculations:**
   - 1 transfer with 1 free transfer = 0 penalty

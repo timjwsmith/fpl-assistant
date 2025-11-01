@@ -4889,19 +4889,25 @@ var GameweekAnalyzerService = class {
         finalGrossPoints = calculatedGrossPoints;
         predictionReliable = true;
       }
-      if (aiResponse._needsTransferCostExplanation && transferCost > 0 && predictionReliable) {
+      if (transferCost > 0 && predictionReliable) {
         const grossPoints = finalGrossPoints;
         const netPoints = grossPoints - transferCost;
         const transferCount = aiResponse.transfers?.length || 0;
         const extraTransfers = transferCount - inputData.freeTransfers;
-        console.log(`[GameweekAnalyzer] Adding transfer cost explanation to reasoning...`);
-        const explanation = `
-
-This plan is projected to deliver ${grossPoints} points this gameweek before accounting for transfer costs. With ${transferCount} transfer${transferCount !== 1 ? "s" : ""} recommended and ${inputData.freeTransfers} free transfer${inputData.freeTransfers !== 1 ? "s" : ""} available, you will incur a ${transferCost}-point deduction for the ${extraTransfers} additional transfer${extraTransfers !== 1 ? "s" : ""} (${extraTransfers} \xD7 4 points). This brings the final predicted points to ${netPoints} for this gameweek.`;
-        aiResponse.reasoning = aiResponse.reasoning.trim() + explanation;
-        console.log(`[GameweekAnalyzer] \u2705 Added transfer cost explanation with final GROSS: ${grossPoints} \u2192 NET: ${netPoints}`);
-      } else if (aiResponse._needsTransferCostExplanation && transferCost > 0 && !predictionReliable) {
-        console.warn(`[GameweekAnalyzer] \u26A0\uFE0F  Skipping transfer cost explanation - predictions incomplete, cannot verify GROSS value`);
+        console.log(`[GameweekAnalyzer] Generating correct transfer cost explanation...`);
+        const correctExplanation = `This plan is projected to deliver ${grossPoints} points this gameweek before accounting for transfer costs. With ${transferCount} transfer${transferCount !== 1 ? "s" : ""} recommended and ${inputData.freeTransfers} free transfer${inputData.freeTransfers !== 1 ? "s" : ""} available, you will incur a ${transferCost}-point deduction for the ${extraTransfers} additional transfer${extraTransfers !== 1 ? "s" : ""} (${extraTransfers} \xD7 4 points). This brings the final predicted points to ${netPoints} for this gameweek.`;
+        let cleanedReasoning = aiResponse.reasoning.trim();
+        const incorrectPatterns = [
+          /This plan is projected to deliver \d+ points this gameweek with no transfer cost deduction[^.]+\./gi,
+          /This plan is projected to deliver \d+ points this gameweek before accounting for transfer costs[^.]+\./gi
+        ];
+        for (const pattern of incorrectPatterns) {
+          cleanedReasoning = cleanedReasoning.replace(pattern, "").trim();
+        }
+        aiResponse.reasoning = correctExplanation + "\n\n" + cleanedReasoning;
+        console.log(`[GameweekAnalyzer] \u2705 Replaced AI transfer explanation with calculated GROSS: ${grossPoints} \u2192 NET: ${netPoints}`);
+      } else if (transferCost > 0 && !predictionReliable) {
+        console.warn(`[GameweekAnalyzer] \u26A0\uFE0F  Cannot add transfer cost explanation - predictions incomplete, cannot verify GROSS value`);
       }
       await storage.updateGameweekPlanLineup(plan.id, lineup);
       plan.lineup = lineup;

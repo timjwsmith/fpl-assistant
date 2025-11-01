@@ -126,6 +126,7 @@ export default function Dashboard() {
           gameweek={planningGameweek} 
           planId={plan?.id}
           submitted={plan?.submitted ?? undefined}
+          submittedAt={plan?.submittedAt ?? undefined}
         />
       )}
 

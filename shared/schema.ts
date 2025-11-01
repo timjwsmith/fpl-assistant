@@ -480,6 +480,7 @@ export const gameweekPlans = pgTable('gameweek_plans', {
   snapshotTimestamp: timestamp('snapshot_timestamp'),
   snapshotEnriched: boolean('snapshot_enriched'),
   submitted: boolean('submitted').default(false),
+  submittedAt: timestamp('submitted_at'),
 }, (table) => ({
   userIdIdx: index('gameweek_plans_user_id_idx').on(table.userId),
   gameweekIdx: index('gameweek_plans_gameweek_idx').on(table.gameweek),

@@ -849,7 +849,10 @@ export class PostgresStorage implements IStorage {
   async updateGameweekPlanSubmitted(planId: number, submitted: boolean): Promise<void> {
     await db
       .update(gameweekPlans)
-      .set({ submitted })
+      .set({ 
+        submitted,
+        submittedAt: submitted ? new Date() : null
+      })
       .where(eq(gameweekPlans.id, planId));
   }
 

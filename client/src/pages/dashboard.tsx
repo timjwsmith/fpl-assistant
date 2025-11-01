@@ -12,7 +12,8 @@ import { ErrorState } from "@/components/error-state";
 import { PredictionAccuracy } from "@/components/prediction-accuracy";
 import { DeadlineCountdown } from "@/components/deadline-countdown";
 import { useQuery } from "@tanstack/react-query";
-import type { FPLPlayer, FPLTeam, FPLGameweek, FPLFixture, UserSettings } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
+import type { FPLPlayer, FPLTeam, FPLGameweek, FPLFixture, UserSettings, GameweekPlan } from "@shared/schema";
 
 export default function Dashboard() {
   const userId = 1;
@@ -42,6 +43,21 @@ export default function Dashboard() {
     retry: false,
   });
 
+  const planningGameweek = (gameweeks as FPLGameweek[] | undefined)?.find((gw: FPLGameweek) => gw.is_next) 
+    || (gameweeks as FPLGameweek[] | undefined)?.find((gw: FPLGameweek) => gw.is_current) 
+    || (gameweeks as FPLGameweek[] | undefined)?.[0];
+
+  const { data: plan } = useQuery<GameweekPlan>({
+    queryKey: ["/api/automation/plan", userId, planningGameweek?.id],
+    queryFn: async () => {
+      const url = `/api/automation/plan/${userId}?gameweek=${planningGameweek?.id}`;
+      return apiRequest("GET", url);
+    },
+    enabled: !!planningGameweek?.id,
+    retry: false,
+    staleTime: 30 * 1000,
+  });
+
   const isLoading = loadingGameweeks || loadingPlayers || loadingTeams || loadingFixtures;
   const error = gameweeksError || playersError || teamsError || fixturesError;
 
@@ -60,10 +76,6 @@ export default function Dashboard() {
       }}
     />;
   }
-
-  const planningGameweek = (gameweeks as FPLGameweek[] | undefined)?.find((gw: FPLGameweek) => gw.is_next) 
-    || (gameweeks as FPLGameweek[] | undefined)?.find((gw: FPLGameweek) => gw.is_current) 
-    || (gameweeks as FPLGameweek[] | undefined)?.[0];
   const topPlayers = (players as FPLPlayer[] | undefined)?.slice().sort((a: FPLPlayer, b: FPLPlayer) => b.total_points - a.total_points).slice(0, 5) || [];
   const upcomingFixtures = (fixtures as FPLFixture[] | undefined)?.filter((f: FPLFixture) => !f.finished && f.event === planningGameweek?.id).slice(0, 4) || [];
 
@@ -110,7 +122,11 @@ export default function Dashboard() {
       </div>
 
       {planningGameweek && (
-        <DeadlineCountdown gameweek={planningGameweek} />
+        <DeadlineCountdown 
+          gameweek={planningGameweek} 
+          planId={plan?.id}
+          submitted={plan?.submitted ?? undefined}
+        />
       )}
 
       {settings?.manager_id && managerStatusError && (

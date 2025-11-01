@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Clock, AlertTriangle, CheckCircle, RefreshCw } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import type { FPLGameweek } from "@shared/schema";
 
 interface DeadlineCountdownProps {
   gameweek: FPLGameweek;
+  planId?: number;
+  submitted?: boolean;
 }
 
 interface TimeRemaining {
@@ -16,8 +22,35 @@ interface TimeRemaining {
   total: number;
 }
 
-export function DeadlineCountdown({ gameweek }: DeadlineCountdownProps) {
+export function DeadlineCountdown({ gameweek, planId, submitted }: DeadlineCountdownProps) {
   const [timeRemaining, setTimeRemaining] = useState<TimeRemaining | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const markSubmittedMutation = useMutation({
+    mutationFn: async () => {
+      if (!planId) {
+        throw new Error("No plan available to mark as submitted");
+      }
+      return apiRequest("POST", `/api/automation/plan/${planId}/mark-submitted`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/automation/plan"] });
+      toast({
+        title: submitted ? "Team Unmarked" : "Team Marked as Submitted",
+        description: submitted 
+          ? "Your team has been unmarked. You can still make changes." 
+          : "Your team has been marked as submitted for this gameweek.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to update submission status. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const calculateTimeRemaining = (): TimeRemaining => {
     const now = new Date().getTime();
@@ -138,6 +171,34 @@ export function DeadlineCountdown({ gameweek }: DeadlineCountdownProps) {
               <AlertTriangle className="h-3 w-3" />
               Urgent: Implement your plan in the FPL app before the deadline!
             </p>
+          </div>
+        )}
+
+        {planId && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <Button
+              onClick={() => markSubmittedMutation.mutate()}
+              disabled={markSubmittedMutation.isPending}
+              variant={submitted ? "default" : "outline"}
+              className={`w-full md:w-auto ${submitted ? "bg-chart-2 hover:bg-chart-2/90 text-white" : "border-fpl-purple text-fpl-purple hover:bg-fpl-purple hover:text-white"}`}
+              data-testid="button-mark-submitted"
+            >
+              {markSubmittedMutation.isPending ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : submitted ? (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  ✓ Team Submitted
+                </>
+              ) : (
+                <>
+                  Mark as Submitted
+                </>
+              )}
+            </Button>
           </div>
         )}
       </CardContent>

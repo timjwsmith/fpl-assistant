@@ -978,31 +978,25 @@ export class GameweekAnalyzerService {
             
             const benchReason = reasons.length > 0 ? reasons.join(', ') : 'Tactical decision based on predicted points';
             
-            // Add a special "lineup optimization" transfer with substitution details
-            // Cast to any to allow extra fields (player names, substitution_details)
-            aiResponse.transfers.push({
-              player_out_id: benchedPlayerId,
-              player_out_name: benchedPlayer.web_name,
-              player_in_id: matchingStartingPlayerId,
-              player_in_name: startingPlayer.web_name,
-              expected_points_gain: startingPrediction - benchedPrediction,
-              expected_points_gain_timeframe: '1 gameweek',
-              reasoning: `Lineup optimization: ${benchReason}`,
-              priority: 'medium' as const,
-              cost_impact: 0,
-              substitution_details: {
-                benched_player_id: benchedPlayerId,
-                benched_player_name: benchedPlayer.web_name,
-                benched_player_position: positionNames[benchedPlayer.element_type],
-                benched_player_predicted_points: benchedPrediction,
-                incoming_player_name: startingPlayer.web_name,
-                incoming_player_position: positionNames[startingPlayer.element_type],
-                incoming_player_predicted_points: startingPrediction,
-                bench_reason: benchReason,
-              }
-            } as any);
+            // Initialize lineupOptimizations array if not exists
+            if (!(aiResponse as any).lineupOptimizations) {
+              (aiResponse as any).lineupOptimizations = [];
+            }
             
-            console.log(`  ✅ Created lineup optimization card: ${benchedPlayer.web_name} benched for ${startingPlayer.web_name}`);
+            // Add to lineup optimizations (separate from market transfers)
+            (aiResponse as any).lineupOptimizations.push({
+              benched_player_id: benchedPlayerId,
+              benched_player_name: benchedPlayer.web_name,
+              benched_player_position: positionNames[benchedPlayer.element_type],
+              benched_player_predicted_points: benchedPrediction,
+              starting_player_id: matchingStartingPlayerId,
+              starting_player_name: startingPlayer.web_name,
+              starting_player_position: positionNames[startingPlayer.element_type],
+              starting_player_predicted_points: startingPrediction,
+              reasoning: benchReason,
+            });
+            
+            console.log(`  ✅ Created lineup optimization: ${benchedPlayer.web_name} (${benchedPrediction.toFixed(1)} pts) benched for ${startingPlayer.web_name} (${startingPrediction.toFixed(1)} pts)`);
             pairingCount++;
             
             // CRITICAL: Remove matched player from available pool to prevent double-pairing

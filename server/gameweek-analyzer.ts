@@ -1010,6 +1010,38 @@ export class GameweekAnalyzerService {
           console.log(`  ✅ Created ${pairingCount} lineup optimization card(s)`);
         }
         
+        // CRITICAL: Extract lineup optimizations from transfers with substitution_details
+        // This handles lineup changes caused by transfers (bench players brought in)
+        console.log(`\n[GameweekAnalyzer] 🔍 Extracting lineup optimizations from transfers...`);
+        if (!(aiResponse as any).lineupOptimizations) {
+          (aiResponse as any).lineupOptimizations = [];
+        }
+        
+        const transfersToKeep = [];
+        for (const transfer of aiResponse.transfers) {
+          if (transfer.substitution_details) {
+            console.log(`  📤 Extracting lineup optimization from transfer ${transfer.player_out_id} → ${transfer.player_in_id}`);
+            (aiResponse as any).lineupOptimizations.push({
+              benched_player_id: transfer.substitution_details.benched_player_id,
+              benched_player_name: transfer.substitution_details.benched_player_name,
+              benched_player_position: transfer.substitution_details.benched_player_position,
+              benched_player_predicted_points: transfer.substitution_details.benched_player_predicted_points,
+              starting_player_id: transfer.player_in_id,
+              starting_player_name: transfer.substitution_details.incoming_player_name,
+              starting_player_position: transfer.substitution_details.incoming_player_position,
+              starting_player_predicted_points: transfer.substitution_details.incoming_player_predicted_points,
+              reasoning: transfer.substitution_details.bench_reason,
+            });
+            console.log(`    ✅ Added: ${transfer.substitution_details.benched_player_name} benched for ${transfer.substitution_details.incoming_player_name}`);
+            
+            // Remove substitution_details from transfer object
+            delete transfer.substitution_details;
+          }
+          transfersToKeep.push(transfer);
+        }
+        aiResponse.transfers = transfersToKeep;
+        console.log(`  ✅ Extracted ${(aiResponse as any).lineupOptimizations.length} total lineup optimization(s)`);
+        
         // Save transfers and lineup optimizations separately
         await storage.updateGameweekPlanTransfers(plan.id, aiResponse.transfers);
         console.log(`[GameweekAnalyzer] Transfer recommendations saved to database for plan ${plan.id}`);

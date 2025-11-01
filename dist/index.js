@@ -4796,6 +4796,33 @@ var GameweekAnalyzerService = class {
           }
           console.log(`  \u2705 Created ${pairingCount} lineup optimization card(s)`);
         }
+        console.log(`
+[GameweekAnalyzer] \u{1F50D} Extracting lineup optimizations from transfers...`);
+        if (!aiResponse.lineupOptimizations) {
+          aiResponse.lineupOptimizations = [];
+        }
+        const transfersToKeep = [];
+        for (const transfer of aiResponse.transfers) {
+          if (transfer.substitution_details) {
+            console.log(`  \u{1F4E4} Extracting lineup optimization from transfer ${transfer.player_out_id} \u2192 ${transfer.player_in_id}`);
+            aiResponse.lineupOptimizations.push({
+              benched_player_id: transfer.substitution_details.benched_player_id,
+              benched_player_name: transfer.substitution_details.benched_player_name,
+              benched_player_position: transfer.substitution_details.benched_player_position,
+              benched_player_predicted_points: transfer.substitution_details.benched_player_predicted_points,
+              starting_player_id: transfer.player_in_id,
+              starting_player_name: transfer.substitution_details.incoming_player_name,
+              starting_player_position: transfer.substitution_details.incoming_player_position,
+              starting_player_predicted_points: transfer.substitution_details.incoming_player_predicted_points,
+              reasoning: transfer.substitution_details.bench_reason
+            });
+            console.log(`    \u2705 Added: ${transfer.substitution_details.benched_player_name} benched for ${transfer.substitution_details.incoming_player_name}`);
+            delete transfer.substitution_details;
+          }
+          transfersToKeep.push(transfer);
+        }
+        aiResponse.transfers = transfersToKeep;
+        console.log(`  \u2705 Extracted ${aiResponse.lineupOptimizations.length} total lineup optimization(s)`);
         await storage.updateGameweekPlanTransfers(plan.id, aiResponse.transfers);
         console.log(`[GameweekAnalyzer] Transfer recommendations saved to database for plan ${plan.id}`);
         if (aiResponse.lineupOptimizations && aiResponse.lineupOptimizations.length > 0) {

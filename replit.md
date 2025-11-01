@@ -63,6 +63,21 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - **Regression Prevention**: Tests use actual GW8/GW9 data from FPL API and will immediately fail if production code regresses (e.g., aggregation changing from `+=` to `=`, goals conceded format reverting to "GC: -1")
 - **Test Command**: `npm test` - runs all tests with coverage reporting
 
+## Recent Changes
+
+### 2025-11-01: Fixed Impossible Substitution Logic Bug
+**Problem**: System showed one goalkeeper (Dúbravka) being benched for TWO different outfield players (Mbeumo AND Van de Ven) - logically impossible.
+
+**Root Cause**: Transfer analysis loop processed each transfer INDEPENDENTLY, comparing the ORIGINAL starting XI against each transfer's new lineup. With multiple transfers, both detected the same player being displaced.
+
+**Fix**: Implemented **cumulative transfer processing** (server/gameweek-analyzer.ts):
+- Each transfer is now analyzed against the state AFTER all previous transfers
+- Maintains a rolling `baselineStartingXI` that updates after each transfer
+- Prevents the same player from being marked as benched multiple times
+- Architect-approved solution maintaining existing UI semantics
+
+**Files Modified**: `server/gameweek-analyzer.ts` (lines 625-860)
+
 ## External Dependencies
 - **Official FPL API**: For all Fantasy Premier League game data.
 - **Understat.com**: For advanced player statistics (npxG, xGChain, xGBuildup) via web scraping.

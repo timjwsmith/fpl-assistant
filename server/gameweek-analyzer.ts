@@ -643,9 +643,24 @@ export class GameweekAnalyzerService {
           return `${player?.web_name}(${prediction}pts)`;
         }).join(', ')}`);
         
-        // Analyze each transfer individually by comparing:
-        // - Current lineup (before ANY transfers)
-        // - Lineup after applying ONLY this single transfer
+        // CUMULATIVE TRANSFER PROCESSING FIX:
+        // Track cumulative transfers to avoid showing the same player benched multiple times
+        // Each transfer is analyzed against the state AFTER all previous transfers
+        const cumulativeTransfers: typeof aiResponse.transfers = [];
+        
+        // Initialize baseline starting XI using ACTUAL FPL positions (before any transfers)
+        let baselineStartingXI = inputData.currentTeam.players
+          .filter(p => p.position <= 11 && p.player_id)
+          .map(p => p.player_id!);
+        
+        console.log(`[GameweekAnalyzer] Baseline starting XI (${baselineStartingXI.length} players): ${baselineStartingXI.map(id => {
+          const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id);
+          return player?.web_name || id;
+        }).join(', ')}`);
+        
+        // Analyze each transfer CUMULATIVELY by comparing:
+        // - Baseline lineup (with all previous transfers applied)
+        // - Lineup after adding this transfer to the cumulative set
         for (const transfer of aiResponse.transfers) {
           const playerInName = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === transfer.player_in_id)?.web_name || `Player ${transfer.player_in_id}`;
           const playerOutName = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === transfer.player_out_id)?.web_name || `Player ${transfer.player_out_id}`;
@@ -662,13 +677,14 @@ export class GameweekAnalyzerService {
             console.error(`  ❌ ERROR: Missing prediction for transferred-in player ${playerInName}! This will cause lineup generation to fail.`);
           }
           
-          // Generate lineup with ONLY this transfer applied
+          // Generate lineup with cumulative transfers (all transfers up to and including this one)
           const predictionsForLineup = Array.from(predictionsMap.entries()).map(([playerId, predictedPoints]) => ({ playerId, predictedPoints }));
-          console.log(`  Generating lineup with ${predictionsForLineup.length} predictions (including ${playerInName})...`);
+          const transfersToApply = [...cumulativeTransfers, transfer];
+          console.log(`  Generating lineup with ${transfersToApply.length} cumulative transfer(s) (${predictionsForLineup.length} predictions)...`);
           
           const lineupWithThisTransfer = await this.generateLineup(
             inputData.currentTeam,
-            [transfer], // Only this transfer
+            transfersToApply, // All cumulative transfers including this one
             aiResponse.formation,
             aiResponse.captain_id,
             aiResponse.vice_captain_id,
@@ -707,25 +723,21 @@ export class GameweekAnalyzerService {
           if (playerOutWasBench && playerInIsStarting) {
             console.log(`  ✅ Bench → Starting transfer detected! Looking for benched player...`);
             
-            // FIX: Use ACTUAL FPL positions, not AI-optimized lineup
-            // The currentLineup is AI-optimized and may have moved bench players to starting XI
-            // We need to use the actual FPL team positions to detect real lineup changes
-            const actualCurrentStartingXI = inputData.currentTeam.players
-              .filter(p => p.position <= 11 && p.player_id)
-              .map(p => p.player_id!);
+            // CUMULATIVE FIX: Compare baseline XI (with previous transfers) vs new XI (with this transfer)
+            // This ensures each transfer only detects NEW changes, not repeating previous benching decisions
             const newStartingXI = lineupWithThisTransfer.filter(p => p.position <= 11).map(p => p.player_id);
             
-            console.log(`  ACTUAL current starting XI (${actualCurrentStartingXI.length} players): ${actualCurrentStartingXI.map(id => {
+            console.log(`  Baseline starting XI (${baselineStartingXI.length} players): ${baselineStartingXI.map(id => {
               const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id);
               return player?.web_name || id;
             }).join(', ')}`);
-            console.log(`  New starting XI (${newStartingXI.length} players): ${newStartingXI.map(id => {
+            console.log(`  New starting XI with this transfer (${newStartingXI.length} players): ${newStartingXI.map(id => {
               const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id);
               return player?.web_name || id;
             }).join(', ')}`);
             
-            // Find player who was in ACTUAL starting XI but is now benched (excluding the player being transferred out)
-            const benchedPlayerId = actualCurrentStartingXI.find(playerId => 
+            // Find player who was in baseline starting XI but is now benched (excluding the player being transferred out)
+            const benchedPlayerId = baselineStartingXI.find(playerId => 
               !newStartingXI.includes(playerId) && playerId !== transfer.player_out_id
             );
             
@@ -735,11 +747,11 @@ export class GameweekAnalyzerService {
             } else {
               console.log(`  ✅ NO benched player found - no starter is displaced by this transfer.`);
               console.log(`  This is correct when transferring out a bench player and the new player fills their spot.`);
-              console.log(`  Diagnosis: ACTUAL current starting XI = ${actualCurrentStartingXI.length}, New starting XI = ${newStartingXI.length}`);
-              const playersOnlyInCurrent = actualCurrentStartingXI.filter(id => !newStartingXI.includes(id) && id !== transfer.player_out_id);
-              const playersOnlyInNew = newStartingXI.filter(id => !actualCurrentStartingXI.includes(id));
-              console.log(`  Players only in current XI (excluding ${playerOutName}): ${playersOnlyInCurrent.map(id => inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id)?.web_name || id).join(', ') || 'NONE'}`);
-              console.log(`  Players only in new XI: ${playersOnlyInNew.map(id => inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id)?.web_name || id).join(', ') || 'NONE'}`);
+              console.log(`  Diagnosis: Baseline starting XI = ${baselineStartingXI.length}, New starting XI = ${newStartingXI.length}`);
+              const playersOnlyInBaseline = baselineStartingXI.filter((id: number) => !newStartingXI.includes(id) && id !== transfer.player_out_id);
+              const playersOnlyInNew = newStartingXI.filter((id: number) => !baselineStartingXI.includes(id));
+              console.log(`  Players only in baseline XI (excluding ${playerOutName}): ${playersOnlyInBaseline.map((id: number) => inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id)?.web_name || id).join(', ') || 'NONE'}`);
+              console.log(`  Players only in new XI: ${playersOnlyInNew.map((id: number) => inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id)?.web_name || id).join(', ') || 'NONE'}`);
             }
             
             if (benchedPlayerId) {
@@ -837,6 +849,11 @@ export class GameweekAnalyzerService {
           } else {
             console.log(`  ⏭️  Skipping enhancement: Transfer doesn't bring player from bench to starting XI`);
           }
+          
+          // CUMULATIVE UPDATE: Add this transfer to cumulative list and update baseline for next iteration
+          cumulativeTransfers.push(transfer);
+          baselineStartingXI = lineupWithThisTransfer.filter(p => p.position <= 11).map(p => p.player_id);
+          console.log(`  📊 Updated baseline for next transfer: ${baselineStartingXI.length} players in starting XI`);
         }
         
         // BUG FIX: Save enhanced transfers to database (Bug 1)

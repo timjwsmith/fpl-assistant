@@ -5787,6 +5787,41 @@ IMPORTANT: Previous response exceeded token limit. Please be more concise while 
             transfer.expected_points_gain_timeframe = "6 gameweeks";
           }
         }
+        console.log("[GameweekAnalyzer] Post-processing AI reasoning to ensure transfer cost explanation...");
+        const transferCount = result.transfers?.length || 0;
+        const transferCost = transferCount > freeTransfers ? (transferCount - freeTransfers) * 4 : 0;
+        const chipUsed = result.chip_to_play;
+        const isChipActive = chipUsed === "wildcard" || chipUsed === "freehit";
+        const finalTransferCost = isChipActive ? 0 : transferCost;
+        console.log(`[GameweekAnalyzer] Transfer analysis: ${transferCount} transfers, ${freeTransfers} free, chip: ${chipUsed || "none"}, cost: ${finalTransferCost} points`);
+        if (result.reasoning) {
+          const grossPoints = result.predicted_points || 0;
+          const netPoints = grossPoints - finalTransferCost;
+          const hasPointsMention = /(\d+)\s*points?\s+this\s+gameweek/i.test(result.reasoning);
+          if (hasPointsMention && finalTransferCost > 0) {
+            const mentionsGrossPoints = result.reasoning.includes(`${grossPoints} points`);
+            const mentionsNetPoints = result.reasoning.includes(`${netPoints} points`);
+            const mentionsTransferCost = result.reasoning.includes(`${finalTransferCost} point`) || result.reasoning.includes("transfer cost") || result.reasoning.includes("point hit") || result.reasoning.includes("point deduction");
+            console.log(`[GameweekAnalyzer] Reasoning check: mentionsGross=${mentionsGrossPoints}, mentionsNet=${mentionsNetPoints}, mentionsCost=${mentionsTransferCost}`);
+            if (!mentionsTransferCost || !mentionsNetPoints) {
+              console.warn(`[GameweekAnalyzer] AI reasoning incomplete - adding transfer cost explanation`);
+              const extraTransfers = transferCount - freeTransfers;
+              const explanation = `
+
+This plan is projected to deliver ${grossPoints} points this gameweek before accounting for transfer costs. With ${transferCount} transfer${transferCount !== 1 ? "s" : ""} recommended and ${freeTransfers} free transfer${freeTransfers !== 1 ? "s" : ""} available, you will incur a ${finalTransferCost}-point deduction for the ${extraTransfers} additional transfer${extraTransfers !== 1 ? "s" : ""} (${extraTransfers} \xD7 4 points). This brings the final predicted points to ${netPoints} for this gameweek.`;
+              result.reasoning = result.reasoning.trim() + explanation;
+              console.log(`[GameweekAnalyzer] Added transfer cost explanation to reasoning`);
+            }
+          } else if (hasPointsMention && finalTransferCost === 0 && transferCount > 0) {
+            if (isChipActive && !result.reasoning.includes(chipUsed)) {
+              const chipExplanation = `
+
+Note: With the ${chipUsed} chip active, all transfers are free (no transfer cost deduction).`;
+              result.reasoning = result.reasoning.trim() + chipExplanation;
+              console.log(`[GameweekAnalyzer] Added chip explanation to reasoning`);
+            }
+          }
+        }
         return result;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error("Unknown error");

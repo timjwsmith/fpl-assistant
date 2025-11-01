@@ -423,6 +423,7 @@ export class GameweekAnalyzerService {
       }
 
       // 7. Save to database
+      // Round predicted points since database column is integer (half-points from calculations)
       const plan = await storage.saveGameweekPlan({
         userId,
         gameweek,
@@ -431,7 +432,7 @@ export class GameweekAnalyzerService {
         viceCaptainId: aiResponse.vice_captain_id,
         chipToPlay: aiResponse.chip_to_play as 'wildcard' | 'freehit' | 'benchboost' | 'triplecaptain' | null,
         formation: aiResponse.formation,
-        predictedPoints: aiResponse.predicted_points - transferCost,
+        predictedPoints: Math.round(aiResponse.predicted_points - transferCost),
         confidence: aiResponse.confidence,
         aiReasoning: JSON.stringify({
           reasoning: aiResponse.reasoning,
@@ -1135,8 +1136,8 @@ export class GameweekAnalyzerService {
       // Add/replace transfer cost explanation with our calculated values
       // ALWAYS do this when there's a transfer cost to ensure accuracy
       if (transferCost > 0 && predictionReliable) {
-        const grossPoints = finalGrossPoints;
-        const netPoints = grossPoints - transferCost;
+        const grossPoints = Math.round(finalGrossPoints);
+        const netPoints = Math.round(finalGrossPoints - transferCost);
         const transferCount = aiResponse.transfers?.length || 0;
         const extraTransfers = transferCount - inputData.freeTransfers;
         
@@ -1174,9 +1175,10 @@ export class GameweekAnalyzerService {
       // Update predicted points with calculated/verified GROSS value
       // The plan was initially saved with (aiResponse.predicted_points - transferCost)
       // Now we recalculate the correct NET using our verified GROSS value
-      const correctNetPoints = finalGrossPoints - transferCost;
+      // Round to nearest integer since FPL displays whole numbers (half points from calculations)
+      const correctNetPoints = Math.round(finalGrossPoints - transferCost);
       console.log(`[GameweekAnalyzer] Updating plan predicted points:`);
-      console.log(`  Final GROSS: ${finalGrossPoints}`);
+      console.log(`  Final GROSS: ${finalGrossPoints} → ${Math.round(finalGrossPoints)} (rounded)`);
       console.log(`  Transfer cost: ${transferCost}`);
       console.log(`  Correct NET: ${correctNetPoints}`);
       await storage.updateGameweekPlanPredictedPoints(plan.id, correctNetPoints);

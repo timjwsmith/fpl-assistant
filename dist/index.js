@@ -4413,7 +4413,7 @@ var GameweekAnalyzerService = class {
         viceCaptainId: aiResponse.vice_captain_id,
         chipToPlay: aiResponse.chip_to_play,
         formation: aiResponse.formation,
-        predictedPoints: aiResponse.predicted_points - transferCost,
+        predictedPoints: Math.round(aiResponse.predicted_points - transferCost),
         confidence: aiResponse.confidence,
         aiReasoning: JSON.stringify({
           reasoning: aiResponse.reasoning,
@@ -4901,8 +4901,8 @@ var GameweekAnalyzerService = class {
         predictionReliable = true;
       }
       if (transferCost > 0 && predictionReliable) {
-        const grossPoints = finalGrossPoints;
-        const netPoints = grossPoints - transferCost;
+        const grossPoints = Math.round(finalGrossPoints);
+        const netPoints = Math.round(finalGrossPoints - transferCost);
         const transferCount = aiResponse.transfers?.length || 0;
         const extraTransfers = transferCount - inputData.freeTransfers;
         console.log(`[GameweekAnalyzer] Generating correct transfer cost explanation...`);
@@ -4924,9 +4924,9 @@ var GameweekAnalyzerService = class {
       }
       await storage.updateGameweekPlanLineup(plan.id, lineup);
       plan.lineup = lineup;
-      const correctNetPoints = finalGrossPoints - transferCost;
+      const correctNetPoints = Math.round(finalGrossPoints - transferCost);
       console.log(`[GameweekAnalyzer] Updating plan predicted points:`);
-      console.log(`  Final GROSS: ${finalGrossPoints}`);
+      console.log(`  Final GROSS: ${finalGrossPoints} \u2192 ${Math.round(finalGrossPoints)} (rounded)`);
       console.log(`  Transfer cost: ${transferCost}`);
       console.log(`  Correct NET: ${correctNetPoints}`);
       await storage.updateGameweekPlanPredictedPoints(plan.id, correctNetPoints);

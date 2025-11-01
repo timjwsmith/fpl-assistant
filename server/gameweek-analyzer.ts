@@ -362,6 +362,66 @@ export class GameweekAnalyzerService {
       }
       console.log(`[GameweekAnalyzer] Snapshot validation passed for ${inputData.context.snapshotId}`);
 
+      // 6.7. SERVER-SIDE CONTINUITY VALIDATION
+      // Override AI's recommendations_changed flag by actually comparing recommendations
+      let actualRecommendationsChanged = aiResponse.recommendations_changed;
+      let actualChangeReasoning = aiResponse.change_reasoning;
+
+      if (previousPlan) {
+        console.log(`[GameweekAnalyzer] 🔍 Validating continuity by comparing actual recommendations...`);
+        
+        // Compare transfers
+        const prevTransfers = previousPlan.transfers?.map((t: any) => 
+          `${t.player_out_id}-${t.player_in_id}`
+        ).sort().join(',') || '';
+        const currTransfers = aiResponse.transfers.map(t => 
+          `${t.player_out_id}-${t.player_in_id}`
+        ).sort().join(',');
+        const transfersChanged = prevTransfers !== currTransfers;
+        
+        // Compare captain
+        const captainChanged = previousPlan.captainId !== aiResponse.captain_id;
+        
+        // Compare vice captain  
+        const viceCaptainChanged = previousPlan.viceCaptainId !== aiResponse.vice_captain_id;
+        
+        // Compare formation
+        const formationChanged = previousPlan.formation !== aiResponse.formation;
+        
+        // Compare chip
+        const chipChanged = previousPlan.chipToPlay !== aiResponse.chip_to_play;
+        
+        // Determine if ANY recommendation changed
+        if (transfersChanged || captainChanged || viceCaptainChanged || formationChanged || chipChanged) {
+          console.log(`[GameweekAnalyzer] ⚠️  CONTINUITY OVERRIDE: AI said recommendations_changed=${aiResponse.recommendations_changed}, but actual comparison shows changes:`);
+          console.log(`  - Transfers changed: ${transfersChanged} (prev: ${prevTransfers.substring(0, 50)}..., curr: ${currTransfers.substring(0, 50)}...)`);
+          console.log(`  - Captain changed: ${captainChanged} (${previousPlan.captainId} → ${aiResponse.captain_id})`);
+          console.log(`  - Vice captain changed: ${viceCaptainChanged} (${previousPlan.viceCaptainId} → ${aiResponse.vice_captain_id})`);
+          console.log(`  - Formation changed: ${formationChanged} (${previousPlan.formation} → ${aiResponse.formation})`);
+          console.log(`  - Chip changed: ${chipChanged} (${previousPlan.chipToPlay} → ${aiResponse.chip_to_play})`);
+          
+          actualRecommendationsChanged = true;
+          actualChangeReasoning = `Recommendations updated based on latest analysis. Changes: ${
+            [
+              transfersChanged ? 'different transfers' : null,
+              captainChanged ? 'captain changed' : null,
+              viceCaptainChanged ? 'vice captain changed' : null,
+              formationChanged ? 'formation adjusted' : null,
+              chipChanged ? 'chip strategy changed' : null,
+            ].filter(Boolean).join(', ')
+          }.`;
+        } else {
+          console.log(`[GameweekAnalyzer] ✅ Continuity confirmed: Recommendations genuinely unchanged`);
+        }
+      } else {
+        console.log(`[GameweekAnalyzer] No previous plan - this is the first plan for GW${gameweek}`);
+        // If there's no previous plan, it can't be "unchanged"
+        if (!actualRecommendationsChanged) {
+          actualRecommendationsChanged = true;
+          actualChangeReasoning = `Initial plan for GW${gameweek} created.`;
+        }
+      }
+
       // 7. Save to database
       const plan = await storage.saveGameweekPlan({
         userId,
@@ -386,8 +446,8 @@ export class GameweekAnalyzerService {
         }),
         status: 'pending',
         originalTeamSnapshot,
-        recommendationsChanged: aiResponse.recommendations_changed,
-        changeReasoning: aiResponse.change_reasoning,
+        recommendationsChanged: actualRecommendationsChanged,
+        changeReasoning: actualChangeReasoning,
         snapshotId: inputData.context.snapshotId,
         snapshotGameweek: inputData.context.gameweek,
         snapshotTimestamp: new Date(inputData.context.timestamp),

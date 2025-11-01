@@ -219,6 +219,31 @@ export default function GameweekPlanner() {
     },
   });
 
+  const markSubmittedMutation = useMutation({
+    mutationFn: async () => {
+      if (!plan?.id) {
+        throw new Error("No plan available to mark as submitted");
+      }
+      return apiRequest("POST", `/api/automation/plan/${plan.id}/mark-submitted`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/automation/plan", userId] });
+      toast({
+        title: plan?.submitted ? "Team Unmarked" : "Team Marked as Submitted",
+        description: plan?.submitted 
+          ? "Your team has been unmarked. You can still make changes." 
+          : "Your team has been marked as submitted for this gameweek.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to update submission status. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const updatePlanAcceptanceMutation = useMutation({
     mutationFn: async () => {
       if (!plan?.id) {
@@ -396,6 +421,31 @@ export default function GameweekPlanner() {
               <p className="text-sm text-muted-foreground">Planning for</p>
               <p className="text-2xl font-bold">GW {planningGameweek.id}</p>
             </div>
+          )}
+          {plan && (
+            <Button
+              onClick={() => markSubmittedMutation.mutate()}
+              disabled={markSubmittedMutation.isPending}
+              variant={plan.submitted ? "default" : "outline"}
+              className={plan.submitted ? "bg-chart-2 hover:bg-chart-2/90 text-white" : "border-fpl-purple text-fpl-purple hover:bg-fpl-purple hover:text-white"}
+              data-testid="button-mark-submitted"
+            >
+              {markSubmittedMutation.isPending ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : plan.submitted ? (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Team Submitted
+                </>
+              ) : (
+                <>
+                  Mark as Submitted
+                </>
+              )}
+            </Button>
           )}
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <Button

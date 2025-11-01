@@ -1157,6 +1157,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mark as Submitted Route
+  app.post("/api/automation/plan/:id/mark-submitted", async (req, res) => {
+    try {
+      const planId = parseInt(req.params.id);
+      
+      if (isNaN(planId)) {
+        return res.status(400).json({ error: "Invalid plan ID" });
+      }
+
+      // Get the current plan
+      const plan = await storage.getGameweekPlanById(planId);
+      if (!plan) {
+        return res.status(404).json({ error: "Gameweek plan not found" });
+      }
+
+      // Toggle the submitted status
+      const newSubmittedStatus = !plan.submitted;
+
+      // Update the submitted field in the database
+      await storage.updateGameweekPlanSubmitted(planId, newSubmittedStatus);
+
+      // Fetch the updated plan
+      const updatedPlan = await storage.getGameweekPlanById(planId);
+
+      console.log(`[Mark Submitted Route] Plan ${planId} submitted status toggled to ${newSubmittedStatus}`);
+      res.json(updatedPlan);
+    } catch (error) {
+      console.error("[Mark Submitted Route] Error toggling submitted status:", error);
+      res.status(500).json({ 
+        error: "Failed to toggle submitted status",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Change History Routes
   app.get("/api/automation/history/:userId", async (req, res) => {
     try {

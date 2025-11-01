@@ -132,6 +132,7 @@ export interface IStorage {
     starting_player_predicted_points: number;
     reasoning: string;
   }>): Promise<void>;
+  updateGameweekPlanSubmitted(planId: number, submitted: boolean): Promise<void>;
 
   // Change History
   saveChangeHistory(change: InsertChangeHistory): Promise<ChangeHistory>;
@@ -842,6 +843,13 @@ export class PostgresStorage implements IStorage {
       .set({
         lineupOptimizations: lineupOptimizationsWithAccepted as any,
       })
+      .where(eq(gameweekPlans.id, planId));
+  }
+
+  async updateGameweekPlanSubmitted(planId: number, submitted: boolean): Promise<void> {
+    await db
+      .update(gameweekPlans)
+      .set({ submitted })
       .where(eq(gameweekPlans.id, planId));
   }
 

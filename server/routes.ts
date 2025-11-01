@@ -896,6 +896,267 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/automation/plan/:planId/update-acceptance", async (req, res) => {
+    try {
+      const planId = parseInt(req.params.planId);
+      
+      if (isNaN(planId)) {
+        return res.status(400).json({ error: "Invalid planId" });
+      }
+
+      const { transfers, lineupOptimizations } = req.body;
+
+      console.log(`[Update Acceptance Route] Updating acceptance for plan ${planId}`);
+      console.log(`[Update Acceptance Route] Transfers:`, transfers);
+      console.log(`[Update Acceptance Route] Lineup Optimizations:`, lineupOptimizations);
+
+      // Get the current plan
+      const plan = await storage.getGameweekPlanById(planId);
+      if (!plan) {
+        return res.status(404).json({ error: "Gameweek plan not found" });
+      }
+
+      // Get current user's team and FPL data
+      const userTeam = await storage.getTeam(plan.userId, plan.gameweek);
+      if (!userTeam) {
+        return res.status(400).json({ error: "User team not found for this gameweek" });
+      }
+
+      // Get free transfers and max hit from automation settings
+      const automationSettings = await storage.getAutomationSettings(plan.userId);
+      const maxTransferHit = automationSettings?.maxTransferHit || 8;
+
+      // Get snapshot for player data
+      const snapshot = await gameweekSnapshot.getSnapshot(plan.gameweek);
+      const allPlayers = snapshot.data.players;
+
+      // Update acceptance status for transfers
+      let updatedTransfers = [...(plan.transfers as any[])];
+      if (transfers && Array.isArray(transfers)) {
+        transfers.forEach(({ index, accepted }: { index: number; accepted: boolean }) => {
+          if (index >= 0 && index < updatedTransfers.length) {
+            updatedTransfers[index] = { ...updatedTransfers[index], accepted };
+          }
+        });
+      }
+
+      // Update acceptance status for lineup optimizations
+      let updatedLineupOptimizations = [...((plan.lineupOptimizations as any[]) || [])];
+      if (lineupOptimizations && Array.isArray(lineupOptimizations)) {
+        lineupOptimizations.forEach(({ index, accepted }: { index: number; accepted: boolean }) => {
+          if (index >= 0 && index < updatedLineupOptimizations.length) {
+            updatedLineupOptimizations[index] = { ...updatedLineupOptimizations[index], accepted };
+          }
+        });
+      }
+
+      // Filter to only accepted transfers
+      const acceptedTransfers = updatedTransfers.filter(t => t.accepted);
+      const acceptedLineupOptimizations = updatedLineupOptimizations.filter(lo => lo.accepted);
+
+      console.log(`[Update Acceptance Route] Accepted transfers: ${acceptedTransfers.length}/${updatedTransfers.length}`);
+      console.log(`[Update Acceptance Route] Accepted lineup optimizations: ${acceptedLineupOptimizations.length}/${updatedLineupOptimizations.length}`);
+
+      // Recalculate transfer cost based on accepted transfers only
+      const freeTransfers = userTeam.free_transfers || 1;
+      let transferCost = 0;
+      if (acceptedTransfers.length > freeTransfers) {
+        const extraTransfers = acceptedTransfers.length - freeTransfers;
+        transferCost = extraTransfers * 4;
+
+        if (transferCost > maxTransferHit) {
+          return res.status(400).json({ 
+            error: `Transfer cost (${transferCost} points) exceeds maximum allowed hit (${maxTransferHit} points)` 
+          });
+        }
+      }
+
+      console.log(`[Update Acceptance Route] Transfer cost: ${transferCost} (${acceptedTransfers.length} transfers, ${freeTransfers} free)`);
+
+      // Regenerate lineup based on accepted transfers only
+      // Apply accepted transfers to get final squad
+      const transferredOutIds = new Set(acceptedTransfers.map((t: any) => t.player_out_id));
+      const transferredInIds = acceptedTransfers.map((t: any) => t.player_in_id);
+      
+      const finalSquad = userTeam.players
+        .filter(p => p.player_id && !transferredOutIds.has(p.player_id))
+        .map(p => p.player_id!);
+      
+      finalSquad.push(...transferredInIds);
+
+      console.log(`[Update Acceptance Route] Final squad after accepted transfers: ${finalSquad.length} players`);
+
+      // Get AI predictions for all players in squad from database
+      const allPredictions = await storage.getPredictions(plan.userId, plan.gameweek);
+
+      // Create predictions map for quick lookup
+      const predictionsMap = new Map(allPredictions.map(p => [p.playerId, p.predictedPoints]));
+
+      // Parse formation
+      const formationParts = plan.formation.split('-').map(Number);
+      const [defenders, midfielders, forwards] = formationParts;
+      
+      // Group players by position type
+      const playersByPosition: {[key: number]: Array<{id: number; predictedPoints: number}>} = {
+        1: [], // GK
+        2: [], // DEF
+        3: [], // MID
+        4: [], // FWD
+      };
+      
+      for (const playerId of finalSquad) {
+        const player = allPlayers.find(p => p.id === playerId);
+        if (!player) continue;
+        
+        const predictedPoints = predictionsMap.get(playerId) || 0;
+        
+        playersByPosition[player.element_type].push({
+          id: playerId,
+          predictedPoints,
+        });
+      }
+      
+      // Sort each position by predicted points (highest first)
+      for (const posType in playersByPosition) {
+        playersByPosition[posType].sort((a, b) => b.predictedPoints - a.predictedPoints);
+      }
+      
+      // Select starting XI based on formation
+      const lineup: Array<{
+        player_id: number;
+        position: number;
+        is_captain: boolean;
+        is_vice_captain: boolean;
+        multiplier: number;
+      }> = [];
+      
+      let position = 1;
+      
+      // Always 1 goalkeeper
+      if (playersByPosition[1].length > 0) {
+        lineup.push({
+          player_id: playersByPosition[1][0].id,
+          position: position++,
+          is_captain: playersByPosition[1][0].id === plan.captainId,
+          is_vice_captain: playersByPosition[1][0].id === plan.viceCaptainId,
+          multiplier: playersByPosition[1][0].id === plan.captainId ? 2 : 1,
+        });
+      }
+      
+      // Add defenders
+      for (let i = 0; i < defenders && i < playersByPosition[2].length; i++) {
+        lineup.push({
+          player_id: playersByPosition[2][i].id,
+          position: position++,
+          is_captain: playersByPosition[2][i].id === plan.captainId,
+          is_vice_captain: playersByPosition[2][i].id === plan.viceCaptainId,
+          multiplier: playersByPosition[2][i].id === plan.captainId ? 2 : 1,
+        });
+      }
+      
+      // Add midfielders
+      for (let i = 0; i < midfielders && i < playersByPosition[3].length; i++) {
+        lineup.push({
+          player_id: playersByPosition[3][i].id,
+          position: position++,
+          is_captain: playersByPosition[3][i].id === plan.captainId,
+          is_vice_captain: playersByPosition[3][i].id === plan.viceCaptainId,
+          multiplier: playersByPosition[3][i].id === plan.captainId ? 2 : 1,
+        });
+      }
+      
+      // Add forwards
+      for (let i = 0; i < forwards && i < playersByPosition[4].length; i++) {
+        lineup.push({
+          player_id: playersByPosition[4][i].id,
+          position: position++,
+          is_captain: playersByPosition[4][i].id === plan.captainId,
+          is_vice_captain: playersByPosition[4][i].id === plan.viceCaptainId,
+          multiplier: playersByPosition[4][i].id === plan.captainId ? 2 : 1,
+        });
+      }
+
+      // Add bench players (remaining players sorted by predicted points)
+      const startingPlayerIds = new Set(lineup.map(p => p.player_id));
+      const benchPlayers: Array<{id: number; predictedPoints: number; elementType: number}> = [];
+      
+      for (const posType in playersByPosition) {
+        for (const player of playersByPosition[posType]) {
+          if (!startingPlayerIds.has(player.id)) {
+            benchPlayers.push({
+              id: player.id,
+              predictedPoints: player.predictedPoints,
+              elementType: parseInt(posType)
+            });
+          }
+        }
+      }
+      
+      // Sort bench by predicted points
+      benchPlayers.sort((a, b) => b.predictedPoints - a.predictedPoints);
+      
+      // Add bench players to lineup
+      for (const benchPlayer of benchPlayers) {
+        lineup.push({
+          player_id: benchPlayer.id,
+          position: position++,
+          is_captain: false,
+          is_vice_captain: false,
+          multiplier: 1,
+        });
+      }
+
+      console.log(`[Update Acceptance Route] Generated lineup with ${lineup.length} players`);
+
+      // Calculate GROSS predicted points (before transfer cost)
+      const isBenchBoostActive = plan.chipToPlay === 'benchboost';
+      let grossPredictedPoints = 0;
+      
+      for (const pick of lineup) {
+        const shouldInclude = pick.position <= 11 || isBenchBoostActive;
+        if (shouldInclude) {
+          const prediction = predictionsMap.get(pick.player_id) || 0;
+          grossPredictedPoints += prediction * pick.multiplier;
+        }
+      }
+
+      // Calculate NET predicted points (after transfer cost)
+      const netPredictedPoints = Math.round(grossPredictedPoints - transferCost);
+
+      console.log(`[Update Acceptance Route] GROSS points: ${grossPredictedPoints}, Transfer cost: ${transferCost}, NET points: ${netPredictedPoints}`);
+
+      // Update the plan in the database
+      const updatedPlan = {
+        ...plan,
+        transfers: updatedTransfers,
+        lineupOptimizations: updatedLineupOptimizations,
+        lineup,
+        predictedPoints: netPredictedPoints,
+        baselinePredictedPoints: plan.baselinePredictedPoints || Math.round(grossPredictedPoints), // Keep original baseline
+      };
+
+      // Save the updated plan using storage methods
+      await storage.updateGameweekPlanTransfers(planId, updatedTransfers);
+      if (updatedLineupOptimizations.length > 0) {
+        await storage.updateGameweekPlanLineupOptimizations(planId, updatedLineupOptimizations);
+      }
+      await storage.updateGameweekPlanLineup(planId, lineup);
+      await storage.updateGameweekPlanPredictedPoints(planId, netPredictedPoints);
+
+      // Fetch the updated plan
+      const finalPlan = await storage.getGameweekPlanById(planId);
+
+      console.log(`[Update Acceptance Route] Plan ${planId} updated successfully`);
+      res.json(finalPlan);
+    } catch (error) {
+      console.error("[Update Acceptance Route] Error updating plan acceptance:", error);
+      res.status(500).json({ 
+        error: "Failed to update plan acceptance",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Change History Routes
   app.get("/api/automation/history/:userId", async (req, res) => {
     try {

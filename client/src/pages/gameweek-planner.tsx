@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar, TrendingUp, TrendingDown, ArrowRight, CheckCircle, XCircle, AlertCircle, Zap, Sparkles, Users, Shield, RefreshCw, LayoutGrid } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   AlertDialog,
@@ -56,6 +57,8 @@ export default function GameweekPlanner() {
   const queryClient = useQueryClient();
   const [showApplyDialog, setShowApplyDialog] = useState(false);
   const [expandedReasoning, setExpandedReasoning] = useState(false);
+  const [transferAcceptance, setTransferAcceptance] = useState<Record<number, boolean>>({});
+  const [lineupOptimizationAcceptance, setLineupOptimizationAcceptance] = useState<Record<number, boolean>>({});
 
   const { data: gameweeks, isLoading: loadingGameweeks } = useFPLGameweeks();
   const { data: players, isLoading: loadingPlayers } = useFPLPlayers();
@@ -216,6 +219,63 @@ export default function GameweekPlanner() {
     },
   });
 
+  const updatePlanAcceptanceMutation = useMutation({
+    mutationFn: async () => {
+      if (!plan?.id) {
+        throw new Error("No plan available to update");
+      }
+      
+      // Build request body with changes
+      const transfers = Object.entries(transferAcceptance).map(([index, accepted]) => ({
+        index: parseInt(index),
+        accepted
+      }));
+      
+      const lineupOptimizations = Object.entries(lineupOptimizationAcceptance).map(([index, accepted]) => ({
+        index: parseInt(index),
+        accepted
+      }));
+      
+      return apiRequest("POST", `/api/automation/plan/${plan.id}/update-acceptance`, {
+        transfers,
+        lineupOptimizations
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/automation/plan", userId] });
+      toast({
+        title: "Plan Updated",
+        description: "Your plan has been updated with your selections.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to update plan. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Initialize acceptance state from plan data
+  useEffect(() => {
+    if (plan?.transfers) {
+      const transferAcc: Record<number, boolean> = {};
+      (plan.transfers as any[]).forEach((transfer: any, index: number) => {
+        transferAcc[index] = transfer.accepted ?? true;
+      });
+      setTransferAcceptance(transferAcc);
+    }
+    
+    if (plan?.lineupOptimizations) {
+      const lineupAcc: Record<number, boolean> = {};
+      (plan.lineupOptimizations as any[]).forEach((opt: any, index: number) => {
+        lineupAcc[index] = opt.accepted ?? true;
+      });
+      setLineupOptimizationAcceptance(lineupAcc);
+    }
+  }, [plan?.id]);
+
   const isLoading = loadingGameweeks || loadingPlayers || loadingTeams || loadingPlan;
 
   if (isLoading) {
@@ -261,6 +321,64 @@ export default function GameweekPlanner() {
   const getTeamById = (teamId: number | undefined): FPLTeam | undefined => {
     if (!teamId || !teams) return undefined;
     return (teams as FPLTeam[]).find(t => t.id === teamId);
+  };
+
+  // Calculate accepted transfer count and cost
+  const getAcceptedTransferCount = () => {
+    if (!plan?.transfers) return 0;
+    return Object.values(transferAcceptance).filter(accepted => accepted).length;
+  };
+
+  const getTransferCost = () => {
+    const acceptedCount = getAcceptedTransferCount();
+    const freeTransfers = plan?.freeTransfers || 1;
+    if (acceptedCount <= freeTransfers) return 0;
+    return (acceptedCount - freeTransfers) * 4;
+  };
+
+  const getAdjustedPredictedPoints = () => {
+    if (!plan) return 0;
+    const baselinePoints = plan.baselinePredictedPoints || plan.predictedPoints;
+    const transferCost = getTransferCost();
+    return baselinePoints - transferCost;
+  };
+
+  // Handle transfer checkbox change with cascade to lineup optimizations
+  const handleTransferAcceptanceChange = (index: number, accepted: boolean) => {
+    setTransferAcceptance(prev => ({ ...prev, [index]: accepted }));
+    
+    // If unchecking a transfer, automatically uncheck related lineup optimizations
+    if (!accepted && plan?.transfers && plan?.lineupOptimizations) {
+      const transfer = (plan.transfers as any[])[index];
+      if (transfer) {
+        // Find lineup optimizations related to this transfer's incoming player
+        (plan.lineupOptimizations as any[]).forEach((opt: any, optIndex: number) => {
+          if (opt.starting_player_id === transfer.player_in_id) {
+            setLineupOptimizationAcceptance(prev => ({ ...prev, [optIndex]: false }));
+          }
+        });
+      }
+    }
+  };
+
+  const hasAcceptanceChanges = () => {
+    if (!plan) return false;
+    
+    // Check if any transfer acceptance differs from default
+    const transfersChanged = (plan.transfers as any[] || []).some((transfer: any, index: number) => {
+      const currentAcceptance = transferAcceptance[index] ?? true;
+      const originalAcceptance = transfer.accepted ?? true;
+      return currentAcceptance !== originalAcceptance;
+    });
+    
+    // Check if any lineup optimization acceptance differs from default
+    const lineupOptsChanged = (plan.lineupOptimizations as any[] || []).some((opt: any, index: number) => {
+      const currentAcceptance = lineupOptimizationAcceptance[index] ?? true;
+      const originalAcceptance = opt.accepted ?? true;
+      return currentAcceptance !== originalAcceptance;
+    });
+    
+    return transfersChanged || lineupOptsChanged;
   };
 
   return (
@@ -425,14 +543,29 @@ export default function GameweekPlanner() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className={hasAcceptanceChanges() ? "border-fpl-purple border-2" : ""}>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm text-muted-foreground">Predicted Points</p>
+                  <p className="text-sm text-muted-foreground">AI Baseline</p>
+                  <Sparkles className="h-4 w-4 text-fpl-magenta" />
+                </div>
+                <p className="text-4xl font-bold font-mono text-fpl-magenta">{plan.baselinePredictedPoints || plan.predictedPoints}</p>
+                <p className="text-xs text-muted-foreground mt-2">GROSS (before cost)</p>
+              </CardContent>
+            </Card>
+
+            <Card className={hasAcceptanceChanges() ? "border-fpl-purple border-2" : ""}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-muted-foreground">Your Plan</p>
                   <TrendingUp className="h-4 w-4 text-chart-2" />
                 </div>
-                <p className="text-4xl font-bold font-mono">{plan.predictedPoints}</p>
-                <p className="text-xs text-muted-foreground mt-2">GW {plan.gameweek} • With AI Plan</p>
+                <p className={`text-4xl font-bold font-mono ${hasAcceptanceChanges() ? 'text-fpl-purple' : 'text-chart-2'}`}>
+                  {hasAcceptanceChanges() ? getAdjustedPredictedPoints() : plan.predictedPoints}
+                </p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {hasAcceptanceChanges() ? `NET (${getTransferCost()}pt cost)` : 'NET (after cost)'}
+                </p>
               </CardContent>
             </Card>
 
@@ -453,10 +586,10 @@ export default function GameweekPlanner() {
 
             <Card>
               <CardContent className="p-6 text-center">
-                <p className="text-sm text-muted-foreground mb-2">Free Transfers</p>
-                <p className="text-4xl font-bold font-mono">{plan.freeTransfers || 1}</p>
+                <p className="text-sm text-muted-foreground mb-2">Transfers</p>
+                <p className="text-4xl font-bold font-mono">{getAcceptedTransferCount()}/{(plan.transfers as any[] || []).length}</p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Cost: {plan.transfersCost || 0} pts
+                  {plan.freeTransfers || 1} free • {getTransferCost()}pt cost
                 </p>
               </CardContent>
             </Card>
@@ -518,7 +651,28 @@ export default function GameweekPlanner() {
           )}
 
           <div>
-            <h2 className="text-2xl font-semibold mb-4">Transfer Recommendations</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-semibold">Transfer Recommendations</h2>
+              {plan.transfers && plan.transfers.length > 0 && hasAcceptanceChanges() && (
+                <Button
+                  onClick={() => updatePlanAcceptanceMutation.mutate()}
+                  disabled={updatePlanAcceptanceMutation.isPending}
+                  className="bg-fpl-purple hover:bg-fpl-purple/90"
+                >
+                  {updatePlanAcceptanceMutation.isPending ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Update Plan
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
             {plan.transfers && plan.transfers.length > 0 ? (
               <div className="space-y-4">
                 {plan.transfers.map((transfer, i) => {
@@ -526,15 +680,28 @@ export default function GameweekPlanner() {
                   const playerIn = getPlayerById(transfer.player_in_id);
                   const teamOut = getTeamById(playerOut?.team);
                   const teamIn = getTeamById(playerIn?.team);
+                  const isAccepted = transferAcceptance[i] ?? true;
 
                   return (
                     <div key={i}>
-                      <Card className="hover-elevate" data-testid={`transfer-${i}`}>
+                      <Card className={`hover-elevate ${isAccepted ? '' : 'opacity-60'}`} data-testid={`transfer-${i}`}>
                         <CardContent className="p-6">
                           <div className="flex items-start justify-between gap-4 mb-4">
-                            <Badge variant={getPriorityColor(transfer.priority)} className="capitalize">
-                              {transfer.priority} Priority
-                            </Badge>
+                            <div className="flex items-center gap-3">
+                              <Checkbox
+                                checked={isAccepted}
+                                onCheckedChange={(checked) => handleTransferAcceptanceChange(i, checked as boolean)}
+                                className="border-fpl-purple data-[state=checked]:bg-fpl-purple data-[state=checked]:border-fpl-purple"
+                              />
+                              <div>
+                                <Badge variant={getPriorityColor(transfer.priority)} className="capitalize">
+                                  {transfer.priority} Priority
+                                </Badge>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {isAccepted ? 'Accept this transfer' : 'Rejected'}
+                                </p>
+                              </div>
+                            </div>
                             <div className="flex flex-col items-end gap-1">
                               <div className="flex items-center gap-2 text-sm font-semibold text-chart-2">
                                 <TrendingUp className="h-4 w-4" />
@@ -641,9 +808,21 @@ export default function GameweekPlanner() {
                 Lineup Optimizations
               </h2>
               <div className="grid gap-3">
-                {plan.lineupOptimizations.map((optimization, i) => (
-                  <Card key={i} className="bg-fpl-purple/5 border-fpl-purple/20">
+                {plan.lineupOptimizations.map((optimization, i) => {
+                  const isAccepted = lineupOptimizationAcceptance[i] ?? true;
+                  return (
+                  <Card key={i} className={`bg-fpl-purple/5 border-fpl-purple/20 ${isAccepted ? '' : 'opacity-60'}`}>
                     <CardContent className="p-4">
+                      <div className="flex items-start gap-4 mb-3">
+                        <Checkbox
+                          checked={isAccepted}
+                          onCheckedChange={(checked) => setLineupOptimizationAcceptance(prev => ({ ...prev, [i]: checked as boolean }))}
+                          className="mt-1 border-fpl-purple data-[state=checked]:bg-fpl-purple data-[state=checked]:border-fpl-purple"
+                        />
+                        <p className="text-xs text-muted-foreground flex-1">
+                          {isAccepted ? 'Accept this optimization' : 'Rejected'}
+                        </p>
+                      </div>
                       <div className="flex items-center gap-4">
                         {/* Benched Player */}
                         <div className="flex-1 p-3 rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
@@ -699,7 +878,7 @@ export default function GameweekPlanner() {
                       </p>
                     </CardContent>
                   </Card>
-                ))}
+                )})}
               </div>
             </div>
           )}

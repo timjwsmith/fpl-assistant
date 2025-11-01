@@ -11,6 +11,16 @@ interface RawGameweekPlan {
     reasoning: string;
     priority: 'high' | 'medium' | 'low';
     cost_impact: number;
+    substitution_details?: {
+      benched_player_id: number;
+      benched_player_name: string;
+      benched_player_position: string;
+      benched_player_predicted_points: number;
+      incoming_player_name: string;
+      incoming_player_position: string;
+      incoming_player_predicted_points: number;
+      bench_reason: string;
+    };
   }>;
   captainId: number | null;
   viceCaptainId: number | null;
@@ -39,6 +49,16 @@ interface HydratedGameweekPlan extends Omit<RawGameweekPlan, 'transfers' | 'capt
     reasoning: string;
     priority: 'high' | 'medium' | 'low';
     cost_impact: number;
+    substitution_details?: {
+      benched_player_id: number;
+      benched_player_name: string;
+      benched_player_position: string;
+      benched_player_predicted_points: number;
+      incoming_player_name: string;
+      incoming_player_position: string;
+      incoming_player_predicted_points: number;
+      bench_reason: string;
+    };
   }>;
   captainId: number | null;
   captainName?: string;
@@ -67,6 +87,7 @@ export class GameweekPlanHydrator {
       reasoning: transfer.reasoning,
       priority: transfer.priority,
       cost_impact: transfer.cost_impact,
+      substitution_details: transfer.substitution_details,
     }));
 
     // Calculate free transfers and transfer cost

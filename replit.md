@@ -37,13 +37,15 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - **Settings**: FPL Manager ID connection, risk tolerance, and optional FPL authentication.
 
 ### System Design Choices
+- **AI-Assisted with User Override**: The app provides AI recommendations as a baseline, but users can selectively accept/reject individual transfers and lineup optimizations. Both baseline AI predictions and user-adjusted predictions are displayed side-by-side. This empowers users to correct questionable recommendations (e.g., transfers with negative ROI) while maintaining AI assistance for strategic planning.
 - **AI Prediction Pipeline**: User input processed by Context Builder, then GPT-4o for deterministic analysis, returning structured and natural language responses for player points prediction, transfer recommendations, captain selection, chip strategy, and team analysis.
 - **Asynchronous AI Processing**: Database-backed async polling system for long-running AI predictions.
 - **FPL API Integration**: Backend proxy with 5-minute caching for official FPL API requests.
 - **Understat Integration**: Web scraping service enriches player data with advanced statistics (npxG, xGChain, xGBuildup) from Understat.com, featuring 24-hour caching and in-flight request deduplication.
 - **Availability-First Decision Making**: System enforces player availability checks before all AI decisions through multi-layer approach: (1) Pre-filtering, (2) AI prompt rules, and (3) Hard enforcement via code.
-- **AI Impact Analysis & Learning System**: Tracks AI performance, learns from past mistakes, and incorporates feedback.
+- **AI Impact Analysis & Learning System**: Tracks AI performance, learns from past mistakes, and incorporates feedback. System logs which recommendations users accept/reject to improve future AI suggestions.
 - **Strategic AI Overhaul**: AI performs multi-gameweek planning and ROI analysis, considering long-term benefits and justifying point hits. It proactively recommends multi-transfer plans based on 6-gameweek fixture analysis.
+- **Realistic Single-Gameweek Predictions**: AI explicitly predicts points for the NEXT GAMEWEEK ONLY (one match), using Points Per Game as a baseline with realistic ranges (GK: 2-6pts, DEF: 2-6pts, MID: 2-8pts, FWD: 2-8pts, elite performances: up to 18pts for exceptional circumstances).
 - **Manual Workflow**: AI provides recommendations, which users manually apply in the official FPL app/website.
 - **"Build Around Player" Feature**: Implements optimal multi-transfer planning to build a team around a specific premium player, focusing on efficiency, budget, and minimizing point hits.
 - **Budget Constraint Fixes**: AI recommendations adhere to realistic budget constraints for transfers.
@@ -64,6 +66,26 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - **Test Command**: `npm test` - runs all tests with coverage reporting
 
 ## Recent Changes
+
+### 2025-11-01: User Override System - AI-Assisted with Selective Acceptance
+**Problem**: Users need ability to reject individual AI recommendations that have negative ROI (e.g., Dúbravka → Roefs transfer costing 4pts but only gaining 2pts over 6 gameweeks).
+
+**Design Shift**: Pivoted from "100% AI reliance" to "AI-assisted with explicit user override" to preserve trust while empowering users to correct questionable recommendations.
+
+**Implementation** (Architect-approved):
+1. **Database Schema**: Added `accepted` boolean field to transfers and lineupOptimizations JSONB arrays, plus `baselinePredictedPoints` integer column for storing GROSS AI prediction
+2. **Backend Logic**: Added defensive defaults for legacy records (missing 'accepted' defaults to true), storage methods preserve acceptance state
+3. **API Endpoint**: New POST /api/automation/plan/:id/update-acceptance recalculates transfer cost, predicted points, and lineup based on accepted transfers only
+4. **Frontend UI**: Checkboxes on transfer/lineup cards (FPL purple theme), "Update Plan" button, side-by-side prediction display (AI Baseline vs Your Plan), cascade logic (unchecking transfers auto-unchecks related lineup optimizations)
+5. **Recalculation Logic**: Accurately computes transfer cost from accepted transfers only (e.g., 2 accepted of 3 total with 1 free = 4pt cost)
+
+**Result**: Users can now:
+- Selectively accept/reject individual recommendations
+- See both baseline AI prediction and user-adjusted prediction
+- Recalculate predictions in real-time based on selections
+- Maintain trust in AI while exercising strategic judgment
+
+**Files Modified**: `shared/schema.ts`, `server/gameweek-analyzer.ts`, `server/storage.ts`, `server/routes.ts`, `server/gameweek-plan-hydrator.ts`, `client/src/pages/gameweek-planner.tsx`
 
 ### 2025-11-01: Architectural Separation of Lineup Optimizations from Transfers
 **Problem**: Lineup optimizations (bench/starting changes) were incorrectly displayed as transfer cards, causing confusion between market transfers and lineup adjustments.

@@ -1010,9 +1010,15 @@ export class GameweekAnalyzerService {
           console.log(`  ✅ Created ${pairingCount} lineup optimization card(s)`);
         }
         
-        // BUG FIX: Save enhanced transfers to database (Bug 1)
+        // Save transfers and lineup optimizations separately
         await storage.updateGameweekPlanTransfers(plan.id, aiResponse.transfers);
-        console.log(`[GameweekAnalyzer] Enhanced transfer reasoning saved to database for plan ${plan.id}`);
+        console.log(`[GameweekAnalyzer] Transfer recommendations saved to database for plan ${plan.id}`);
+        
+        // Save lineup optimizations if any were created
+        if ((aiResponse as any).lineupOptimizations && (aiResponse as any).lineupOptimizations.length > 0) {
+          await storage.updateGameweekPlanLineupOptimizations(plan.id, (aiResponse as any).lineupOptimizations);
+          console.log(`[GameweekAnalyzer] Lineup optimizations saved to database for plan ${plan.id}`);
+        }
       }
 
       // Update the plan with the lineup

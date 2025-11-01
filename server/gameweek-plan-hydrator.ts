@@ -11,17 +11,18 @@ interface RawGameweekPlan {
     reasoning: string;
     priority: 'high' | 'medium' | 'low';
     cost_impact: number;
-    substitution_details?: {
-      benched_player_id: number;
-      benched_player_name: string;
-      benched_player_position: string;
-      benched_player_predicted_points: number;
-      incoming_player_name: string;
-      incoming_player_position: string;
-      incoming_player_predicted_points: number;
-      bench_reason: string;
-    };
   }>;
+  lineupOptimizations: Array<{
+    benched_player_id: number;
+    benched_player_name: string;
+    benched_player_position: string;
+    benched_player_predicted_points: number;
+    starting_player_id: number;
+    starting_player_name: string;
+    starting_player_position: string;
+    starting_player_predicted_points: number;
+    reasoning: string;
+  }> | null;
   captainId: number | null;
   viceCaptainId: number | null;
   chipToPlay: string | null;
@@ -39,7 +40,7 @@ interface RawGameweekPlan {
   changeReasoning: string | null;
 }
 
-interface HydratedGameweekPlan extends Omit<RawGameweekPlan, 'transfers' | 'captainId' | 'viceCaptainId'> {
+interface HydratedGameweekPlan extends Omit<RawGameweekPlan, 'transfers' | 'lineupOptimizations' | 'captainId' | 'viceCaptainId'> {
   transfers: Array<{
     player_out_id: number;
     player_out_name: string;
@@ -49,16 +50,17 @@ interface HydratedGameweekPlan extends Omit<RawGameweekPlan, 'transfers' | 'capt
     reasoning: string;
     priority: 'high' | 'medium' | 'low';
     cost_impact: number;
-    substitution_details?: {
-      benched_player_id: number;
-      benched_player_name: string;
-      benched_player_position: string;
-      benched_player_predicted_points: number;
-      incoming_player_name: string;
-      incoming_player_position: string;
-      incoming_player_predicted_points: number;
-      bench_reason: string;
-    };
+  }>;
+  lineupOptimizations: Array<{
+    benched_player_id: number;
+    benched_player_name: string;
+    benched_player_position: string;
+    benched_player_predicted_points: number;
+    starting_player_id: number;
+    starting_player_name: string;
+    starting_player_position: string;
+    starting_player_predicted_points: number;
+    reasoning: string;
   }>;
   captainId: number | null;
   captainName?: string;
@@ -77,7 +79,7 @@ export class GameweekPlanHydrator {
   async hydratePlan(rawPlan: RawGameweekPlan, players: FPLPlayer[]): Promise<HydratedGameweekPlan> {
     const playerMap = new Map(players.map(p => [p.id, p]));
 
-    // Enrich transfers with player names
+    // Enrich transfers with player names (market transfers only)
     const enrichedTransfers = rawPlan.transfers.map(transfer => ({
       player_out_id: transfer.player_out_id,
       player_out_name: playerMap.get(transfer.player_out_id)?.web_name || `Player ${transfer.player_out_id}`,
@@ -87,8 +89,10 @@ export class GameweekPlanHydrator {
       reasoning: transfer.reasoning,
       priority: transfer.priority,
       cost_impact: transfer.cost_impact,
-      substitution_details: transfer.substitution_details,
     }));
+
+    // Lineup optimizations are already enriched with names in the database
+    const lineupOptimizations = rawPlan.lineupOptimizations || [];
 
     // Calculate free transfers and transfer cost
     const numTransfers = rawPlan.transfers.length;
@@ -101,6 +105,7 @@ export class GameweekPlanHydrator {
     return {
       ...rawPlan,
       transfers: enrichedTransfers,
+      lineupOptimizations,
       captainName: rawPlan.captainId ? playerMap.get(rawPlan.captainId)?.web_name : undefined,
       viceCaptainName: rawPlan.viceCaptainId ? playerMap.get(rawPlan.viceCaptainId)?.web_name : undefined,
       freeTransfers,

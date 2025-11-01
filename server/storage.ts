@@ -703,6 +703,15 @@ export class PostgresStorage implements IStorage {
       .where(eq(gameweekPlans.id, planId));
   }
 
+  async updateGameweekPlanPredictedPoints(planId: number, predictedPoints: number): Promise<void> {
+    await db
+      .update(gameweekPlans)
+      .set({ 
+        predictedPoints,
+      })
+      .where(eq(gameweekPlans.id, planId));
+  }
+
   async updateGameweekPlanAnalysis(planId: number, analysis: {
     actualPointsWithAI: number;
     actualPointsWithoutAI: number;

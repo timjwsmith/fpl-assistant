@@ -1063,9 +1063,105 @@ export class GameweekAnalyzerService {
         }
       }
 
+      // Calculate GROSS predicted points from lineup (data-driven approach)
+      // This is more reliable than trusting AI's predicted_points field
+      // IMPORTANT: Include bench players if Bench Boost is active
+      const isBenchBoostActive = aiResponse.chip_to_play === 'benchboost';
+      console.log(`[GameweekAnalyzer] Calculating GROSS predicted points from lineup (Bench Boost: ${isBenchBoostActive})...`);
+      
+      let calculatedGrossPoints = 0;
+      let missingPredictionCount = 0;
+      const missingPlayers: string[] = [];
+      
+      for (const pick of lineup) {
+        // Include player if:
+        // - They're in starting XI (position 1-11), OR
+        // - Bench Boost is active (all 15 players count)
+        // - They have a multiplier > 0 (accounts for Triple Captain 3x)
+        const shouldInclude = pick.position <= 11 || isBenchBoostActive || pick.multiplier > 1;
+        
+        if (shouldInclude) {
+          const prediction = predictionsMap.get(pick.player_id);
+          if (prediction !== undefined) {
+            const points = prediction * pick.multiplier; // Apply multiplier (captain 2x, triple captain 3x, bench boost 1x)
+            calculatedGrossPoints += points;
+            const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === pick.player_id);
+            const posLabel = pick.position <= 11 ? 'XI' : 'Bench';
+            console.log(`  [${posLabel}] ${player?.web_name}: ${prediction} pts × ${pick.multiplier} = ${points}`);
+          } else {
+            const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === pick.player_id);
+            const playerName = player?.web_name || `Player ${pick.player_id}`;
+            missingPredictionCount++;
+            missingPlayers.push(playerName);
+            console.warn(`  ⚠️  Missing prediction for ${playerName} (position ${pick.position})`);
+          }
+        }
+      }
+      
+      console.log(`[GameweekAnalyzer] Calculated GROSS points: ${calculatedGrossPoints}`);
+      console.log(`[GameweekAnalyzer] AI predicted_points: ${aiResponse.predicted_points}`);
+      console.log(`[GameweekAnalyzer] Missing predictions: ${missingPredictionCount}`);
+      
+      // Decide whether to override AI's predicted_points
+      let finalGrossPoints: number;
+      let predictionReliable: boolean;
+      
+      if (missingPredictionCount > 0) {
+        console.error(`[GameweekAnalyzer] 🚨 ${missingPredictionCount} prediction(s) missing: ${missingPlayers.join(', ')}`);
+        console.error(`[GameweekAnalyzer]    Calculated GROSS is incomplete (${calculatedGrossPoints})`);
+        console.warn(`[GameweekAnalyzer]    Cannot reliably determine if AI value is GROSS or NET - keeping AI value unchanged`);
+        console.warn(`[GameweekAnalyzer]    ⚠️  WARNING: If AI set NET instead of GROSS, double deduction may occur`);
+        
+        // SAFETY: Skip override when predictions incomplete
+        // We cannot reliably determine if AI's value is GROSS or NET
+        // Overriding risks creating overoptimistic projections
+        finalGrossPoints = aiResponse.predicted_points;
+        predictionReliable = false;
+      } else {
+        // All predictions present - calculated value is reliable
+        const pointsDifference = Math.abs(aiResponse.predicted_points - calculatedGrossPoints);
+        if (pointsDifference > 2) {
+          console.warn(`[GameweekAnalyzer] ⚠️  AI predicted_points (${aiResponse.predicted_points}) differs from calculated (${calculatedGrossPoints}) by ${pointsDifference} points`);
+          console.warn(`[GameweekAnalyzer]    Using calculated GROSS value: ${calculatedGrossPoints}`);
+        } else {
+          console.log(`[GameweekAnalyzer] ✅ AI and calculated values match (difference: ${pointsDifference})`);
+        }
+        // OVERRIDE: Use calculated GROSS points (reliable data-driven approach)
+        aiResponse.predicted_points = calculatedGrossPoints;
+        finalGrossPoints = calculatedGrossPoints;
+        predictionReliable = true;
+      }
+      
+      // Add transfer cost explanation to reasoning if needed
+      // Only add when predictions are reliable (all present)
+      if ((aiResponse as any)._needsTransferCostExplanation && transferCost > 0 && predictionReliable) {
+        const grossPoints = finalGrossPoints;
+        const netPoints = grossPoints - transferCost;
+        const transferCount = aiResponse.transfers?.length || 0;
+        const extraTransfers = transferCount - inputData.freeTransfers;
+        
+        console.log(`[GameweekAnalyzer] Adding transfer cost explanation to reasoning...`);
+        const explanation = `\n\nThis plan is projected to deliver ${grossPoints} points this gameweek before accounting for transfer costs. With ${transferCount} transfer${transferCount !== 1 ? 's' : ''} recommended and ${inputData.freeTransfers} free transfer${inputData.freeTransfers !== 1 ? 's' : ''} available, you will incur a ${transferCost}-point deduction for the ${extraTransfers} additional transfer${extraTransfers !== 1 ? 's' : ''} (${extraTransfers} × 4 points). This brings the final predicted points to ${netPoints} for this gameweek.`;
+        aiResponse.reasoning = aiResponse.reasoning.trim() + explanation;
+        console.log(`[GameweekAnalyzer] ✅ Added transfer cost explanation with final GROSS: ${grossPoints} → NET: ${netPoints}`);
+      } else if ((aiResponse as any)._needsTransferCostExplanation && transferCost > 0 && !predictionReliable) {
+        console.warn(`[GameweekAnalyzer] ⚠️  Skipping transfer cost explanation - predictions incomplete, cannot verify GROSS value`);
+      }
+
       // Update the plan with the lineup
       await storage.updateGameweekPlanLineup(plan.id, lineup);
       plan.lineup = lineup as any; // Update local object
+      
+      // Update predicted points with calculated/verified GROSS value
+      // The plan was initially saved with (aiResponse.predicted_points - transferCost)
+      // Now we recalculate the correct NET using our verified GROSS value
+      const correctNetPoints = finalGrossPoints - transferCost;
+      console.log(`[GameweekAnalyzer] Updating plan predicted points:`);
+      console.log(`  Final GROSS: ${finalGrossPoints}`);
+      console.log(`  Transfer cost: ${transferCost}`);
+      console.log(`  Correct NET: ${correctNetPoints}`);
+      await storage.updateGameweekPlanPredictedPoints(plan.id, correctNetPoints);
+      plan.predictedPoints = correctNetPoints; // Update local object
 
       console.log(`[GameweekAnalyzer] Analysis complete, plan ID: ${plan.id}`);
 
@@ -2119,7 +2215,9 @@ CRITICAL REQUIREMENTS:
           }
         }
 
-        // POST-PROCESSING: Fix reasoning text to correctly account for transfer costs
+        // POST-PROCESSING: Enhance reasoning text with transfer cost explanation
+        // NOTE: predicted_points field is now calculated from lineup data (lines 1069-1095)
+        // so we don't need to detect/fix it here. We only enhance the reasoning text.
         console.log('[GameweekAnalyzer] Post-processing AI reasoning to ensure transfer cost explanation...');
         const transferCount = result.transfers?.length || 0;
         const transferCost = transferCount > freeTransfers ? (transferCount - freeTransfers) * 4 : 0;
@@ -2129,36 +2227,26 @@ CRITICAL REQUIREMENTS:
         
         console.log(`[GameweekAnalyzer] Transfer analysis: ${transferCount} transfers, ${freeTransfers} free, chip: ${chipUsed || 'none'}, cost: ${finalTransferCost} points`);
         
-        if (result.reasoning) {
-          const grossPoints = result.predicted_points || 0;
-          const netPoints = grossPoints - finalTransferCost;
+        // NOTE: We'll use the calculated GROSS value (from lineup) later, not AI's predicted_points
+        // But for now, check if reasoning needs enhancement
+        if (result.reasoning && finalTransferCost > 0) {
+          // Check if reasoning already explains transfer costs properly
+          const mentionsTransferCost = result.reasoning.includes('point') && (
+            result.reasoning.includes('transfer cost') || 
+            result.reasoning.includes('point hit') || 
+            result.reasoning.includes('point deduction') ||
+            result.reasoning.includes('transfer penalty') ||
+            result.reasoning.includes('additional transfer')
+          );
           
-          // Check if reasoning mentions predicted points
-          const hasPointsMention = /(\d+)\s*points?\s+this\s+gameweek/i.test(result.reasoning);
+          console.log(`[GameweekAnalyzer] Reasoning validation: mentionsTransferCost=${mentionsTransferCost}`);
           
-          if (hasPointsMention && finalTransferCost > 0) {
-            // AI reasoning mentions points - check if it's correct
-            const mentionsGrossPoints = result.reasoning.includes(`${grossPoints} points`);
-            const mentionsNetPoints = result.reasoning.includes(`${netPoints} points`);
-            const mentionsTransferCost = result.reasoning.includes(`${finalTransferCost} point`) || result.reasoning.includes('transfer cost') || result.reasoning.includes('point hit') || result.reasoning.includes('point deduction');
-            
-            console.log(`[GameweekAnalyzer] Reasoning check: mentionsGross=${mentionsGrossPoints}, mentionsNet=${mentionsNetPoints}, mentionsCost=${mentionsTransferCost}`);
-            
-            // If reasoning is incomplete or wrong, add explanation at the end
-            if (!mentionsTransferCost || !mentionsNetPoints) {
-              console.warn(`[GameweekAnalyzer] AI reasoning incomplete - adding transfer cost explanation`);
-              const extraTransfers = transferCount - freeTransfers;
-              const explanation = `\n\nThis plan is projected to deliver ${grossPoints} points this gameweek before accounting for transfer costs. With ${transferCount} transfer${transferCount !== 1 ? 's' : ''} recommended and ${freeTransfers} free transfer${freeTransfers !== 1 ? 's' : ''} available, you will incur a ${finalTransferCost}-point deduction for the ${extraTransfers} additional transfer${extraTransfers !== 1 ? 's' : ''} (${extraTransfers} × 4 points). This brings the final predicted points to ${netPoints} for this gameweek.`;
-              result.reasoning = result.reasoning.trim() + explanation;
-              console.log(`[GameweekAnalyzer] Added transfer cost explanation to reasoning`);
-            }
-          } else if (hasPointsMention && finalTransferCost === 0 && transferCount > 0) {
-            // Check if reasoning incorrectly mentions a cost when there shouldn't be one
-            if (isChipActive && !result.reasoning.includes(chipUsed!)) {
-              const chipExplanation = `\n\nNote: With the ${chipUsed} chip active, all transfers are free (no transfer cost deduction).`;
-              result.reasoning = result.reasoning.trim() + chipExplanation;
-              console.log(`[GameweekAnalyzer] Added chip explanation to reasoning`);
-            }
+          // If reasoning doesn't mention transfer costs, we'll add it later after calculating GROSS points
+          if (!mentionsTransferCost) {
+            console.log(`[GameweekAnalyzer] ℹ️  AI reasoning doesn't explain transfer costs - will add after GROSS calculation`);
+            (result as any)._needsTransferCostExplanation = true;
+          } else {
+            console.log(`[GameweekAnalyzer] ✅ Reasoning already mentions transfer costs`);
           }
         }
 

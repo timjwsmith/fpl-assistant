@@ -1622,7 +1622,7 @@ Provide a strategic gameweek plan in this EXACT JSON format with VERBOSE, DATA-D
   "vice_captain_id": <NUMERIC ID from squad>,
   "chip_to_play": <"wildcard"|"freehit"|"benchboost"|"triplecaptain"|null>,
   "formation": "<e.g., 3-4-3, 4-4-2>",
-  "predicted_points": <number AFTER any transfer penalties - this is the FINAL expected points that will be displayed to the user>,
+  "predicted_points": <number - this is the GROSS expected points for your starting XI BEFORE transfer penalties. Do NOT deduct transfer costs here - the system will calculate the net points automatically>,
   "confidence": <0-100>,
   "strategic_insights": [
     "<DETAILED insight with data - e.g., 'Top 3 managers all own Haaland (£14.0m, Form 9.5, 3 green fixtures) - essential coverage'>",
@@ -1632,21 +1632,30 @@ Provide a strategic gameweek plan in this EXACT JSON format with VERBOSE, DATA-D
   "reasoning": "<OVERALL STRATEGY with specific data, league context, fixture analysis, and risk assessment. 
   
   🚨 CRITICAL INSTRUCTION FOR PREDICTED POINTS IN REASONING 🚨
-  When stating predicted points in your reasoning text, you MUST state the FINAL value that matches the predicted_points field exactly.
+  When stating predicted points in your reasoning text, you MUST calculate and state the NET points after deducting transfer penalties.
   
-  ✅ CORRECT EXAMPLES:
-  - If predicted_points = 58 (after -4 hit): Say 'This plan will deliver 58 points this gameweek'
-  - If predicted_points = 62 (no hits): Say 'This plan will deliver 62 points this gameweek'
+  **TRANSFER PENALTY CALCULATION:**
+  - You have ${freeTransfers} free transfer${freeTransfers !== 1 ? 's' : ''}
+  - Each additional transfer beyond free transfers costs -4 points
+  - Formula: Transfer penalty = max(0, (number of transfers - free transfers) × 4)
+  
+  **Example calculations:**
+  - 1 transfer with 1 free transfer = 0 penalty
+  - 2 transfers with 1 free transfer = (2-1) × 4 = -4 points
+  - 3 transfers with 1 free transfer = (3-1) × 4 = -8 points
+  
+  ✅ CORRECT EXAMPLES (assuming starting XI scores 66 points):
+  - 0 transfers: 'This plan will deliver 66 points this gameweek'
+  - 1 transfer (with 1 free): 'This plan will deliver 66 points this gameweek'
+  - 2 transfers (with 1 free): 'This plan will deliver 62 points this gameweek (66 points from the starting XI minus the 4-point transfer penalty)'
+  - 3 transfers (with 1 free): 'This plan will deliver 58 points this gameweek (66 points from the starting XI minus the 8-point transfer penalty)'
   
   ❌ WRONG EXAMPLES:
-  - DO NOT say '62 points before the -4 hit' when predicted_points = 58
-  - DO NOT say '66 points with -4 penalty' when predicted_points = 62
-  - DO NOT mention any value other than the FINAL predicted_points value
+  - DO NOT say '66 points' when you're recommending 2 transfers with 1 free transfer (should be 62 points)
+  - DO NOT forget to deduct the transfer penalty from your stated points
+  - DO NOT say 'before penalties' or 'after penalties' - just state the FINAL NET points
   
-  If you want to explain the calculation, write it like this:
-  'The starting eleven would score 62 points, but after the -4 transfer hit, the final expected points are 58 for this gameweek.'
-  
-  The key rule: The FINAL number you mention must ALWAYS match the predicted_points field above.>",
+  The key rule: Always calculate the NET points (gross points - transfer penalty) and state that FINAL number in your reasoning.>",
   "previous_plan_reviewed": <true|false - true if a previous plan existed, false if this is first plan>,
   "recommendations_changed": <true|false - true ONLY if your recommendations differ from previous plan>,
   "change_reasoning": "<REQUIRED if recommendations_changed=true: SPECIFIC data that changed with before/after values. Examples: 'Salah injured (75% chance → 25% chance)' or 'Haaland returned from injury (unavailable → available, form 0.0 → 8.5)'. If recommendations_changed=false, write 'No significant data changes - maintaining previous recommendations for consistency'>"

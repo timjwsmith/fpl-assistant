@@ -8,6 +8,7 @@ import { aiLearningFeedback } from "./ai-learning-feedback";
 import { snapshotContext, type SnapshotContext } from "./snapshot-context";
 import { snapshotValidator } from "./snapshot-validator";
 import { decisionLogger } from "./decision-logger";
+import { AIPredictionService } from "./ai-predictions";
 import type {
   FPLPlayer,
   FPLFixture,
@@ -24,6 +25,8 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
 });
+
+const aiPredictionService = new AIPredictionService();
 
 function calculateSuspensionRisk(yellowCards: number, currentGameweek: number): {
   risk: 'critical' | 'high' | 'moderate' | 'low';
@@ -408,6 +411,75 @@ export class GameweekAnalyzerService {
       ]);
 
       console.log(`[GameweekAnalyzer] Current plan has ${currentPlayerIds.size} players (${inputData.currentTeam.players.length} original - ${transferredOutIds.size} out + ${transferredInIds.size} in)`);
+
+      // 6.7. CRITICAL FIX: Generate predictions for ALL current squad players (existing + transferred-in)
+      // This ensures every player has a predicted_points value for accurate lineup generation and substitution attribution
+      console.log(`\n[GameweekAnalyzer] 🔮 Generating predictions for ALL ${currentPlayerIds.size} current squad players...`);
+      
+      const existingSquadPlayerIds = inputData.currentTeam.players
+        .filter(p => p.player_id && !transferredOutIds.has(p.player_id))
+        .map(p => p.player_id!);
+      
+      console.log(`[GameweekAnalyzer] Breaking down: ${existingSquadPlayerIds.length} existing players + ${transferredInIds.size} transferred-in = ${currentPlayerIds.size} total`);
+      
+      // Fetch existing predictions once before the loop (performance optimization)
+      const existingPredictionsBeforeGeneration = await storage.getPredictionsByGameweek(userId, gameweek);
+      const existingPredictionsSet = new Set(
+        existingPredictionsBeforeGeneration
+          .filter(p => p.snapshotId === inputData.context.snapshotId)
+          .map(p => p.playerId)
+      );
+      
+      // Generate predictions for ALL current players (both existing squad and transferred-in)
+      let predictionsGenerated = 0;
+      let predictionsSkipped = 0;
+      
+      for (const playerId of Array.from(currentPlayerIds)) {
+        // Check if prediction already exists for this player + gameweek + snapshot
+        if (existingPredictionsSet.has(playerId)) {
+          console.log(`  ⏭️  Player ${playerId} already has prediction for this snapshot - skipping`);
+          predictionsSkipped++;
+          continue;
+        }
+        
+        // Find player data
+        const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === playerId);
+        if (!player) {
+          console.warn(`  ⚠️  Player ${playerId} not found in snapshot - skipping`);
+          continue;
+        }
+        
+        // Get upcoming fixtures for this player
+        const upcomingFixtures = inputData.upcomingFixtures
+          .filter((f: FPLFixture) => 
+            !f.finished && 
+            f.event && 
+            f.event >= gameweek && 
+            (f.team_h === player.team || f.team_a === player.team)
+          )
+          .slice(0, 3);
+        
+        try {
+          console.log(`  🎯 Generating prediction for ${player.web_name} (ID: ${playerId})...`);
+          
+          // Generate prediction using AI service
+          await aiPredictionService.predictPlayerPoints({
+            player,
+            upcomingFixtures,
+            userId,
+            gameweek,
+            snapshotId: inputData.context.snapshotId,
+          });
+          
+          predictionsGenerated++;
+          console.log(`  ✅ Prediction generated for ${player.web_name}`);
+        } catch (error) {
+          console.error(`  ❌ Failed to generate prediction for ${player.web_name} (ID: ${playerId}):`, error instanceof Error ? error.message : 'Unknown error');
+          // Continue with other players even if one fails
+        }
+      }
+      
+      console.log(`\n[GameweekAnalyzer] 📊 Prediction generation complete: ${predictionsGenerated} generated, ${predictionsSkipped} skipped (already existed), ${currentPlayerIds.size - predictionsGenerated - predictionsSkipped} failed`);
 
       // Fetch all predictions for this gameweek (includes both new and historical predictions)
       const savedPredictions = await storage.getPredictionsByGameweek(userId, gameweek);
@@ -1552,7 +1624,24 @@ Provide a strategic gameweek plan in this EXACT JSON format with VERBOSE, DATA-D
     "<DETAILED insight with data - e.g., 'Differential pick: Isak (owned by 0/5 leaders, Form 7.2, vs SHU/BUR/LUT avg diff 1.8)'>",
     "<DETAILED insight with data - e.g., 'GW15-18 fixture swing: Sell Arsenal assets (4 red fixtures), buy Liverpool (4 green fixtures)'>"
   ],
-  "reasoning": "<OVERALL STRATEGY with specific data, league context, fixture analysis, and risk assessment. IMPORTANT: When mentioning predicted points in your reasoning, you MUST state the FINAL value (after transfer penalties) that matches the predicted_points field above. For example: 'This plan is expected to deliver 62 points this gameweek' (NOT '66 points before the -4 hit'). If you want to explain the calculation, write it clearly: 'The team would score 66 points, but with the -4 transfer penalty, the net expected points are 62 for this gameweek.' Always ensure the final number in your reasoning matches the predicted_points field.>",
+  "reasoning": "<OVERALL STRATEGY with specific data, league context, fixture analysis, and risk assessment. 
+  
+  🚨 CRITICAL INSTRUCTION FOR PREDICTED POINTS IN REASONING 🚨
+  When stating predicted points in your reasoning text, you MUST state the FINAL value that matches the predicted_points field exactly.
+  
+  ✅ CORRECT EXAMPLES:
+  - If predicted_points = 58 (after -4 hit): Say 'This plan will deliver 58 points this gameweek'
+  - If predicted_points = 62 (no hits): Say 'This plan will deliver 62 points this gameweek'
+  
+  ❌ WRONG EXAMPLES:
+  - DO NOT say '62 points before the -4 hit' when predicted_points = 58
+  - DO NOT say '66 points with -4 penalty' when predicted_points = 62
+  - DO NOT mention any value other than the FINAL predicted_points value
+  
+  If you want to explain the calculation, write it like this:
+  'The starting eleven would score 62 points, but after the -4 transfer hit, the final expected points are 58 for this gameweek.'
+  
+  The key rule: The FINAL number you mention must ALWAYS match the predicted_points field above.>",
   "previous_plan_reviewed": <true|false - true if a previous plan existed, false if this is first plan>,
   "recommendations_changed": <true|false - true ONLY if your recommendations differ from previous plan>,
   "change_reasoning": "<REQUIRED if recommendations_changed=true: SPECIFIC data that changed with before/after values. Examples: 'Salah injured (75% chance → 25% chance)' or 'Haaland returned from injury (unavailable → available, form 0.0 → 8.5)'. If recommendations_changed=false, write 'No significant data changes - maintaining previous recommendations for consistency'>"

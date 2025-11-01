@@ -619,72 +619,6 @@ export default function GameweekPlanner() {
                           <p className="text-sm text-muted-foreground">{transfer.reasoning}</p>
                         </CardContent>
                       </Card>
-
-                      {/* Substitution Details Card - only show if substitution_details exists */}
-                      {transfer.substitution_details && (
-                        <Card className="mt-2 bg-fpl-purple/5 border-fpl-purple/20">
-                          <CardContent className="p-4">
-                            <div className="flex items-center gap-2 mb-3">
-                              <ArrowRight className="h-4 w-4 text-fpl-purple" />
-                              <h4 className="text-sm font-semibold text-fpl-purple">Lineup Substitution</h4>
-                            </div>
-                            
-                            <div className="flex items-center gap-4">
-                              {/* Benched Player */}
-                              <div className="flex-1 p-3 rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
-                                <div className="flex items-center gap-3">
-                                  <div className="flex-shrink-0 h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900 flex items-center justify-center">
-                                    <span className="text-xs font-bold text-amber-700 dark:text-amber-300">
-                                      {transfer.substitution_details.benched_player_name.substring(0, 2).toUpperCase()}
-                                    </span>
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs text-amber-600 dark:text-amber-400 mb-0.5">Benched</p>
-                                    <p className="text-sm font-semibold truncate">{transfer.substitution_details.benched_player_name}</p>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                      <Badge variant="outline" className="text-xs border-amber-300 dark:border-amber-700">
-                                        {transfer.substitution_details.benched_player_position}
-                                      </Badge>
-                                      <span className="text-xs text-muted-foreground">
-                                        {transfer.substitution_details.benched_player_predicted_points.toFixed(1)} pts
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-
-                              {/* Starting Player */}
-                              <div className="flex-1 p-3 rounded-md bg-chart-2/10 border border-chart-2/30">
-                                <div className="flex items-center gap-3">
-                                  <div className="flex-shrink-0 h-10 w-10 rounded-full bg-chart-2/20 flex items-center justify-center">
-                                    <span className="text-xs font-bold text-chart-2">
-                                      {transfer.substitution_details.incoming_player_name.substring(0, 2).toUpperCase()}
-                                    </span>
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs text-chart-2 mb-0.5">Starting</p>
-                                    <p className="text-sm font-semibold truncate">{transfer.substitution_details.incoming_player_name}</p>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                      <Badge variant="outline" className="text-xs border-chart-2/30">
-                                        {transfer.substitution_details.incoming_player_position}
-                                      </Badge>
-                                      <span className="text-xs text-muted-foreground">
-                                        {transfer.substitution_details.incoming_player_predicted_points.toFixed(1)} pts
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            <p className="text-xs text-muted-foreground mt-3 italic">
-                              {transfer.substitution_details.bench_reason}
-                            </p>
-                          </CardContent>
-                        </Card>
-                      )}
                     </div>
                   );
                 })}
@@ -698,6 +632,77 @@ export default function GameweekPlanner() {
               </Card>
             )}
           </div>
+
+          {/* Lineup Optimizations Section */}
+          {plan.lineupOptimizations && plan.lineupOptimizations.length > 0 && (
+            <div>
+              <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+                <ArrowRight className="h-6 w-6 text-fpl-purple" />
+                Lineup Optimizations
+              </h2>
+              <div className="grid gap-3">
+                {plan.lineupOptimizations.map((optimization, i) => (
+                  <Card key={i} className="bg-fpl-purple/5 border-fpl-purple/20">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-4">
+                        {/* Benched Player */}
+                        <div className="flex-1 p-3 rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                          <div className="flex items-center gap-3">
+                            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900 flex items-center justify-center">
+                              <span className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                                {optimization.benched_player_name.substring(0, 2).toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-amber-600 dark:text-amber-400 mb-0.5">Benched</p>
+                              <p className="text-sm font-semibold truncate">{optimization.benched_player_name}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <Badge variant="outline" className="text-xs border-amber-300 dark:border-amber-700">
+                                  {optimization.benched_player_position}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {optimization.benched_player_predicted_points.toFixed(1)} pts
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+
+                        {/* Starting Player */}
+                        <div className="flex-1 p-3 rounded-md bg-chart-2/10 border border-chart-2/30">
+                          <div className="flex items-center gap-3">
+                            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-chart-2/20 flex items-center justify-center">
+                              <span className="text-xs font-bold text-chart-2">
+                                {optimization.starting_player_name.substring(0, 2).toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-chart-2 mb-0.5">Starting</p>
+                              <p className="text-sm font-semibold truncate">{optimization.starting_player_name}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <Badge variant="outline" className="text-xs border-chart-2/30">
+                                  {optimization.starting_player_position}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {optimization.starting_player_predicted_points.toFixed(1)} pts
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-muted-foreground mt-3 italic">
+                        {optimization.reasoning}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
 
           {(plan.captainId || plan.viceCaptainId) && (
             <div>

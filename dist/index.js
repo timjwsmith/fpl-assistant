@@ -337,6 +337,7 @@ var init_schema = __esm({
       userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
       gameweek: integer("gameweek").notNull(),
       transfers: jsonb("transfers").notNull().$type(),
+      lineupOptimizations: jsonb("lineup_optimizations").$type(),
       captainId: integer("captain_id"),
       viceCaptainId: integer("vice_captain_id"),
       chipToPlay: text("chip_to_play", { enum: ["wildcard", "freehit", "benchboost", "triplecaptain"] }),
@@ -842,6 +843,11 @@ var init_storage = __esm({
       async updateGameweekPlanTransfers(planId, transfers2) {
         await db.update(gameweekPlans).set({
           transfers: transfers2
+        }).where(eq(gameweekPlans.id, planId));
+      }
+      async updateGameweekPlanLineupOptimizations(planId, lineupOptimizations) {
+        await db.update(gameweekPlans).set({
+          lineupOptimizations
         }).where(eq(gameweekPlans.id, planId));
       }
       async saveChangeHistory(change) {
@@ -1605,15 +1611,16 @@ var init_gameweek_plan_hydrator = __esm({
           expected_points_gain: transfer.expected_points_gain,
           reasoning: transfer.reasoning,
           priority: transfer.priority,
-          cost_impact: transfer.cost_impact,
-          substitution_details: transfer.substitution_details
+          cost_impact: transfer.cost_impact
         }));
+        const lineupOptimizations = rawPlan.lineupOptimizations || [];
         const numTransfers = rawPlan.transfers.length;
         const freeTransfers = 1;
         const transfersCost = Math.max(0, (numTransfers - freeTransfers) * 4);
         return {
           ...rawPlan,
           transfers: enrichedTransfers,
+          lineupOptimizations,
           captainName: rawPlan.captainId ? playerMap.get(rawPlan.captainId)?.web_name : void 0,
           viceCaptainName: rawPlan.viceCaptainId ? playerMap.get(rawPlan.viceCaptainId)?.web_name : void 0,
           freeTransfers,
@@ -4765,28 +4772,21 @@ var GameweekAnalyzerService = class {
               reasons.push(`${benchedPlayer.web_name} injury doubt (${benchedPlayer.chance_of_playing_next_round}% chance of playing)`);
             }
             const benchReason = reasons.length > 0 ? reasons.join(", ") : "Tactical decision based on predicted points";
-            aiResponse.transfers.push({
-              player_out_id: benchedPlayerId,
-              player_out_name: benchedPlayer.web_name,
-              player_in_id: matchingStartingPlayerId,
-              player_in_name: startingPlayer.web_name,
-              expected_points_gain: startingPrediction - benchedPrediction,
-              expected_points_gain_timeframe: "1 gameweek",
-              reasoning: `Lineup optimization: ${benchReason}`,
-              priority: "medium",
-              cost_impact: 0,
-              substitution_details: {
-                benched_player_id: benchedPlayerId,
-                benched_player_name: benchedPlayer.web_name,
-                benched_player_position: positionNames[benchedPlayer.element_type],
-                benched_player_predicted_points: benchedPrediction,
-                incoming_player_name: startingPlayer.web_name,
-                incoming_player_position: positionNames[startingPlayer.element_type],
-                incoming_player_predicted_points: startingPrediction,
-                bench_reason: benchReason
-              }
+            if (!aiResponse.lineupOptimizations) {
+              aiResponse.lineupOptimizations = [];
+            }
+            aiResponse.lineupOptimizations.push({
+              benched_player_id: benchedPlayerId,
+              benched_player_name: benchedPlayer.web_name,
+              benched_player_position: positionNames[benchedPlayer.element_type],
+              benched_player_predicted_points: benchedPrediction,
+              starting_player_id: matchingStartingPlayerId,
+              starting_player_name: startingPlayer.web_name,
+              starting_player_position: positionNames[startingPlayer.element_type],
+              starting_player_predicted_points: startingPrediction,
+              reasoning: benchReason
             });
-            console.log(`  \u2705 Created lineup optimization card: ${benchedPlayer.web_name} benched for ${startingPlayer.web_name}`);
+            console.log(`  \u2705 Created lineup optimization: ${benchedPlayer.web_name} (${benchedPrediction.toFixed(1)} pts) benched for ${startingPlayer.web_name} (${startingPrediction.toFixed(1)} pts)`);
             pairingCount++;
             const index2 = availableStartingPlayers.indexOf(matchingStartingPlayerId);
             if (index2 > -1) {
@@ -4797,7 +4797,11 @@ var GameweekAnalyzerService = class {
           console.log(`  \u2705 Created ${pairingCount} lineup optimization card(s)`);
         }
         await storage.updateGameweekPlanTransfers(plan.id, aiResponse.transfers);
-        console.log(`[GameweekAnalyzer] Enhanced transfer reasoning saved to database for plan ${plan.id}`);
+        console.log(`[GameweekAnalyzer] Transfer recommendations saved to database for plan ${plan.id}`);
+        if (aiResponse.lineupOptimizations && aiResponse.lineupOptimizations.length > 0) {
+          await storage.updateGameweekPlanLineupOptimizations(plan.id, aiResponse.lineupOptimizations);
+          console.log(`[GameweekAnalyzer] Lineup optimizations saved to database for plan ${plan.id}`);
+        }
       }
       await storage.updateGameweekPlanLineup(plan.id, lineup);
       plan.lineup = lineup;

@@ -1,0 +1,155 @@
+Gameweek Planner
+AI-powered gameweek analysis and recommendations
+Planning for
+GW 10
+Sync Latest Team
+Build Around Player
+Generate Plan
+✅ Plan Unchanged - Continuity Maintained
+No significant data changes - maintaining previous recommendations for consistency
+Plan Overview
+Pending
+Formation
+3
+4
+3
+AI Optimised
+Predicted Points
+62
+GW 10 • With AI Plan
+Confidence
+85%
+High
+Free Transfers
+
+1
+Cost: 4 pts
+Chip
+
+—
+AI Reasoning
+Show More
+Starting XI
+3-4-3
+Leno shirt
+Leno
+Mukiele shirt
+Mukiele
+Van de Ven shirt
+Van de Ven
+Virgil shirt
+Virgil
+Semenyo shirt
+V
+Semenyo
+Mbeumo shirt
+Mbeumo
+Neto shirt
+Neto
+Eze shirt
+Eze
+Haaland shirt
+C
+Haaland
+Mateta shirt
+Mateta
+Kroupi.Jr shirt
+Kroupi.Jr
+C CaptainV Vice-Captain
+Transfer Recommendations
+
+High Priority
++24.0 pts
+over 6 gameweeks
+
+Out
+Mitoma
+BHA
+BHA • MID
+£6.2m
+
+In
+Mbeumo
+MUN
+MUN • MID
+£8.3m
+I recommend transferring out Mitoma because he is currently flagged as doubtful with only a 25 percent chance of playing due to a knock. His form has dropped to zero, and his average points per game is just 3.3, which is below the squad average. Over the next six gameweeks, his fixtures are mixed, with an average difficulty of 3.0. In contrast, Mbeumo is in excellent form, scoring 15 points last gameweek and averaging 5.7 points per game. His form is currently at 10.0, and his next six fixtures have an average difficulty of 2.8, which is slightly easier than Mitoma's. Mbeumo is also a set-piece taker for Brentford, which increases his chances of scoring or assisting. Over the next six gameweeks, Mbeumo is expected to score approximately 34 points, while Mitoma is expected to score only 10 points due to his injury and mixed fixtures. This transfer will result in a net gain of 24 points over six gameweeks. The transfer is affordable as Mitoma's selling price is 6.2 million, and your current bank balance is 4.0 million, giving you a total of 10.2 million to spend. Mbeumo costs 8.3 million, leaving you with 1.9 million in the bank after the transfer. This is a high-priority transfer due to the significant points gain and Mitoma's injury status.
+Lineup Substitution
+DÚ
+Benched
+Dúbravka
+GK
+8.0 pts
+MB
+Starting
+Mbeumo
+MID
+18.0 pts
+Mbeumo has higher predicted points (18.0 vs 8.0, +10.0), better form for Mbeumo (10.0 vs 4.3), tough fixture (tough vs moderate for Mbeumo)
+High Priority
++18.0 pts
+over 6 gameweeks
+
+Out
+Cucurella
+CHE
+CHE • DEF
+£6.1m
+
+In
+Van de Ven
+TOT
+TOT • DEF
+£4.7m
+I recommend transferring out Cucurella because his form has dropped slightly to 5.3, and his upcoming fixtures are challenging, with an average difficulty of 3.2 over the next six gameweeks. He has only averaged 4 points per game, and his attacking threat is limited with an xG of 0.36 and xA of 1.33. In contrast, Van de Ven is in excellent form, scoring 23 points last gameweek and currently boasting a form of 8.3. He has a higher points per game average of 6.1 and has favorable fixtures over the next six gameweeks, with an average difficulty of 2.8. Van de Ven also has a strong attacking threat, as evidenced by his recent goal and his involvement in Tottenham's attacking play. Over the next six gameweeks, Van de Ven is expected to score approximately 36 points, while Cucurella is expected to score only 18 points. This transfer will result in a net gain of 18 points over six gameweeks. The transfer is affordable as Cucurella's selling price is 6.1 million, and your current bank balance is 1.9 million after the first transfer, giving you a total of 8.0 million to spend. Van de Ven costs 4.7 million, leaving you with 3.3 million in the bank after the transfer. This is a high-priority transfer due to the significant points gain and Van de Ven's form and fixtures.
+Lineup Substitution
+DÚ
+Benched
+Dúbravka
+GK
+8.0 pts
+VA
+Starting
+Van de Ven
+DEF
+5.5 pts
+lower predicted points (8.0), better form for Van de Ven (8.3 vs 4.3), tough fixture (tough vs moderate for Van de Ven)
+Captain Selection
+
+Captain
+
+Haaland
+MCI • FWD
+69.0% owned
+Vice-Captain
+
+Semenyo
+BOU • MID
+64.0% owned
+Starting XI
+3-4-3
+Leno shirt
+Leno
+Mukiele shirt
+Mukiele
+Van de Ven shirt
+Van de Ven
+Virgil shirt
+Virgil
+Semenyo shirt
+V
+Semenyo
+Mbeumo shirt
+Mbeumo
+Neto shirt
+Neto
+Eze shirt
+Eze
+Haaland shirt
+C
+Haaland
+Mateta shirt
+Mateta
+Kroupi.Jr shirt
+Kroupi.Jr
+C CaptainV Vice-Captain

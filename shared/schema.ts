@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { pgTable, text, integer, jsonb, timestamp, boolean, index, serial, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, jsonb, timestamp, boolean, index, serial, uniqueIndex, real } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 
@@ -301,8 +301,8 @@ export const predictions = pgTable('predictions', {
   userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   gameweek: integer('gameweek').notNull(),
   playerId: integer('player_id').notNull(),
-  predictedPoints: integer('predicted_points').notNull(),
-  actualPoints: integer('actual_points'),
+  predictedPoints: real('predicted_points').notNull(),
+  actualPoints: real('actual_points'),
   confidence: integer('confidence').notNull(),
   snapshotId: text('snapshot_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),

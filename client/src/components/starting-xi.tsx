@@ -28,8 +28,9 @@ export function StartingXI({ lineup, allPlayers, allTeams, formation }: Starting
   // Parse formation (e.g., "3-4-3" -> [1, 3, 4, 3])
   const formationParts = formation.split('-').map(Number);
   const rows = [1, ...formationParts]; // Always 1 GK, then DEF-MID-FWD
+  const startingXISize = rows.reduce((sum, count) => sum + count, 0); // Total starting XI size (11 players)
 
-  // Group players by their row in the formation
+  // Group players by their row in the formation (starting XI only)
   const playersByRow: LineupPlayer[][] = [];
   let currentPosition = 0;
 
@@ -38,6 +39,9 @@ export function StartingXI({ lineup, allPlayers, allTeams, formation }: Starting
     playersByRow.push(rowPlayers);
     currentPosition += rowSize;
   }
+
+  // Extract bench players (positions 12-15)
+  const benchPlayers = lineup.slice(startingXISize);
 
   const getPlayerDetails = (playerId: number) => {
     return allPlayers.find(p => p.id === playerId);
@@ -104,6 +108,46 @@ export function StartingXI({ lineup, allPlayers, allTeams, formation }: Starting
             ))}
           </div>
         </div>
+
+        {/* Bench Section */}
+        {benchPlayers.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Bench
+            </h3>
+            <div className="flex gap-3 flex-wrap">
+              {benchPlayers.map((lineupPlayer) => {
+                const player = getPlayerDetails(lineupPlayer.player_id);
+                if (!player) return null;
+
+                return (
+                  <div
+                    key={lineupPlayer.player_id}
+                    className="flex items-center gap-2 bg-muted/30 border border-border rounded-lg px-3 py-2 min-w-[140px]"
+                  >
+                    <Avatar className="h-10 w-10 border border-border/50">
+                      <AvatarImage 
+                        src={getPlayerShirtUrl(player.team_code, 110)} 
+                        alt={`${player.web_name} shirt`}
+                      />
+                      <AvatarFallback className="text-xs font-semibold">
+                        {player.web_name.substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">{player.web_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {player.element_type === 1 ? 'GK' : player.element_type === 2 ? 'DEF' : player.element_type === 3 ? 'MID' : 'FWD'}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="text-xs text-muted-foreground mt-3 text-center">
           <Badge variant="default" className="mr-2">C</Badge> Captain
           <Badge variant="secondary" className="ml-4 mr-2">V</Badge> Vice-Captain

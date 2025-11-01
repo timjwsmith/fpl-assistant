@@ -881,6 +881,141 @@ export class GameweekAnalyzerService {
           console.log(`  📊 Updated baseline for next transfer: ${baselineStartingXI.length} players in starting XI`);
         }
         
+        // ADDITIONAL CHECK: Detect lineup changes from auto-pick optimization (not caused by transfers)
+        // Example: Leno chosen to start over Dúbravka (both in squad, no transfer)
+        console.log(`\n[GameweekAnalyzer] 🔍 Checking for lineup changes from auto-pick optimization...`);
+        const originalStartingXI = inputData.currentTeam.players
+          .filter(p => p.position <= 11 && p.player_id)
+          .map(p => p.player_id!);
+        const finalStartingXI = lineup.filter(p => p.position <= 11).map(p => p.player_id);
+        
+        console.log(`  Original starting XI (${originalStartingXI.length}): ${originalStartingXI.map(id => {
+          const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id);
+          return player?.web_name || id;
+        }).join(', ')}`);
+        console.log(`  Final starting XI (${finalStartingXI.length}): ${finalStartingXI.map(id => {
+          const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id);
+          return player?.web_name || id;
+        }).join(', ')}`);
+        
+        // Find players benched by auto-pick (not by transfers)
+        const benchedByAutoPick = originalStartingXI.filter(playerId => 
+          !finalStartingXI.includes(playerId) && !transferredOutPlayerIds.has(playerId)
+        );
+        const startingByAutoPick = finalStartingXI.filter(playerId => 
+          !originalStartingXI.includes(playerId) && !aiResponse.transfers.some(t => t.player_in_id === playerId)
+        );
+        
+        console.log(`  Players benched by auto-pick: ${benchedByAutoPick.map(id => {
+          const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id);
+          return player?.web_name || id;
+        }).join(', ') || 'NONE'}`);
+        console.log(`  Players starting by auto-pick: ${startingByAutoPick.map(id => {
+          const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id);
+          return player?.web_name || id;
+        }).join(', ') || 'NONE'}`);
+        
+        // Create substitution cards for auto-pick lineup changes
+        if (benchedByAutoPick.length > 0 && startingByAutoPick.length > 0) {
+          console.log(`  ✅ Found ${benchedByAutoPick.length} benched, ${startingByAutoPick.length} starting by auto-pick!`);
+          
+          // Create mutable copy for one-to-one pairing
+          const availableStartingPlayers = [...startingByAutoPick];
+          let pairingCount = 0;
+          
+          // Pair benched players with starting players by position (one-to-one mapping)
+          for (const benchedPlayerId of benchedByAutoPick) {
+            const benchedPlayer = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === benchedPlayerId);
+            if (!benchedPlayer) {
+              console.log(`  ⚠️ Skipping benched player ID ${benchedPlayerId} - not found in snapshot`);
+              continue;
+            }
+            
+            // Find matching starting player by position from AVAILABLE players only
+            const matchingStartingPlayerId = availableStartingPlayers.find(startingId => {
+              const startingPlayer = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === startingId);
+              if (!startingPlayer) return false;
+              
+              // GK can only match with GK, outfield can match with outfield
+              return (benchedPlayer.element_type === 1 && startingPlayer.element_type === 1) ||
+                     (benchedPlayer.element_type > 1 && startingPlayer.element_type > 1);
+            });
+            
+            if (!matchingStartingPlayerId) {
+              console.log(`  ⚠️ No matching starting player found for benched ${benchedPlayer.web_name} (${benchedPlayer.element_type})`);
+              continue;
+            }
+            
+            const startingPlayer = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === matchingStartingPlayerId);
+            if (!startingPlayer) {
+              console.log(`  ⚠️ Starting player ID ${matchingStartingPlayerId} not found in snapshot`);
+              continue;
+            }
+            
+            const positionNames = ['', 'GK', 'DEF', 'MID', 'FWD'];
+            console.log(`  🔄 Auto-pick change: ${benchedPlayer.web_name} (${positionNames[benchedPlayer.element_type]}) → ${startingPlayer.web_name} (${positionNames[startingPlayer.element_type]})`);
+            
+            // Create a pseudo-transfer to hold this substitution info
+            const benchedPrediction = predictionsMap.get(benchedPlayerId) || 0;
+            const startingPrediction = predictionsMap.get(matchingStartingPlayerId) || 0;
+            
+            // Build reasoning
+            const reasons: string[] = [];
+            if (startingPrediction > benchedPrediction) {
+              const diff = (startingPrediction - benchedPrediction).toFixed(1);
+              reasons.push(`${startingPlayer.web_name} has higher predicted points (${startingPrediction.toFixed(1)} vs ${benchedPrediction.toFixed(1)}, +${diff})`);
+            }
+            
+            const benchedForm = parseFloat(benchedPlayer.form || '0');
+            const startingForm = parseFloat(startingPlayer.form || '0');
+            if (startingForm > benchedForm) {
+              reasons.push(`better form for ${startingPlayer.web_name} (${startingForm.toFixed(1)} vs ${benchedForm.toFixed(1)})`);
+            }
+            
+            if (benchedPlayer.chance_of_playing_next_round !== null && benchedPlayer.chance_of_playing_next_round < 100) {
+              reasons.push(`${benchedPlayer.web_name} injury doubt (${benchedPlayer.chance_of_playing_next_round}% chance of playing)`);
+            }
+            
+            const benchReason = reasons.length > 0 ? reasons.join(', ') : 'Tactical decision based on predicted points';
+            
+            // Add a special "lineup optimization" transfer with substitution details
+            // Cast to any to allow extra fields (player names, substitution_details)
+            aiResponse.transfers.push({
+              player_out_id: benchedPlayerId,
+              player_out_name: benchedPlayer.web_name,
+              player_in_id: matchingStartingPlayerId,
+              player_in_name: startingPlayer.web_name,
+              expected_points_gain: startingPrediction - benchedPrediction,
+              expected_points_gain_timeframe: '1 gameweek',
+              reasoning: `Lineup optimization: ${benchReason}`,
+              priority: 'medium' as const,
+              cost_impact: 0,
+              substitution_details: {
+                benched_player_id: benchedPlayerId,
+                benched_player_name: benchedPlayer.web_name,
+                benched_player_position: positionNames[benchedPlayer.element_type],
+                benched_player_predicted_points: benchedPrediction,
+                incoming_player_name: startingPlayer.web_name,
+                incoming_player_position: positionNames[startingPlayer.element_type],
+                incoming_player_predicted_points: startingPrediction,
+                bench_reason: benchReason,
+              }
+            } as any);
+            
+            console.log(`  ✅ Created lineup optimization card: ${benchedPlayer.web_name} benched for ${startingPlayer.web_name}`);
+            pairingCount++;
+            
+            // CRITICAL: Remove matched player from available pool to prevent double-pairing
+            const index = availableStartingPlayers.indexOf(matchingStartingPlayerId);
+            if (index > -1) {
+              availableStartingPlayers.splice(index, 1);
+              console.log(`  🔄 Removed ${startingPlayer.web_name} from available pool (${availableStartingPlayers.length} remaining)`);
+            }
+          }
+          
+          console.log(`  ✅ Created ${pairingCount} lineup optimization card(s)`);
+        }
+        
         // BUG FIX: Save enhanced transfers to database (Bug 1)
         await storage.updateGameweekPlanTransfers(plan.id, aiResponse.transfers);
         console.log(`[GameweekAnalyzer] Enhanced transfer reasoning saved to database for plan ${plan.id}`);

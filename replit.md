@@ -72,14 +72,16 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 1. Transfer analysis compared starting XIs using simple set differences without position awareness
 2. Transferred-out players (like Dúbravka in a GK→GK swap) were treated as "benched" instead of "replaced"
 3. No validation that substitutions follow FPL position constraints (GK↔GK only, outfield can swap)
+4. Auto-pick lineup changes (e.g., starting Leno over Dúbravka) weren't being explained with substitution cards
 
 **Fix**: Implemented **position-aware substitution detection** (server/gameweek-analyzer.ts):
 - Track all transferred-out player IDs and exclude them from substitution logic
 - Validate position compatibility: GK can only substitute for GK, outfield players (DEF/MID/FWD) can swap with each other
 - Skip invalid substitutions (e.g., GK↔MID) with clear console warnings
+- Added auto-pick lineup change detection: creates "Lineup Substitution" cards when auto-pick selects different players from existing squad (e.g., Leno starts over Dúbravka with full reasoning: predicted points, form, fixtures)
 - Architect-approved solution ensuring transfers respect FPL position rules
 
-**Files Modified**: `server/gameweek-analyzer.ts` (lines 654-876)
+**Files Modified**: `server/gameweek-analyzer.ts` (lines 654-997)
 
 ## External Dependencies
 - **Official FPL API**: For all Fantasy Premier League game data.

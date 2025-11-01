@@ -647,11 +647,15 @@ export class GameweekAnalyzerService {
           if (playerOutWasBench && playerInIsStarting) {
             console.log(`  ✅ Bench → Starting transfer detected! Looking for benched player...`);
             
-            // Find which starting XI player from current lineup is now benched in the new lineup
-            const currentStartingXI = currentLineup.filter(p => p.position <= 11).map(p => p.player_id);
+            // FIX: Use ACTUAL FPL positions, not AI-optimized lineup
+            // The currentLineup is AI-optimized and may have moved bench players to starting XI
+            // We need to use the actual FPL team positions to detect real lineup changes
+            const actualCurrentStartingXI = inputData.currentTeam.players
+              .filter(p => p.position <= 11 && p.player_id)
+              .map(p => p.player_id!);
             const newStartingXI = lineupWithThisTransfer.filter(p => p.position <= 11).map(p => p.player_id);
             
-            console.log(`  Current starting XI (${currentStartingXI.length} players): ${currentStartingXI.map(id => {
+            console.log(`  ACTUAL current starting XI (${actualCurrentStartingXI.length} players): ${actualCurrentStartingXI.map(id => {
               const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id);
               return player?.web_name || id;
             }).join(', ')}`);
@@ -660,8 +664,8 @@ export class GameweekAnalyzerService {
               return player?.web_name || id;
             }).join(', ')}`);
             
-            // Find player who was in starting XI but is now benched (excluding the player being transferred out)
-            const benchedPlayerId = currentStartingXI.find(playerId => 
+            // Find player who was in ACTUAL starting XI but is now benched (excluding the player being transferred out)
+            const benchedPlayerId = actualCurrentStartingXI.find(playerId => 
               !newStartingXI.includes(playerId) && playerId !== transfer.player_out_id
             );
             
@@ -669,10 +673,11 @@ export class GameweekAnalyzerService {
               const benchedPlayerName = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === benchedPlayerId)?.web_name || `Player ${benchedPlayerId}`;
               console.log(`  🎯 Found benched player: ${benchedPlayerName} (ID: ${benchedPlayerId})`);
             } else {
-              console.log(`  ⚠️ NO benched player found! This is unexpected - lineups may be identical.`);
-              console.log(`  Diagnosis: Current starting XI = ${currentStartingXI.length}, New starting XI = ${newStartingXI.length}`);
-              const playersOnlyInCurrent = currentStartingXI.filter(id => !newStartingXI.includes(id) && id !== transfer.player_out_id);
-              const playersOnlyInNew = newStartingXI.filter(id => !currentStartingXI.includes(id));
+              console.log(`  ✅ NO benched player found - no starter is displaced by this transfer.`);
+              console.log(`  This is correct when transferring out a bench player and the new player fills their spot.`);
+              console.log(`  Diagnosis: ACTUAL current starting XI = ${actualCurrentStartingXI.length}, New starting XI = ${newStartingXI.length}`);
+              const playersOnlyInCurrent = actualCurrentStartingXI.filter(id => !newStartingXI.includes(id) && id !== transfer.player_out_id);
+              const playersOnlyInNew = newStartingXI.filter(id => !actualCurrentStartingXI.includes(id));
               console.log(`  Players only in current XI (excluding ${playerOutName}): ${playersOnlyInCurrent.map(id => inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id)?.web_name || id).join(', ') || 'NONE'}`);
               console.log(`  Players only in new XI: ${playersOnlyInNew.map(id => inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id)?.web_name || id).join(', ') || 'NONE'}`);
             }

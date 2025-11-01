@@ -1891,7 +1891,7 @@ var AIPredictionService = class {
     const position = context.player.element_type === 1 ? "GK" : context.player.element_type === 2 ? "DEF" : context.player.element_type === 3 ? "MID" : "FWD";
     const isDefensive = position === "GK" || position === "DEF";
     const prompt = `
-You are an expert Fantasy Premier League analyst. Predict the expected points for the following player:
+You are an expert Fantasy Premier League analyst. Predict the expected points for the following player FOR THE NEXT GAMEWEEK ONLY (ONE MATCH).
 
 Player: ${context.player.web_name}
 Position: ${position}
@@ -1927,16 +1927,26 @@ AVAILABILITY:
 - News: ${context.player.news || "None"}
 - Yellow Cards: ${context.player.yellow_cards} | Red Cards: ${context.player.red_cards}
 
-Upcoming Fixtures (next 3):
-${context.upcomingFixtures.slice(0, 3).map((f, i) => `${i + 1}. Difficulty: ${f.team_h_difficulty || f.team_a_difficulty}`).join("\n")}
+NEXT GAMEWEEK FIXTURE:
+${context.upcomingFixtures.slice(0, 1).map((f, i) => `Difficulty: ${f.team_h_difficulty || f.team_a_difficulty}`).join("\n")}
 
-CRITICAL RULES FOR INJURY/AVAILABILITY:
+CRITICAL PREDICTION RULES:
+1. PREDICT FOR NEXT GAMEWEEK ONLY - This is a SINGLE match, not multiple gameweeks
+2. Use Points Per Game (${context.player.points_per_game}) as a realistic baseline
+3. Typical ranges for ONE gameweek:
+   - Goalkeeper: 2-6 pts (elite performance: 8-10)
+   - Defender: 2-6 pts (elite performance with goal: 10-12)
+   - Midfielder: 2-8 pts (elite performance: 12-15)
+   - Forward: 2-8 pts (elite performance: 15-18)
+4. Only predict 15+ points for exceptional circumstances (hat-trick potential)
+
+AVAILABILITY RULES:
 1. If Status is 'i' (injured), 'u' (unavailable), or 's' (suspended) \u2192 predicted_points MUST be 0
 2. If Chance of Playing is 0% or null and News mentions injury/suspension \u2192 predicted_points MUST be 0
 3. If Chance of Playing is < 25% \u2192 predicted_points should be heavily discounted (max 2 pts)
 4. Only predict meaningful points if Status = 'a' (available) OR Chance of Playing \u2265 75%
 
-Based on AVAILABILITY FIRST, then form, fixtures, underlying stats, ICT metrics, and bonus potential, provide a prediction in JSON format:
+Based on AVAILABILITY FIRST, then form, the NEXT fixture difficulty, underlying stats, and historical points per game, provide a REALISTIC prediction for THE NEXT GAMEWEEK ONLY in JSON format:
 {
   "predicted_points": <number>,
   "confidence": <0-100>,

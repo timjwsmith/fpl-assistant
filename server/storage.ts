@@ -338,6 +338,7 @@ export class PostgresStorage implements IStorage {
         set: {
           predictedPoints: prediction.predictedPoints,
           confidence: prediction.confidence,
+          snapshotId: prediction.snapshotId,
         },
       });
   }

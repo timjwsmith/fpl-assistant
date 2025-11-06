@@ -103,7 +103,7 @@ export function StartingXI({ lineup, allPlayers, allTeams, formation, predictedP
                         </p>
                         {predictedPoints && predictedPoints.has(lineupPlayer.player_id) && (
                           <p className="text-[10px] md:text-xs text-fpl-cyan font-bold mt-0.5">
-                            {predictedPoints.get(lineupPlayer.player_id)} pts
+                            {(predictedPoints.get(lineupPlayer.player_id)! * lineupPlayer.multiplier).toFixed(1)} pts
                           </p>
                         )}
                       </div>

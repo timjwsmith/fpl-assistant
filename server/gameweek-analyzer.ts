@@ -391,14 +391,24 @@ export class GameweekAnalyzerService {
         // Compare chip
         const chipChanged = previousPlan.chipToPlay !== aiResponse.chip_to_play;
         
+        // Compare lineup optimizations
+        const prevLineupOpts = previousPlan.lineupOptimizations?.map((opt: any) => 
+          `${opt.benched_player_id}-${opt.starting_player_id}`
+        ).sort().join(',') || '';
+        const currLineupOpts = aiResponse.lineup_optimizations?.map(opt => 
+          `${opt.benched_player_id}-${opt.starting_player_id}`
+        ).sort().join(',') || '';
+        const lineupOptimizationsChanged = prevLineupOpts !== currLineupOpts;
+        
         // Determine if ANY recommendation changed
-        if (transfersChanged || captainChanged || viceCaptainChanged || formationChanged || chipChanged) {
+        if (transfersChanged || captainChanged || viceCaptainChanged || formationChanged || chipChanged || lineupOptimizationsChanged) {
           console.log(`[GameweekAnalyzer] ⚠️  CONTINUITY OVERRIDE: AI said recommendations_changed=${aiResponse.recommendations_changed}, but actual comparison shows changes:`);
           console.log(`  - Transfers changed: ${transfersChanged} (prev: ${prevTransfers.substring(0, 50)}..., curr: ${currTransfers.substring(0, 50)}...)`);
           console.log(`  - Captain changed: ${captainChanged} (${previousPlan.captainId} → ${aiResponse.captain_id})`);
           console.log(`  - Vice captain changed: ${viceCaptainChanged} (${previousPlan.viceCaptainId} → ${aiResponse.vice_captain_id})`);
           console.log(`  - Formation changed: ${formationChanged} (${previousPlan.formation} → ${aiResponse.formation})`);
           console.log(`  - Chip changed: ${chipChanged} (${previousPlan.chipToPlay} → ${aiResponse.chip_to_play})`);
+          console.log(`  - Lineup optimizations changed: ${lineupOptimizationsChanged} (prev: ${prevLineupOpts}, curr: ${currLineupOpts})`);
           
           actualRecommendationsChanged = true;
           actualChangeReasoning = `Recommendations updated based on latest analysis. Changes: ${
@@ -408,6 +418,7 @@ export class GameweekAnalyzerService {
               viceCaptainChanged ? 'vice captain changed' : null,
               formationChanged ? 'formation adjusted' : null,
               chipChanged ? 'chip strategy changed' : null,
+              lineupOptimizationsChanged ? 'lineup optimizations changed' : null,
             ].filter(Boolean).join(', ')
           }.`;
         } else {
@@ -1487,6 +1498,15 @@ Form: ${targetPlayer.form} | PPG: ${targetPlayer.points_per_game} | Total: ${tar
         }).join('\n');
       }
       
+      let prevLineupOptimizationsText = 'None (keep current lineup)';
+      if (previousPlan.lineupOptimizations && Array.isArray(previousPlan.lineupOptimizations) && previousPlan.lineupOptimizations.length > 0) {
+        prevLineupOptimizationsText = previousPlan.lineupOptimizations.map((opt: any) => {
+          const benched = allPlayers.find((p: FPLPlayer) => p.id === opt.benched_player_id);
+          const starting = allPlayers.find((p: FPLPlayer) => p.id === opt.starting_player_id);
+          return `  - BENCH: ${benched?.web_name || 'Unknown'} (ID:${opt.benched_player_id}, ${opt.benched_player_predicted_points} pts) → START: ${starting?.web_name || 'Unknown'} (ID:${opt.starting_player_id}, ${opt.starting_player_predicted_points} pts)`;
+        }).join('\n');
+      }
+      
       previousPlanContext = `\n\n═══════════════════════════════════════════════════════════════════════
 🔄 CONTINUITY AWARENESS - PREVIOUS PLAN REVIEW 🔄
 ═══════════════════════════════════════════════════════════════════════
@@ -1503,6 +1523,9 @@ Confidence: ${previousPlan.confidence}%
 
 Transfers Recommended:
 ${prevTransfersText}
+
+Lineup Optimizations Recommended:
+${prevLineupOptimizationsText}
 
 **CONTINUITY RULES** - READ CAREFULLY:
 1. ✅ MAINTAIN PREVIOUS RECOMMENDATIONS if data hasn't changed significantly

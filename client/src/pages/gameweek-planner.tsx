@@ -60,7 +60,7 @@ export default function GameweekPlanner() {
   const [transferAcceptance, setTransferAcceptance] = useState<Record<number, boolean>>({});
   const [lineupOptimizationAcceptance, setLineupOptimizationAcceptance] = useState<Record<number, boolean>>({});
 
-  const { data: gameweeks, isLoading: loadingGameweeks } = useFPLGameweeks();
+  const { data: gameweeks, isLoading: loadingGameweeks} = useFPLGameweeks();
   const { data: players, isLoading: loadingPlayers } = useFPLPlayers();
   const { data: teams, isLoading: loadingTeams } = useFPLTeams();
 
@@ -103,6 +103,18 @@ export default function GameweekPlanner() {
     queryKey: ["/api/automation/plan", userId, planningGameweek?.id],
     queryFn: async () => {
       const url = `/api/automation/plan/${userId}?gameweek=${planningGameweek?.id}`;
+      return apiRequest("GET", url);
+    },
+    enabled: !!planningGameweek?.id,
+    retry: false,
+    staleTime: 30 * 1000,
+  });
+
+  // Fetch predictions for the starting XI visualization
+  const { data: predictions } = useQuery<Record<number, number>>({
+    queryKey: ["/api/predictions", userId, planningGameweek?.id],
+    queryFn: async () => {
+      const url = `/api/predictions/${userId}/${planningGameweek?.id}`;
       return apiRequest("GET", url);
     },
     enabled: !!planningGameweek?.id,
@@ -697,6 +709,7 @@ export default function GameweekPlanner() {
               allPlayers={players as FPLPlayer[]}
               allTeams={teams as FPLTeam[]}
               formation={plan.formation}
+              predictedPoints={predictions ? new Map(Object.entries(predictions).map(([k, v]) => [parseInt(k), v])) : undefined}
             />
           )}
 
@@ -1033,6 +1046,7 @@ export default function GameweekPlanner() {
                 allPlayers={players as FPLPlayer[]}
                 allTeams={teams as FPLTeam[]}
                 formation={plan.formation}
+                predictedPoints={predictions ? new Map(Object.entries(predictions).map(([k, v]) => [parseInt(k), v])) : undefined}
               />
               {plan.lineup.filter(p => p.position > 11).length > 0 && (
                 <Card>

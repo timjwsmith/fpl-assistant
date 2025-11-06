@@ -1222,6 +1222,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Predictions Routes
+  app.get("/api/predictions/:userId/:gameweek", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const gameweek = parseInt(req.params.gameweek);
+      
+      const predictions = await storage.getPredictionsByGameweek(userId, gameweek);
+      
+      // Convert to a simple map for frontend consumption
+      const predictionsMap: Record<number, number> = {};
+      predictions.forEach(p => {
+        predictionsMap[p.playerId] = p.predictedPoints;
+      });
+      
+      res.json(predictionsMap);
+    } catch (error) {
+      console.error('[Predictions Route] Error fetching predictions:', error);
+      res.status(500).json({ error: 'Failed to fetch predictions' });
+    }
+  });
+
   // Prediction Accuracy Routes
   app.get("/api/prediction-accuracy/:userId", async (req, res) => {
     try {

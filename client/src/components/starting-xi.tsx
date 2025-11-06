@@ -18,9 +18,10 @@ interface StartingXIProps {
   allPlayers: FPLPlayer[];
   allTeams?: FPLTeam[];
   formation: string;
+  predictedPoints?: Map<number, number>; // Map of player_id to predicted points
 }
 
-export function StartingXI({ lineup, allPlayers, allTeams, formation }: StartingXIProps) {
+export function StartingXI({ lineup, allPlayers, allTeams, formation, predictedPoints }: StartingXIProps) {
   if (!lineup || lineup.length === 0) {
     return null;
   }
@@ -100,6 +101,11 @@ export function StartingXI({ lineup, allPlayers, allTeams, formation }: Starting
                         <p className="text-xs md:text-sm font-semibold text-white whitespace-nowrap">
                           {player.web_name}
                         </p>
+                        {predictedPoints && predictedPoints.has(lineupPlayer.player_id) && (
+                          <p className="text-[10px] md:text-xs text-fpl-cyan font-bold mt-0.5">
+                            {predictedPoints.get(lineupPlayer.player_id)} pts
+                          </p>
+                        )}
                       </div>
                     </div>
                   );

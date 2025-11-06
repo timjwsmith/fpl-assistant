@@ -799,6 +799,8 @@ export class PostgresStorage implements IStorage {
   async updateGameweekPlanTransfers(planId: number, transfers: Array<{
     player_out_id: number;
     player_in_id: number;
+    player_out_predicted_points?: number;
+    player_in_predicted_points?: number;
     expected_points_gain: number;
     expected_points_gain_timeframe: string;
     reasoning: string;
@@ -809,7 +811,9 @@ export class PostgresStorage implements IStorage {
     // Ensure all transfers have accepted field (default to true if not provided)
     const transfersWithAccepted = transfers.map(t => ({
       ...t,
-      accepted: t.accepted ?? true
+      accepted: t.accepted ?? true,
+      player_out_predicted_points: t.player_out_predicted_points ?? 0,
+      player_in_predicted_points: t.player_in_predicted_points ?? 0,
     }));
 
     await db

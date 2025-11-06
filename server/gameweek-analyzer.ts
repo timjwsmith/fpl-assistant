@@ -429,7 +429,12 @@ export class GameweekAnalyzerService {
       const plan = await storage.saveGameweekPlan({
         userId,
         gameweek,
-        transfers: aiResponse.transfers.map(t => ({...t, accepted: true})),
+        transfers: aiResponse.transfers.map(t => ({
+          ...t, 
+          accepted: true,
+          player_out_predicted_points: 0, // Will be enriched after predictions are generated
+          player_in_predicted_points: 0,   // Will be enriched after predictions are generated
+        })),
         captainId: aiResponse.captain_id,
         viceCaptainId: aiResponse.vice_captain_id,
         chipToPlay: aiResponse.chip_to_play as 'wildcard' | 'freehit' | 'benchboost' | 'triplecaptain' | null,
@@ -602,6 +607,28 @@ export class GameweekAnalyzerService {
         return { playerId, name: player?.web_name || 'Unknown', predictedPoints: pts };
       }).sort((a, b) => b.predictedPoints - a.predictedPoints);
       console.log(predictionsArray.slice(0, 15).map(p => `  ${p.name}: ${p.predictedPoints} pts`).join('\n'));
+
+      // Enrich transfers with individual player predicted points for the next gameweek
+      console.log(`[GameweekAnalyzer] 📊 Enriching ${plan.transfers.length} transfers with individual player predictions...`);
+      const enrichedTransfers = plan.transfers.map(transfer => {
+        const playerOutPredicted = predictionsMap.get(transfer.player_out_id) || 0;
+        const playerInPredicted = predictionsMap.get(transfer.player_in_id) || 0;
+        
+        const playerOutName = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === transfer.player_out_id)?.web_name || `Player ${transfer.player_out_id}`;
+        const playerInName = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === transfer.player_in_id)?.web_name || `Player ${transfer.player_in_id}`;
+        
+        console.log(`  Transfer: ${playerOutName} (${playerOutPredicted} pts) → ${playerInName} (${playerInPredicted} pts)`);
+        
+        return {
+          ...transfer,
+          player_out_predicted_points: playerOutPredicted,
+          player_in_predicted_points: playerInPredicted,
+        };
+      });
+      
+      // Update the plan with enriched transfers
+      await storage.updateGameweekPlanTransfers(plan.id, enrichedTransfers);
+      console.log(`[GameweekAnalyzer] ✅ Updated plan ${plan.id} with individual player predictions`);
 
       // 8. Generate starting XI lineup - first generate current lineup (before transfers) to compare
       console.log(`[GameweekAnalyzer] Generating current lineup (before transfers) for comparison...`);

@@ -46,8 +46,10 @@ interface HydratedGameweekPlan extends Omit<RawGameweekPlan, 'transfers' | 'line
   transfers: Array<{
     player_out_id: number;
     player_out_name: string;
+    player_out_predicted_points: number;
     player_in_id: number;
     player_in_name: string;
+    player_in_predicted_points: number;
     expected_points_gain: number;
     reasoning: string;
     priority: 'high' | 'medium' | 'low';
@@ -84,18 +86,23 @@ export class GameweekPlanHydrator {
     const playerMap = new Map(players.map(p => [p.id, p]));
 
     // Enrich transfers with player names (market transfers only)
-    // Add defensive default for 'accepted' field to handle legacy records
-    const enrichedTransfers = rawPlan.transfers.map(transfer => ({
-      player_out_id: transfer.player_out_id,
-      player_out_name: playerMap.get(transfer.player_out_id)?.web_name || `Player ${transfer.player_out_id}`,
-      player_in_id: transfer.player_in_id,
-      player_in_name: playerMap.get(transfer.player_in_id)?.web_name || `Player ${transfer.player_in_id}`,
-      expected_points_gain: transfer.expected_points_gain,
-      reasoning: transfer.reasoning,
-      priority: transfer.priority,
-      cost_impact: transfer.cost_impact,
-      accepted: transfer.accepted ?? true, // Defensive default for legacy records
-    }));
+    // Add defensive defaults for 'accepted' and predicted points fields to handle legacy records
+    const enrichedTransfers = rawPlan.transfers.map(transfer => {
+      const transferWithPredictions = transfer as any; // Type assertion for predicted points (may not exist in legacy records)
+      return {
+        player_out_id: transfer.player_out_id,
+        player_out_name: playerMap.get(transfer.player_out_id)?.web_name || `Player ${transfer.player_out_id}`,
+        player_out_predicted_points: transferWithPredictions.player_out_predicted_points ?? 0, // Defensive default for legacy records
+        player_in_id: transfer.player_in_id,
+        player_in_name: playerMap.get(transfer.player_in_id)?.web_name || `Player ${transfer.player_in_id}`,
+        player_in_predicted_points: transferWithPredictions.player_in_predicted_points ?? 0, // Defensive default for legacy records
+        expected_points_gain: transfer.expected_points_gain,
+        reasoning: transfer.reasoning,
+        priority: transfer.priority,
+        cost_impact: transfer.cost_impact,
+        accepted: transfer.accepted ?? true, // Defensive default for legacy records
+      };
+    });
 
     // Lineup optimizations are already enriched with names in the database
     // Add defensive default for 'accepted' field to handle legacy records

@@ -420,6 +420,8 @@ export const gameweekPlans = pgTable('gameweek_plans', {
   transfers: jsonb('transfers').notNull().$type<Array<{
     player_out_id: number;
     player_in_id: number;
+    player_out_predicted_points: number;
+    player_in_predicted_points: number;
     expected_points_gain: number;
     expected_points_gain_timeframe: string;
     reasoning: string;

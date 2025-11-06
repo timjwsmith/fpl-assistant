@@ -774,7 +774,14 @@ export default function GameweekPlanner() {
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-xs text-muted-foreground mb-1">Out</p>
-                                  <p className="font-semibold truncate">{playerOut?.web_name || 'Unknown'}</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-semibold truncate">{playerOut?.web_name || 'Unknown'}</p>
+                                    {transfer.player_out_predicted_points > 0 && (
+                                      <Badge variant="secondary" className="text-xs font-medium">
+                                        {transfer.player_out_predicted_points} pts
+                                      </Badge>
+                                    )}
+                                  </div>
                                   <div className="flex items-center gap-2 mt-1">
                                     {teamOut?.code && (
                                       <img 
@@ -809,7 +816,14 @@ export default function GameweekPlanner() {
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-xs text-muted-foreground mb-1">In</p>
-                                  <p className="font-semibold truncate">{playerIn?.web_name || 'Unknown'}</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-semibold truncate">{playerIn?.web_name || 'Unknown'}</p>
+                                    {transfer.player_in_predicted_points > 0 && (
+                                      <Badge variant="secondary" className="text-xs font-medium bg-chart-2/20 text-chart-2">
+                                        {transfer.player_in_predicted_points} pts
+                                      </Badge>
+                                    )}
+                                  </div>
                                   <div className="flex items-center gap-2 mt-1">
                                     {teamIn?.code && (
                                       <img 

@@ -67,6 +67,23 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 
 ## Recent Changes
 
+### 2025-11-06: Individual Player Point Predictions on Transfer Cards
+**Feature Request**: Show predicted points for each individual player in transfer recommendations for the next gameweek, not just the total 6-gameweek gain.
+
+**Implementation**:
+1. **Database Schema**: Added `player_out_predicted_points` and `player_in_predicted_points` integer fields to transfers JSONB array in `gameweek_plans` table
+2. **Backend Logic**: After generating individual player predictions, system enriches transfer objects with next-gameweek predicted points for both outgoing and incoming players
+3. **Prediction Enrichment**: New step in GameweekAnalyzer fetches predictions from database and updates transfer records with individual player points (e.g., "Mukiele: 6pts → Gabriel: 8pts")
+4. **Frontend Display**: Player predicted points shown as coloured badges next to player names on transfer cards - grey for player-out, green for player-in
+5. **Defensive Defaults**: Legacy records without predicted points default to 0, preventing display errors
+
+**Result**: Users can now see:
+- Individual predicted points for next gameweek for both players in each transfer
+- Quick visual comparison of player performance expectations
+- More granular decision-making data beyond just the 6-gameweek total gain
+
+**Files Modified**: `shared/schema.ts`, `server/gameweek-analyzer.ts`, `server/storage.ts`, `server/gameweek-plan-hydrator.ts`, `client/src/pages/gameweek-planner.tsx`
+
 ### 2025-11-01: User Override System - AI-Assisted with Selective Acceptance
 **Problem**: Users need ability to reject individual AI recommendations that have negative ROI (e.g., Dúbravka → Roefs transfer costing 4pts but only gaining 2pts over 6 gameweeks).
 

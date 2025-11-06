@@ -67,22 +67,31 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 
 ## Recent Changes
 
-### 2025-11-06: Individual Player Point Predictions on Transfer Cards
-**Feature Request**: Show predicted points for each individual player in transfer recommendations for the next gameweek, not just the total 6-gameweek gain.
+### 2025-11-06: Critical Bug Fixes + Individual Player Point Predictions
+**Issues Discovered**:
+1. **GROSS vs NET Mismatch**: System showed baseline (GROSS) as 70pts but NET as 72pts when transfer cost was 0 - mathematically impossible
+2. **Missing Transfer Card Predictions**: Transferred-out players (e.g., Mukiele) showed 0pts instead of actual predicted points
+3. **Team Value £100.1m**: User reported team value exceeding £100m limit
 
-**Implementation**:
-1. **Database Schema**: Added `player_out_predicted_points` and `player_in_predicted_points` integer fields to transfers JSONB array in `gameweek_plans` table
-2. **Backend Logic**: After generating individual player predictions, system enriches transfer objects with next-gameweek predicted points for both outgoing and incoming players
-3. **Prediction Enrichment**: New step in GameweekAnalyzer fetches predictions from database and updates transfer records with individual player points (e.g., "Mukiele: 6pts → Gabriel: 8pts")
-4. **Frontend Display**: Player predicted points shown as coloured badges next to player names on transfer cards - grey for player-out, green for player-in
-5. **Defensive Defaults**: Legacy records without predicted points default to 0, preventing display errors
+**Root Causes**:
+1. **GROSS/NET**: GameweekAnalyzer was overriding AI's original 70pt prediction with calculated 72pts, causing NET to diverge from baseline when transfer_cost = 0
+2. **Missing Predictions**: System only generated predictions for current squad, excluding transferred-out players; predictionsMap filtered by currentPlayerIds instead of allRelevantPlayerIds
+3. **Team Value**: Confirmed via FPL API (`last_deadline_value: 1001`) this is real data - FPL allows team value to exceed £100m through player price rises
 
-**Result**: Users can now see:
-- Individual predicted points for next gameweek for both players in each transfer
-- Quick visual comparison of player performance expectations
-- More granular decision-making data beyond just the 6-gameweek total gain
+**Fixes Implemented** (Architect-approved):
+1. **GROSS/NET Fix**: Modified GameweekAnalyzer to KEEP AI's original prediction instead of overriding with calculated value, ensuring GROSS == NET when transfer_cost = 0
+2. **Individual Player Predictions**: 
+   - Extended prediction generation to include transferred-out players (allRelevantPlayerIds = current + transferred-out)
+   - Updated relevantPredictions filter to use allRelevantPlayerIds instead of currentPlayerIds
+   - Ensured predictionsMap includes all players touched by transfers for complete transfer card enrichment
+3. **Team Value**: No fix needed - confirmed as legitimate FPL feature allowing team value growth via player price rises
 
-**Files Modified**: `shared/schema.ts`, `server/gameweek-analyzer.ts`, `server/storage.ts`, `server/gameweek-plan-hydrator.ts`, `client/src/pages/gameweek-planner.tsx`
+**Result**: 
+- Mathematical integrity restored: GROSS baseline equals NET when no transfer cost
+- Transfer cards now display actual predicted points for both player_in and player_out
+- Team value correctly reflects FPL API data
+
+**Files Modified**: `server/gameweek-analyzer.ts`, `server/gameweek-plan-hydrator.ts`, `replit.md`
 
 ### 2025-11-01: User Override System - AI-Assisted with Selective Acceptance
 **Problem**: Users need ability to reject individual AI recommendations that have negative ROI (e.g., Dúbravka → Roefs transfer costing 4pts but only gaining 2pts over 6 gameweeks).

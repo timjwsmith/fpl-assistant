@@ -190,6 +190,17 @@ interface AIGameweekResponse {
       bench_reason: string;
     };
   }>;
+  lineup_optimizations?: Array<{
+    benched_player_id: number;
+    benched_player_name: string;
+    benched_player_position: string;
+    benched_player_predicted_points: number;
+    starting_player_id: number;
+    starting_player_name: string;
+    starting_player_position: string;
+    starting_player_predicted_points: number;
+    reasoning: string;
+  }>;
   captain_id: number;
   vice_captain_id: number;
   chip_to_play: string | null;

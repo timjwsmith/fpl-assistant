@@ -84,6 +84,7 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
    - Extended prediction generation to include transferred-out players (allRelevantPlayerIds = current + transferred-out)
    - Updated relevantPredictions filter to use allRelevantPlayerIds instead of currentPlayerIds
    - Ensured predictionsMap includes all players touched by transfers for complete transfer card enrichment
+   - **CRITICAL**: Fixed double-save bug where enriched transfers were being overwritten - now enriches aiResponse.transfers instead of plan.transfers and saves only once after lineup optimization extraction
 3. **Team Value**: No fix needed - confirmed as legitimate FPL feature allowing team value growth via player price rises
 
 **Result**: 

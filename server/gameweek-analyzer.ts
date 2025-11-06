@@ -613,9 +613,9 @@ export class GameweekAnalyzerService {
       }).sort((a, b) => b.predictedPoints - a.predictedPoints);
       console.log(predictionsArray.slice(0, 15).map(p => `  ${p.name}: ${p.predictedPoints} pts`).join('\n'));
 
-      // Enrich transfers with individual player predicted points for the next gameweek
-      console.log(`[GameweekAnalyzer] 📊 Enriching ${plan.transfers.length} transfers with individual player predictions...`);
-      const enrichedTransfers = plan.transfers.map(transfer => {
+      // Enrich AI response transfers with individual player predicted points for the next gameweek
+      console.log(`[GameweekAnalyzer] 📊 Enriching ${aiResponse.transfers.length} transfers with individual player predictions...`);
+      const enrichedTransfers = aiResponse.transfers.map(transfer => {
         const playerOutPredicted = predictionsMap.get(transfer.player_out_id) || 0;
         const playerInPredicted = predictionsMap.get(transfer.player_in_id) || 0;
         
@@ -631,9 +631,7 @@ export class GameweekAnalyzerService {
         };
       });
       
-      // Update the plan with enriched transfers
-      await storage.updateGameweekPlanTransfers(plan.id, enrichedTransfers);
-      console.log(`[GameweekAnalyzer] ✅ Updated plan ${plan.id} with individual player predictions`);
+      console.log(`[GameweekAnalyzer] ✅ Enriched transfers will be saved after lineup optimization extraction`);
 
       // 8. Generate starting XI lineup - first generate current lineup (before transfers) to compare
       console.log(`[GameweekAnalyzer] Generating current lineup (before transfers) for comparison...`);
@@ -1059,13 +1057,13 @@ export class GameweekAnalyzerService {
         
         // CRITICAL: Extract lineup optimizations from transfers with substitution_details
         // This handles lineup changes caused by transfers (bench players brought in)
-        console.log(`\n[GameweekAnalyzer] 🔍 Extracting lineup optimizations from transfers...`);
+        console.log(`\n[GameweekAnalyzer] 🔍 Extracting lineup optimizations from enriched transfers...`);
         if (!(aiResponse as any).lineupOptimizations) {
           (aiResponse as any).lineupOptimizations = [];
         }
         
-        const transfersToKeep = [];
-        for (const transfer of aiResponse.transfers) {
+        const finalTransfers = [];
+        for (const transfer of enrichedTransfers) {
           if (transfer.substitution_details) {
             console.log(`  📤 Extracting lineup optimization from transfer ${transfer.player_out_id} → ${transfer.player_in_id}`);
             (aiResponse as any).lineupOptimizations.push({
@@ -1083,16 +1081,17 @@ export class GameweekAnalyzerService {
             console.log(`    ✅ Added: ${transfer.substitution_details.benched_player_name} benched for ${transfer.substitution_details.incoming_player_name}`);
             
             // Remove substitution_details from transfer object
-            delete transfer.substitution_details;
+            const { substitution_details, ...transferWithoutSubstitution } = transfer;
+            finalTransfers.push(transferWithoutSubstitution);
+          } else {
+            finalTransfers.push(transfer);
           }
-          transfersToKeep.push(transfer);
         }
-        aiResponse.transfers = transfersToKeep;
         console.log(`  ✅ Extracted ${(aiResponse as any).lineupOptimizations.length} total lineup optimization(s)`);
         
-        // Save transfers and lineup optimizations separately
-        await storage.updateGameweekPlanTransfers(plan.id, aiResponse.transfers);
-        console.log(`[GameweekAnalyzer] Transfer recommendations saved to database for plan ${plan.id}`);
+        // Save enriched transfers (with individual player predictions) and lineup optimizations separately
+        await storage.updateGameweekPlanTransfers(plan.id, finalTransfers);
+        console.log(`[GameweekAnalyzer] Transfer recommendations (with individual predictions) saved to database for plan ${plan.id}`);
         
         // Save lineup optimizations if any were created
         if ((aiResponse as any).lineupOptimizations && (aiResponse as any).lineupOptimizations.length > 0) {

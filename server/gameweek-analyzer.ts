@@ -481,15 +481,20 @@ export class GameweekAnalyzerService {
 
       console.log(`[GameweekAnalyzer] Current plan has ${currentPlayerIds.size} players (${inputData.currentTeam.players.length} original - ${transferredOutIds.size} out + ${transferredInIds.size} in)`);
 
-      // 6.7. CRITICAL FIX: Generate predictions for ALL current squad players (existing + transferred-in)
-      // This ensures every player has a predicted_points value for accurate lineup generation and substitution attribution
-      console.log(`\n[GameweekAnalyzer] 🔮 Generating predictions for ALL ${currentPlayerIds.size} current squad players...`);
+      // 6.7. CRITICAL FIX: Generate predictions for ALL players including transferred-out players
+      // This ensures transfer cards can show individual player predicted points for both IN and OUT players
+      const allRelevantPlayerIds = new Set([
+        ...Array.from(currentPlayerIds), // Current squad (after transfers)
+        ...Array.from(transferredOutIds), // Also generate for transferred-out players for transfer card display
+      ]);
+      
+      console.log(`\n[GameweekAnalyzer] 🔮 Generating predictions for ${allRelevantPlayerIds.size} players (${currentPlayerIds.size} current squad + ${transferredOutIds.size} transferred-out)...`);
       
       const existingSquadPlayerIds = inputData.currentTeam.players
         .filter(p => p.player_id && !transferredOutIds.has(p.player_id))
         .map(p => p.player_id!);
       
-      console.log(`[GameweekAnalyzer] Breaking down: ${existingSquadPlayerIds.length} existing players + ${transferredInIds.size} transferred-in = ${currentPlayerIds.size} total`);
+      console.log(`[GameweekAnalyzer] Breaking down: ${existingSquadPlayerIds.length} existing + ${transferredInIds.size} transferred-in + ${transferredOutIds.size} transferred-out = ${allRelevantPlayerIds.size} total`);
       
       // Fetch existing predictions once before the loop (performance optimization)
       const existingPredictionsBeforeGeneration = await storage.getPredictionsByGameweek(userId, gameweek);
@@ -499,11 +504,11 @@ export class GameweekAnalyzerService {
           .map(p => p.playerId)
       );
       
-      // Generate predictions for ALL current players (both existing squad and transferred-in)
+      // Generate predictions for ALL relevant players (current squad + transferred-out for transfer cards)
       let predictionsGenerated = 0;
       let predictionsSkipped = 0;
       
-      for (const playerId of Array.from(currentPlayerIds)) {
+      for (const playerId of Array.from(allRelevantPlayerIds)) {
         // Check if prediction already exists for this player + gameweek + snapshot
         if (existingPredictionsSet.has(playerId)) {
           console.log(`  ⏭️  Player ${playerId} already has prediction for this snapshot - skipping`);
@@ -553,11 +558,11 @@ export class GameweekAnalyzerService {
       // Fetch all predictions for this gameweek (includes both new and historical predictions)
       const savedPredictions = await storage.getPredictionsByGameweek(userId, gameweek);
 
-      // Filter to only predictions for players in the CURRENT plan (post-transfer team)
-      // This ensures we only validate predictions created in THIS run, ignoring stale predictions from previous runs
-      const relevantPredictions = savedPredictions.filter(p => currentPlayerIds.has(p.playerId));
+      // Filter to predictions for ALL relevant players (current squad + transferred-out for transfer cards)
+      // This ensures predictionsMap includes transferred-out players so transfer cards can show player_out_predicted_points
+      const relevantPredictions = savedPredictions.filter(p => allRelevantPlayerIds.has(p.playerId));
 
-      console.log(`[GameweekAnalyzer] Snapshot validation: checking ${relevantPredictions.length} predictions for current team players (ignoring ${savedPredictions.length - relevantPredictions.length} stale predictions from previous runs)`);
+      console.log(`[GameweekAnalyzer] Snapshot validation: checking ${relevantPredictions.length} predictions for all relevant players (${currentPlayerIds.size} current + ${transferredOutIds.size} transferred-out, ignoring ${savedPredictions.length - relevantPredictions.length} stale predictions from previous runs)`);
 
       // Validate only relevant predictions have matching snapshot_id
       const mismatchedPredictions = relevantPredictions.filter(
@@ -1135,33 +1140,34 @@ export class GameweekAnalyzerService {
       console.log(`[GameweekAnalyzer] AI predicted_points: ${aiResponse.predicted_points}`);
       console.log(`[GameweekAnalyzer] Missing predictions: ${missingPredictionCount}`);
       
-      // Decide whether to override AI's predicted_points
+      // Validate AI's predicted_points against calculated value
+      // CRITICAL: Do NOT override AI's prediction - baselinePredictedPoints was saved with AI's original value
+      // Overriding here causes GROSS/NET mismatch (e.g., baseline=70, net=72 when transfer_cost=0)
       let finalGrossPoints: number;
       let predictionReliable: boolean;
       
       if (missingPredictionCount > 0) {
         console.error(`[GameweekAnalyzer] 🚨 ${missingPredictionCount} prediction(s) missing: ${missingPlayers.join(', ')}`);
         console.error(`[GameweekAnalyzer]    Calculated GROSS is incomplete (${calculatedGrossPoints})`);
-        console.warn(`[GameweekAnalyzer]    Cannot reliably determine if AI value is GROSS or NET - keeping AI value unchanged`);
-        console.warn(`[GameweekAnalyzer]    ⚠️  WARNING: If AI set NET instead of GROSS, double deduction may occur`);
+        console.warn(`[GameweekAnalyzer]    Cannot validate AI prediction - keeping AI value unchanged`);
         
-        // SAFETY: Skip override when predictions incomplete
-        // We cannot reliably determine if AI's value is GROSS or NET
-        // Overriding risks creating overoptimistic projections
         finalGrossPoints = aiResponse.predicted_points;
         predictionReliable = false;
       } else {
-        // All predictions present - calculated value is reliable
+        // All predictions present - validate AI prediction
         const pointsDifference = Math.abs(aiResponse.predicted_points - calculatedGrossPoints);
-        if (pointsDifference > 2) {
-          console.warn(`[GameweekAnalyzer] ⚠️  AI predicted_points (${aiResponse.predicted_points}) differs from calculated (${calculatedGrossPoints}) by ${pointsDifference} points`);
-          console.warn(`[GameweekAnalyzer]    Using calculated GROSS value: ${calculatedGrossPoints}`);
+        if (pointsDifference > 3) {
+          console.warn(`[GameweekAnalyzer] ⚠️  AI predicted_points (${aiResponse.predicted_points}) differs significantly from calculated (${calculatedGrossPoints}) by ${pointsDifference} points`);
+          console.warn(`[GameweekAnalyzer]    This may indicate an AI calculation error - review recommended`);
+        } else if (pointsDifference > 0) {
+          console.log(`[GameweekAnalyzer] ℹ️  AI predicted_points (${aiResponse.predicted_points}) differs slightly from calculated (${calculatedGrossPoints}) by ${pointsDifference} points`);
+          console.log(`[GameweekAnalyzer]    This is acceptable variance - using AI's original prediction`);
         } else {
-          console.log(`[GameweekAnalyzer] ✅ AI and calculated values match (difference: ${pointsDifference})`);
+          console.log(`[GameweekAnalyzer] ✅ AI and calculated values match exactly: ${aiResponse.predicted_points} pts`);
         }
-        // OVERRIDE: Use calculated GROSS points (reliable data-driven approach)
-        aiResponse.predicted_points = calculatedGrossPoints;
-        finalGrossPoints = calculatedGrossPoints;
+        // KEEP AI's original prediction - do NOT override
+        // The baselinePredictedPoints was already saved with AI's value on line 443
+        finalGrossPoints = aiResponse.predicted_points;
         predictionReliable = true;
       }
       

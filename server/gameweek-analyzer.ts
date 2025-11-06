@@ -457,6 +457,10 @@ export class GameweekAnalyzerService {
           player_out_predicted_points: 0, // Will be enriched after predictions are generated
           player_in_predicted_points: 0,   // Will be enriched after predictions are generated
         })),
+        lineupOptimizations: aiResponse.lineup_optimizations?.map(opt => ({
+          ...opt,
+          accepted: true,
+        })) || [],
         captainId: aiResponse.captain_id,
         viceCaptainId: aiResponse.vice_captain_id,
         chipToPlay: aiResponse.chip_to_play as 'wildcard' | 'freehit' | 'benchboost' | 'triplecaptain' | null,

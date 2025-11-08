@@ -67,3 +67,28 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - **Understat.com**: For advanced player statistics (npxG, xGChain, xGBuildup) via web scraping.
 - **OpenAI GPT-4o**: Utilized via Replit AI Integrations for AI-powered predictions and analysis.
 - **PostgreSQL**: Primary database for persistent storage.
+
+## Recent Changes
+
+### 2025-11-08: Lineup Optimization Removal UX Fix
+**Problem**: User saw notification "lineup optimizations changed" but UI showed nothing when previous recommendations were removed.
+
+**Root Cause**: When AI removed a lineup optimization (e.g., "bench Virgil for Saliba" → empty array), the continuity system correctly detected the change and showed a notification, but the UI conditional only displayed content when `lineupOptimizations.length > 0`, leaving users confused about what changed.
+
+**Example Scenario**:
+- Before sync: Virgil predicted 3 pts, Saliba 3.5 pts → AI recommends "bench Virgil, start Saliba"
+- After sync: Virgil predicted 4 pts, Saliba 3.5 pts → AI removes optimization (Virgil now better)
+- User sees: "lineup optimizations changed" but no explanation
+
+**Solution**: Added conditional rendering to show informative message when lineup optimizations are removed due to updated predictions.
+
+**Message Displayed**: "No lineup optimizations needed. Previous bench/starting recommendations have been removed due to updated player predictions. Your current starting XI is optimal."
+
+**Files Modified**: `client/src/pages/gameweek-planner.tsx`
+
+### 2025-11-08: Lineup Optimization Continuity System
+**Problem**: Lineup optimizations were changing randomly between plan regenerations despite identical data.
+
+**Solution**: Extended continuity system to track lineup optimizations alongside transfers, captain, vice-captain, formation, and chip. Added persistence to database with accepted flags, enabling consistency checks across generations.
+
+**Files Modified**: `server/gameweek-analyzer.ts`

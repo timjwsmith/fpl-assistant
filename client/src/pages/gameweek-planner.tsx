@@ -99,6 +99,17 @@ export default function GameweekPlanner() {
     staleTime: 30 * 60 * 1000,
   });
 
+  // Fetch all plans for this user to get previous plan for comparison
+  const { data: allPlans } = useQuery<PlanData[]>({
+    queryKey: ["/api/automation/plans", userId],
+    queryFn: async () => {
+      const url = `/api/automation/plans/${userId}`;
+      return apiRequest("GET", url);
+    },
+    enabled: !!userId,
+    staleTime: 60 * 1000,
+  });
+
   const { data: plan, isLoading: loadingPlan, error: planError, refetch: refetchPlan } = useQuery<PlanData>({
     queryKey: ["/api/automation/plan", userId, planningGameweek?.id],
     queryFn: async () => {
@@ -959,22 +970,76 @@ export default function GameweekPlanner() {
               </div>
             </div>
           ) : plan.recommendationsChanged && plan.changeReasoning?.includes('lineup optimizations changed') ? (
-            <div>
-              <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-                <ArrowRight className="h-6 w-6 text-fpl-purple" />
-                Lineup Optimizations
-              </h2>
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <CheckCircle className="h-12 w-12 mx-auto text-chart-2 mb-3" />
-                  <p className="text-muted-foreground font-medium">No lineup optimizations needed</p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Previous bench/starting recommendations have been removed due to updated player predictions.
-                    Your current starting XI is optimal.
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
+            (() => {
+              // Find previous plan for the same gameweek to show what was removed
+              const previousPlan = allPlans?.filter(p => p.gameweek === plan.gameweek && p.id !== plan.id)
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+              
+              const removedOptimizations = previousPlan?.lineupOptimizations || [];
+
+              return (
+                <div>
+                  <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+                    <ArrowRight className="h-6 w-6 text-fpl-purple" />
+                    Lineup Optimizations
+                  </h2>
+                  {removedOptimizations.length > 0 ? (
+                    <Alert className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+                      <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                      <AlertDescription className="text-amber-900 dark:text-amber-100">
+                        <p className="font-semibold mb-2">⚠️ Previous recommendation is no longer beneficial</p>
+                        <div className="space-y-3">
+                          {removedOptimizations.map((opt, i) => {
+                            // Get current predictions for both players to show why it changed
+                            const benchedPlayer = getPlayerById(opt.benched_player_id);
+                            const startingPlayer = getPlayerById(opt.starting_player_id);
+                            const currentBenchedPrediction = predictions?.[opt.benched_player_id];
+                            const currentStartingPrediction = predictions?.[opt.starting_player_id];
+                            
+                            return (
+                              <div key={i} className="text-sm space-y-2">
+                                <p className="font-medium">
+                                  Previously recommended: Bench <span className="font-bold">{opt.benched_player_name}</span> ({opt.benched_player_predicted_points?.toFixed(1)} pts), 
+                                  Start <span className="font-bold">{opt.starting_player_name}</span> ({opt.starting_player_predicted_points?.toFixed(1)} pts)
+                                </p>
+                                {(currentBenchedPrediction !== undefined || currentStartingPrediction !== undefined) && (
+                                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                                    <strong>Updated predictions:</strong> {opt.benched_player_name} now {currentBenchedPrediction?.toFixed(1)} pts, 
+                                    {' '}{opt.starting_player_name} now {currentStartingPrediction?.toFixed(1)} pts
+                                    {currentBenchedPrediction && currentStartingPrediction && currentBenchedPrediction > currentStartingPrediction && 
+                                      ` (${opt.benched_player_name} is now better)`
+                                    }
+                                  </p>
+                                )}
+                                <p className="text-amber-800 dark:text-amber-200">
+                                  <strong>With updated predictions, this swap is no longer beneficial.</strong>
+                                  {opt.accepted && (
+                                    <span className="block mt-1">
+                                      If you applied this change in your FPL team, please <strong>REVERSE IT</strong> - your original lineup is now better.
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <Card>
+                      <CardContent className="p-8 text-center">
+                        <CheckCircle className="h-12 w-12 mx-auto text-chart-2 mb-3" />
+                        <p className="text-muted-foreground font-medium">No lineup optimizations needed</p>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Previous bench/starting recommendations have been removed due to updated player predictions.
+                          Your current starting XI is optimal.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              );
+            })()
           ) : null}
 
           {(plan.captainId || plan.viceCaptainId) && (

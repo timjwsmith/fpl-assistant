@@ -878,7 +878,7 @@ export default function GameweekPlanner() {
           </div>
 
           {/* Lineup Optimizations Section */}
-          {plan.lineupOptimizations && plan.lineupOptimizations.length > 0 && (
+          {plan.lineupOptimizations && plan.lineupOptimizations.length > 0 ? (
             <div>
               <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
                 <ArrowRight className="h-6 w-6 text-fpl-purple" />
@@ -958,7 +958,24 @@ export default function GameweekPlanner() {
                 )})}
               </div>
             </div>
-          )}
+          ) : plan.recommendationsChanged && plan.changeReasoning?.includes('lineup optimizations changed') ? (
+            <div>
+              <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+                <ArrowRight className="h-6 w-6 text-fpl-purple" />
+                Lineup Optimizations
+              </h2>
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <CheckCircle className="h-12 w-12 mx-auto text-chart-2 mb-3" />
+                  <p className="text-muted-foreground font-medium">No lineup optimizations needed</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Previous bench/starting recommendations have been removed due to updated player predictions.
+                    Your current starting XI is optimal.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          ) : null}
 
           {(plan.captainId || plan.viceCaptainId) && (
             <div>

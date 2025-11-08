@@ -70,19 +70,28 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 
 ## Recent Changes
 
-### 2025-11-08: Lineup Optimization Removal UX Fix
-**Problem**: User saw notification "lineup optimizations changed" but UI showed nothing when previous recommendations were removed.
+### 2025-11-08: Lineup Optimization Removal UX Fix with Reversal Warning
+**Problem**: User saw notification "lineup optimizations changed" but UI showed nothing when previous recommendations were removed. Critical issue: User had already accepted and applied the change in their FPL team (e.g., benched Virgil for Saliba), but when AI removed that recommendation due to updated predictions, there was no warning to REVERSE the previously applied change.
 
-**Root Cause**: When AI removed a lineup optimization (e.g., "bench Virgil for Saliba" → empty array), the continuity system correctly detected the change and showed a notification, but the UI conditional only displayed content when `lineupOptimizations.length > 0`, leaving users confused about what changed.
+**Root Cause**: When AI removed a lineup optimization (e.g., "bench Virgil for Saliba" → empty array), the continuity system correctly detected the change and showed a notification, but the UI didn't show what was removed or warn user to reverse it if already applied.
 
 **Example Scenario**:
-- Before sync: Virgil predicted 3 pts, Saliba 3.5 pts → AI recommends "bench Virgil, start Saliba"
+- Before sync: Virgil predicted 3 pts, Saliba 3.5 pts → AI recommends "bench Virgil, start Saliba" → User accepts & applies this
 - After sync: Virgil predicted 4 pts, Saliba 3.5 pts → AI removes optimization (Virgil now better)
-- User sees: "lineup optimizations changed" but no explanation
+- Previous behavior: User sees "lineup optimizations changed" but doesn't know to reverse the change
+- New behavior: User sees amber warning showing previous recommendation and explicit instruction to REVERSE IT
 
-**Solution**: Added conditional rendering to show informative message when lineup optimizations are removed due to updated predictions.
+**Solution**: 
+1. Added query to fetch all historical plans for the user
+2. When showing "lineup optimizations changed" with empty array, find previous plan for same gameweek
+3. Extract removed lineup optimizations with `accepted` status
+4. Display amber warning alert showing:
+   - What was previously recommended (with old predictions)
+   - Updated predictions showing why it changed
+   - If accepted=true: "If you applied this change in your FPL team, please REVERSE IT - your original lineup is now better"
 
-**Message Displayed**: "No lineup optimizations needed. Previous bench/starting recommendations have been removed due to updated player predictions. Your current starting XI is optimal."
+**Example Warning Displayed**: 
+"⚠️ Previously recommended: Bench Virgil (3.0 pts), Start Saliba (3.5 pts). Updated predictions: Virgil now 4.0 pts, Saliba now 3.5 pts (Virgil is now better). With updated predictions, this swap is no longer beneficial. If you applied this change in your FPL team, please REVERSE IT - your original lineup is now better."
 
 **Files Modified**: `client/src/pages/gameweek-planner.tsx`
 

@@ -268,7 +268,9 @@ export class PredictionAnalysisService {
       }
       
       // Find underperformers (players who scored 2 or fewer points)
+      // ONLY analyze starting XI (positions 1-11), NOT bench substitutes
       const underperformers = teamPerformance
+        .filter((p: any) => p.lineupPosition <= 11) // Starting XI only
         .filter((p: any) => p.points <= 2)
         .sort((a: any, b: any) => a.points - b.points)
         .slice(0, 5);
@@ -488,15 +490,30 @@ Format as bullet points starting with "• ". Max 4 bullets.`;
   /**
    * Batch analyze all completed gameweeks for a user
    */
-  async analyzeAllCompletedGameweeks(userId: number): Promise<PredictionFailureAnalysis[]> {
-    console.log(`[PredictionAnalysis] Analyzing all completed gameweeks for user ${userId}`);
+  async analyzeAllCompletedGameweeks(userId: number, options?: { gameweek?: number; forceRegenerate?: boolean }): Promise<PredictionFailureAnalysis[]> {
+    const { gameweek: targetGameweek, forceRegenerate = false } = options || {};
+    
+    if (targetGameweek) {
+      console.log(`[PredictionAnalysis] Analyzing specific gameweek ${targetGameweek} for user ${userId} (force=${forceRegenerate})`);
+    } else {
+      console.log(`[PredictionAnalysis] Analyzing all completed gameweeks for user ${userId}`);
+    }
 
     const allPlans = await storage.getGameweekPlansByUser(userId);
     
     // Filter to plans with both predicted and actual points
-    const completedPlans = allPlans.filter(
+    let completedPlans = allPlans.filter(
       p => p.predictedPoints !== null && p.actualPointsWithAI !== null
     );
+
+    // Filter to specific gameweek if requested
+    if (targetGameweek) {
+      completedPlans = completedPlans.filter(p => p.gameweek === targetGameweek);
+      if (completedPlans.length === 0) {
+        console.log(`[PredictionAnalysis] No completed plan found for GW${targetGameweek}`);
+        return [];
+      }
+    }
 
     // Sort by gameweek to analyze oldest first
     completedPlans.sort((a, b) => a.gameweek - b.gameweek);
@@ -504,8 +521,8 @@ Format as bullet points starting with "• ". Max 4 bullets.`;
     const results: PredictionFailureAnalysis[] = [];
 
     for (const plan of completedPlans) {
-      // Skip if already analyzed
-      if (plan.predictionAnalysis) {
+      // Skip if already analyzed (unless forcing regeneration)
+      if (plan.predictionAnalysis && !forceRegenerate) {
         console.log(`[PredictionAnalysis] Plan ${plan.id} (GW${plan.gameweek}) already analyzed`);
         continue;
       }

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, XCircle, AlertCircle, TrendingUp, TrendingDown, Minus, RefreshCw, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, TrendingUp, TrendingDown, Minus, RefreshCw, ChevronDown, ChevronUp, Sparkles, RotateCcw } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 interface GameweekAccuracyRecord {
@@ -96,6 +96,17 @@ export function PredictionAccuracy({ userId, startGameweek = 8 }: PredictionAccu
   const analyzeMutation = useMutation({
     mutationFn: async () => {
       return apiRequest('POST', `/api/prediction-accuracy/analyze/${userId}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/prediction-accuracy/${userId}`] 
+      });
+    },
+  });
+
+  const regenerateGameweekMutation = useMutation({
+    mutationFn: async (gameweek: number) => {
+      return apiRequest('POST', `/api/prediction-accuracy/analyze/${userId}?gameweek=${gameweek}&forceRegenerate=true`, {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ 
@@ -283,7 +294,7 @@ export function PredictionAccuracy({ userId, startGameweek = 8 }: PredictionAccu
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
                         {record.error !== null && record.actualPoints !== null && (
                           <Badge 
                             variant="outline" 
@@ -301,6 +312,18 @@ export function PredictionAccuracy({ userId, startGameweek = 8 }: PredictionAccu
                           </Badge>
                         )}
                         {getAccuracyBadge(record.error)}
+                        {record.status === 'completed' && record.error !== null && record.error >= 5 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => regenerateGameweekMutation.mutate(record.gameweek)}
+                            disabled={regenerateGameweekMutation.isPending}
+                            className="h-8 px-2"
+                          >
+                            <RotateCcw className={`h-3 w-3 ${regenerateGameweekMutation.isPending ? 'animate-spin' : ''}`} />
+                            <span className="ml-1 text-xs">Regenerate</span>
+                          </Button>
+                        )}
                         {hasAnalysis && (
                           <Button
                             variant="ghost"

@@ -1324,8 +1324,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid userId" });
       }
 
-      console.log(`[API] Generating AI analysis for all completed gameweeks for user ${userId}`);
-      const results = await predictionAnalysisService.analyzeAllCompletedGameweeks(userId);
+      const gameweek = req.query.gameweek ? parseInt(req.query.gameweek as string) : undefined;
+      const forceRegenerate = req.query.forceRegenerate === 'true';
+
+      if (gameweek) {
+        console.log(`[API] Generating AI analysis for GW${gameweek} for user ${userId} (force=${forceRegenerate})`);
+      } else {
+        console.log(`[API] Generating AI analysis for all completed gameweeks for user ${userId}`);
+      }
+      
+      const results = await predictionAnalysisService.analyzeAllCompletedGameweeks(userId, { gameweek, forceRegenerate });
       
       res.json({ 
         message: `Successfully analyzed ${results.length} gameweeks`,

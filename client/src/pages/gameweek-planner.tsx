@@ -802,6 +802,8 @@ export default function GameweekPlanner() {
                   const playerIn = getPlayerById(transfer.player_in_id);
                   const teamOut = getTeamById(playerOut?.team);
                   const teamIn = getTeamById(playerIn?.team);
+                  const teamOutCode = teamOut?.code || playerOut?.team_code;
+                  const teamInCode = teamIn?.code || playerIn?.team_code;
                   const isAccepted = transferAcceptance[i] ?? true;
 
                   return (
@@ -839,7 +841,7 @@ export default function GameweekPlanner() {
                             <div className="flex-1 p-3 rounded-md bg-destructive/10 border border-destructive/30">
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-12 w-12 border-2 border-destructive/30">
-                                  <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${playerOut?.photo?.replace('.jpg', '.png')}`} />
+                                  <AvatarImage src={teamOutCode ? `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamOutCode}-110.png` : undefined} />
                                   <AvatarFallback className="text-xs font-semibold">
                                     {playerOut?.web_name.substring(0, 2).toUpperCase() || '??'}
                                   </AvatarFallback>
@@ -881,7 +883,7 @@ export default function GameweekPlanner() {
                             <div className="flex-1 p-3 rounded-md bg-chart-2/10 border border-chart-2/30">
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-12 w-12 border-2 border-chart-2/30">
-                                  <AvatarImage src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${playerIn?.photo?.replace('.jpg', '.png')}`} />
+                                  <AvatarImage src={teamInCode ? `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamInCode}-110.png` : undefined} />
                                   <AvatarFallback className="text-xs font-semibold">
                                     {playerIn?.web_name.substring(0, 2).toUpperCase() || '??'}
                                   </AvatarFallback>

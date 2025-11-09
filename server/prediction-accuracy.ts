@@ -43,7 +43,8 @@ class PredictionAccuracyService {
       return;
     }
 
-    const actualPoints = gwHistory.points - gwHistory.event_transfers_cost;
+    // FPL API's points field already includes transfer cost deduction, so use it directly
+    const actualPoints = gwHistory.points;
 
     const plan = await storage.getGameweekPlan(userId, gameweek);
     if (!plan) {

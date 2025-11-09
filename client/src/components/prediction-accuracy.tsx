@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, XCircle, AlertCircle, TrendingUp, TrendingDown, Minus, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, TrendingUp, TrendingDown, Minus, RefreshCw, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 interface GameweekAccuracyRecord {
@@ -93,6 +93,17 @@ export function PredictionAccuracy({ userId, startGameweek = 8 }: PredictionAccu
     },
   });
 
+  const analyzeMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', `/api/prediction-accuracy/analyze/${userId}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/prediction-accuracy/${userId}`] 
+      });
+    },
+  });
+
   if (isLoading) {
     return (
       <Card>
@@ -150,15 +161,28 @@ export function PredictionAccuracy({ userId, startGameweek = 8 }: PredictionAccu
               Tracking AI predictions vs actual results from GW{startGameweek} onwards
             </CardDescription>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => backfillMutation.mutate()}
-            disabled={backfillMutation.isPending}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${backfillMutation.isPending ? 'animate-spin' : ''}`} />
-            {metrics.completedGameweeks === 0 ? 'Load History' : 'Update History'}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => backfillMutation.mutate()}
+              disabled={backfillMutation.isPending}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${backfillMutation.isPending ? 'animate-spin' : ''}`} />
+              {metrics.completedGameweeks === 0 ? 'Load History' : 'Update History'}
+            </Button>
+            {metrics.completedGameweeks > 0 && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => analyzeMutation.mutate()}
+                disabled={analyzeMutation.isPending}
+              >
+                <Sparkles className={`h-4 w-4 mr-2 ${analyzeMutation.isPending ? 'animate-pulse' : ''}`} />
+                Generate Analysis
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">

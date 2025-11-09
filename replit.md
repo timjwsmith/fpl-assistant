@@ -70,13 +70,28 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 
 ## Recent Changes
 
-### 2025-11-09: Prediction Accuracy "Update History" Button Fix
-**Problem**: Users could not manually refresh prediction accuracy history after initial load. The "Load History" button only appeared when `completedGameweeks === 0`, meaning once you loaded history for GW8-9, the button disappeared and you couldn't fetch GW10 results when it finished.
+### 2025-11-09: Prediction Accuracy UI Fixes
+**Problems**: 
+1. Users could not manually refresh prediction accuracy history after initial load
+2. AI-powered analysis explaining prediction errors was missing from UI (no button to trigger it)
 
-**Solution**: Made the button always visible with dynamic text:
-- Shows "Load History" when 0 completed gameweeks
-- Shows "Update History" when 1+ completed gameweeks
-- Users can now click anytime to fetch newly completed gameweek results
+**Solutions**: 
+1. **"Update History" Button**: Made always visible with dynamic text
+   - Shows "Load History" when 0 completed gameweeks
+   - Shows "Update History" when 1+ completed gameweeks
+   - Users can click anytime to fetch newly completed gameweek results
+
+2. **"Generate Analysis" Button**: Added prominent button to trigger AI analysis
+   - Appears next to "Update History" button when gameweeks are completed
+   - Uses GPT-4o to analyze why predictions were inaccurate
+   - Shows detailed breakdown of player performances with exact scoring data
+   - Explains prediction errors with definitive statements (never uses "likely" or "probably")
+   - Analysis displays in expandable sections under each gameweek
+
+**How It Works**:
+1. Click "Update History" to fetch actual points from FPL API
+2. Click "Generate Analysis" to create AI explanations for prediction errors
+3. Click "Show Analysis" on any gameweek to see detailed breakdown
 
 **Files Modified**: `client/src/components/prediction-accuracy.tsx`
 

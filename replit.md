@@ -70,6 +70,26 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 
 ## Recent Changes
 
+### 2025-11-09: Per-Gameweek Analysis Regeneration
+**Problem**: When the prediction analysis logic was fixed (e.g., excluding bench players from underperformers), users had no way to regenerate analyses for past gameweeks with the corrected logic. They were stuck with outdated/incorrect analyses unless they manually deleted and recreated them.
+
+**Solution**: Added "Regenerate" button for individual gameweeks
+- **Backend**: Extended `/api/prediction-accuracy/analyze/:userId` endpoint to accept `gameweek` and `forceRegenerate` query parameters
+- **Service**: `analyzeAllCompletedGameweeks` now supports targeted regeneration for specific gameweeks
+- **UI**: Added "Regenerate" button with RotateCcw icon, shown only for completed gameweeks with error ≥5
+- **Behaviour**: Clicking regenerate fetches latest plan data and re-runs AI analysis with current logic
+
+**Key Features**:
+1. Targeted regeneration: Only re-analyzes specified gameweek (not all)
+2. Force overwrite: Replaces existing analysis even if already present
+3. Smart visibility: Button only appears for significant errors (≥5 pts)
+4. Loading state: Button shows spinning icon during regeneration
+5. Auto-refresh: UI updates immediately after regeneration completes
+
+**Example Use Case**: After fixing bench player bug, user can click "Regenerate" on GW10 to replace incorrect Cullen analysis with corrected version that excludes bench substitutes.
+
+**Files Modified**: `server/prediction-analysis-service.ts`, `server/routes.ts`, `client/src/components/prediction-accuracy.tsx`
+
 ### 2025-11-09: Prediction Accuracy UI Fixes
 **Problems**: 
 1. Users could not manually refresh prediction accuracy history after initial load

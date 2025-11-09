@@ -248,6 +248,30 @@ export default function GameweekPlanner() {
     },
   });
 
+  const refreshFPLDataMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/fpl/refresh", {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fpl/players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/fpl/teams"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/fpl/fixtures"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/fpl/gameweeks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/automation/plan", userId] });
+      toast({
+        title: "FPL Data Refreshed",
+        description: "Latest player transfers and team data have been synced from FPL API.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Refresh Failed",
+        description: error.message || "Failed to refresh FPL data. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const markSubmittedMutation = useMutation({
     mutationFn: async () => {
       if (!plan?.id) {
@@ -477,6 +501,24 @@ export default function GameweekPlanner() {
             </Button>
           )}
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Button
+              onClick={() => refreshFPLDataMutation.mutate()}
+              disabled={refreshFPLDataMutation.isPending}
+              variant="outline"
+              data-testid="button-refresh-fpl"
+            >
+              {refreshFPLDataMutation.isPending ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Refreshing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh FPL Data
+                </>
+              )}
+            </Button>
             <Button
               onClick={() => syncTeamMutation.mutate()}
               disabled={syncTeamMutation.isPending || !settings?.manager_id}

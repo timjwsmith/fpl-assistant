@@ -39,8 +39,9 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - **AI-Assisted with User Override**: Provides AI recommendations as a baseline, allowing users to selectively accept/reject. Both baseline AI predictions and user-adjusted predictions are displayed side-by-side.
 - **AI Prediction Pipeline**: User input is processed by a Context Builder, then GPT-4o for deterministic analysis, returning structured and natural language responses.
 - **Asynchronous AI Processing**: Utilizes a database-backed async polling system for long-running AI predictions.
-- **FPL API Integration**: Backend proxy with 5-minute caching for official FPL API requests.
+- **FPL API Integration**: Backend proxy with 5-minute caching for official FPL API requests. Manual cache refresh available via UI button to immediately sync latest player transfers and team data.
 - **Understat Integration**: Web scraping service enriches player data with advanced statistics from Understat.com, featuring 24-hour caching.
+- **Cache Management**: Comprehensive cache invalidation strategy across frontend (React Query) and backend (FPL API, gameweek snapshots). Plan generation mutations automatically invalidate player/team/fixture caches to prevent stale UI data.
 - **Availability-First Decision Making**: System enforces player availability checks before all AI decisions.
 - **AI Impact Analysis & Learning System**: Tracks AI performance, learns from past mistakes, and incorporates user feedback.
 - **Strategic AI Overhaul**: AI performs multi-gameweek planning and ROI analysis, considering long-term benefits and justifying point hits. It proactively recommends multi-transfer plans based on 6-gameweek fixture analysis.

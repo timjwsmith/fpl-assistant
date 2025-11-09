@@ -150,17 +150,15 @@ export function PredictionAccuracy({ userId, startGameweek = 8 }: PredictionAccu
               Tracking AI predictions vs actual results from GW{startGameweek} onwards
             </CardDescription>
           </div>
-          {metrics.completedGameweeks === 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => backfillMutation.mutate()}
-              disabled={backfillMutation.isPending}
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${backfillMutation.isPending ? 'animate-spin' : ''}`} />
-              Load History
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => backfillMutation.mutate()}
+            disabled={backfillMutation.isPending}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${backfillMutation.isPending ? 'animate-spin' : ''}`} />
+            {metrics.completedGameweeks === 0 ? 'Load History' : 'Update History'}
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">

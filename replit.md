@@ -70,6 +70,16 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 
 ## Recent Changes
 
+### 2025-11-09: Prediction Accuracy "Update History" Button Fix
+**Problem**: Users could not manually refresh prediction accuracy history after initial load. The "Load History" button only appeared when `completedGameweeks === 0`, meaning once you loaded history for GW8-9, the button disappeared and you couldn't fetch GW10 results when it finished.
+
+**Solution**: Made the button always visible with dynamic text:
+- Shows "Load History" when 0 completed gameweeks
+- Shows "Update History" when 1+ completed gameweeks
+- Users can now click anytime to fetch newly completed gameweek results
+
+**Files Modified**: `client/src/components/prediction-accuracy.tsx`
+
 ### 2025-11-08: Lineup Optimization Removal UX Fix with Reversal Warning
 **Problem**: User saw notification "lineup optimizations changed" but UI showed nothing when previous recommendations were removed. Critical issue: User had already accepted and applied the change in their FPL team (e.g., benched Virgil for Saliba), but when AI removed that recommendation due to updated predictions, there was no warning to REVERSE the previously applied change.
 

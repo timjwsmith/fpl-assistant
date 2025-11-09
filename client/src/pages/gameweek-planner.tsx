@@ -1191,7 +1191,7 @@ export default function GameweekPlanner() {
                       {plan.lineup.filter(p => p.position > 11).map((pick, idx) => {
                         const player = getPlayerById(pick.player_id);
                         const team = getTeamById(player?.team);
-                        const teamCode = player?.team_code || team?.code;
+                        const teamCode = team?.code || player?.team_code;
                         const positionNames = ['', 'GK', 'DEF', 'MID', 'FWD'];
                         return (
                           <div key={idx} className="p-3 rounded-md border bg-muted/30 flex items-center gap-2">

@@ -2510,22 +2510,28 @@ CRITICAL REQUIREMENTS:
       const playerOutPick = updatedSquad[playerOutIndex];
       
       if (playerOut) {
-        // CRITICAL: Use ACTUAL selling price from FPL API, not market price
-        // If selling_price is missing, it means the user needs to resync their team
-        if (!playerOutPick.selling_price) {
-          errors.push(
-            `Cannot validate transfer budget - player price data is outdated. ` +
-            `Please refresh your team data from the Settings page to get accurate selling prices.`
-          );
-          console.error(`[Budget] Missing selling_price for player ${playerOut.web_name} (ID: ${transfer.player_out_id})`);
-          console.error(`[Budget] User needs to resync team to get accurate price data from FPL API`);
-          continue;
+        // Use actual selling price if available, otherwise use current market price with warning
+        // FPL API only returns selling_price for active gameweeks, not finished ones
+        let sellPrice: number;
+        let priceSource: string;
+        
+        if (playerOutPick.selling_price) {
+          sellPrice = playerOutPick.selling_price / 10;
+          priceSource = `actual selling price (${playerOutPick.selling_price})`;
+        } else if (playerOutPick.now_cost) {
+          sellPrice = playerOutPick.now_cost / 10;
+          priceSource = `cached market price (${playerOutPick.now_cost})`;
+          console.warn(`[Budget] Using cached market price for ${playerOut.web_name} - actual selling price unavailable`);
+        } else {
+          sellPrice = playerOut.now_cost / 10;
+          priceSource = `current market price (${playerOut.now_cost})`;
+          console.warn(`[Budget] Using current market price for ${playerOut.web_name} - no cached data available`);
+          warnings.push(`Budget calculation for ${playerOut.web_name} uses market price (actual selling price unavailable). This may be slightly inaccurate.`);
         }
         
-        const sellPrice = playerOutPick.selling_price / 10;
         const buyPrice = playerIn.now_cost / 10;
         
-        console.log(`[Budget] Selling ${playerOut.web_name}: £${sellPrice.toFixed(1)}m (selling_price: ${playerOutPick.selling_price})`);
+        console.log(`[Budget] Selling ${playerOut.web_name}: £${sellPrice.toFixed(1)}m (${priceSource})`);
         console.log(`[Budget] Buying ${playerIn.web_name}: £${buyPrice.toFixed(1)}m`);
         console.log(`[Budget] Net impact: £${(sellPrice - buyPrice).toFixed(1)}m`);
         

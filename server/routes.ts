@@ -128,14 +128,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("[API] Force refreshing FPL data");
       
-      // Clear FPL API cache
+      // Clear FPL API cache (contains players, teams, gameweeks)
       fplApi.clearCache();
       
-      // Clear gameweek snapshot cache
+      // Clear gameweek snapshot cache (contains enriched player data + fixtures)
       gameweekSnapshot.clearCache();
-      
-      // Clear precomputation cache
-      precomputationCache.clearCache();
       
       res.json({ 
         success: true, 

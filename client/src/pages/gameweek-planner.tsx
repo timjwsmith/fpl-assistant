@@ -143,6 +143,9 @@ export default function GameweekPlanner() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/automation/plan", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/fpl/players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/fpl/teams"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/fpl/fixtures"] });
       toast({
         title: "Plan Generated",
         description: "Your gameweek plan has been generated successfully.",
@@ -169,6 +172,9 @@ export default function GameweekPlanner() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/automation/plan", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/fpl/players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/fpl/teams"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/fpl/fixtures"] });
       toast({
         title: "Team Plan Generated",
         description: "Multi-transfer plan to build around your target player has been generated.",

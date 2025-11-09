@@ -28,12 +28,19 @@ class FPLApiService {
   private cacheTimestamp: number = 0;
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-  async getBootstrapData(): Promise<BootstrapData> {
+  clearCache(): void {
+    console.log('[FPL API] Clearing bootstrap cache');
+    this.bootstrapCache = null;
+    this.cacheTimestamp = 0;
+  }
+
+  async getBootstrapData(forceRefresh: boolean = false): Promise<BootstrapData> {
     const now = Date.now();
-    if (this.bootstrapCache && now - this.cacheTimestamp < this.CACHE_DURATION) {
+    if (!forceRefresh && this.bootstrapCache && now - this.cacheTimestamp < this.CACHE_DURATION) {
       return this.bootstrapCache;
     }
 
+    console.log('[FPL API] Fetching fresh bootstrap data from FPL API');
     const response = await fetch(`${FPL_BASE_URL}/bootstrap-static/`);
     if (!response.ok) {
       throw new Error(`FPL API error: ${response.statusText}`);

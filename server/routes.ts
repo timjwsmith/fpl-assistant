@@ -124,6 +124,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/fpl/refresh", async (req, res) => {
+    try {
+      console.log("[API] Force refreshing FPL data");
+      
+      // Clear FPL API cache
+      fplApi.clearCache();
+      
+      // Clear gameweek snapshot cache
+      gameweekSnapshot.clearCache();
+      
+      // Clear precomputation cache
+      precomputationCache.clearCache();
+      
+      res.json({ 
+        success: true, 
+        message: "FPL data caches cleared successfully. Fresh data will be fetched on next request." 
+      });
+    } catch (error) {
+      console.error("Error refreshing FPL data:", error);
+      res.status(500).json({ error: "Failed to refresh FPL data" });
+    }
+  });
+
   app.get("/api/fpl/player/:id", async (req, res) => {
     try {
       const playerId = parseInt(req.params.id);

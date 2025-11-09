@@ -51,12 +51,32 @@ export class ManagerSyncService {
       }
       const allPlayers = await fplApi.getPlayers();
 
-      const players = picks.picks.map(pick => ({
-        player_id: pick.element,
-        position: pick.position,
-        is_captain: pick.is_captain,
-        is_vice_captain: pick.is_vice_captain,
-      }));
+      // Log first pick to verify FPL API returns price data
+      if (picks.picks.length > 0) {
+        console.log('[Manager Sync] Sample FPL pick data:', JSON.stringify(picks.picks[0], null, 2));
+      }
+
+      const players = picks.picks.map(pick => {
+        const playerData = allPlayers.find(p => p.id === pick.element);
+        
+        // Validate price data exists
+        if (!pick.purchase_price || !pick.selling_price) {
+          console.warn(`[Manager Sync] Missing price data for player ${pick.element}:`, {
+            purchase_price: pick.purchase_price,
+            selling_price: pick.selling_price,
+          });
+        }
+        
+        return {
+          player_id: pick.element,
+          position: pick.position,
+          is_captain: pick.is_captain,
+          is_vice_captain: pick.is_vice_captain,
+          purchase_price: pick.purchase_price,
+          selling_price: pick.selling_price,
+          now_cost: playerData?.now_cost,
+        };
+      });
 
       const formation = this.calculateFormation(picks.picks, allPlayers);
       

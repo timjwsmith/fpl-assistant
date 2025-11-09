@@ -118,6 +118,8 @@ export const fplPickSchema = z.object({
   multiplier: z.number(), // 0=benched, 1=playing, 2=captain, 3=triple captain
   is_captain: z.boolean(),
   is_vice_captain: z.boolean(),
+  purchase_price: z.number().optional(), // Price paid when acquired (in tenths)
+  selling_price: z.number().optional(), // Price received when sold (in tenths)
 });
 
 export type FPLPick = z.infer<typeof fplPickSchema>;
@@ -282,6 +284,9 @@ export const userTeams = pgTable('user_teams', {
     position: number;
     is_captain: boolean;
     is_vice_captain: boolean;
+    purchase_price?: number; // Price paid when acquired (in tenths) - optional for backward compatibility
+    selling_price?: number; // Price received when sold (in tenths) - optional for backward compatibility
+    now_cost?: number; // Current market price (in tenths) - cached for safety
   }>>(),
   formation: text('formation').notNull(),
   teamValue: integer('team_value').notNull(),

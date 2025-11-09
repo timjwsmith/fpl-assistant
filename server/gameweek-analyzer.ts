@@ -2507,16 +2507,37 @@ CRITICAL REQUIREMENTS:
       }
 
       const playerOut = allPlayers.find(p => p.id === transfer.player_out_id);
+      const playerOutPick = updatedSquad[playerOutIndex];
+      
       if (playerOut) {
-        // Calculate budget impact
-        const sellPrice = playerOut.now_cost / 10; // Simplified: use current price
+        // CRITICAL: Use ACTUAL selling price from FPL API, not market price
+        // If selling_price is missing, it means the user needs to resync their team
+        if (!playerOutPick.selling_price) {
+          errors.push(
+            `Cannot validate transfer budget - player price data is outdated. ` +
+            `Please refresh your team data from the Settings page to get accurate selling prices.`
+          );
+          console.error(`[Budget] Missing selling_price for player ${playerOut.web_name} (ID: ${transfer.player_out_id})`);
+          console.error(`[Budget] User needs to resync team to get accurate price data from FPL API`);
+          continue;
+        }
+        
+        const sellPrice = playerOutPick.selling_price / 10;
         const buyPrice = playerIn.now_cost / 10;
+        
+        console.log(`[Budget] Selling ${playerOut.web_name}: £${sellPrice.toFixed(1)}m (selling_price: ${playerOutPick.selling_price})`);
+        console.log(`[Budget] Buying ${playerIn.web_name}: £${buyPrice.toFixed(1)}m`);
+        console.log(`[Budget] Net impact: £${(sellPrice - buyPrice).toFixed(1)}m`);
+        
         remainingBudget += sellPrice - buyPrice;
 
-        // Update squad
+        // Update squad with new player and their prices
         updatedSquad[playerOutIndex] = {
           ...updatedSquad[playerOutIndex],
           player_id: playerIn.id,
+          purchase_price: playerIn.now_cost,
+          selling_price: playerIn.now_cost, // New players have selling_price = purchase_price
+          now_cost: playerIn.now_cost,
         };
       }
     }

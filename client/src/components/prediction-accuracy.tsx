@@ -108,9 +108,17 @@ export function PredictionAccuracy({ userId, startGameweek = 8 }: PredictionAccu
     mutationFn: async (gameweek: number) => {
       return apiRequest('POST', `/api/prediction-accuracy/analyze/${userId}?gameweek=${gameweek}&forceRegenerate=true`, {});
     },
-    onSuccess: () => {
+    onSuccess: (_, gameweek) => {
+      // Invalidate the specific query with startGameweek parameter
       queryClient.invalidateQueries({ 
-        queryKey: [`/api/prediction-accuracy/${userId}`] 
+        queryKey: [`/api/prediction-accuracy/${userId}`, { startGameweek }],
+        exact: true
+      });
+      // Auto-expand the regenerated gameweek to show the new analysis
+      setExpandedItems(prev => {
+        const newSet = new Set(prev);
+        newSet.add(gameweek);
+        return newSet;
       });
     },
   });

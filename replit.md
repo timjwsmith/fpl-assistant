@@ -54,7 +54,7 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 - **Deterministic Predictions**: AI predictions are perfectly deterministic.
 - **Dynamic Gameweek Planning**: The app dynamically identifies and plans for the next editable gameweek.
 - **Prediction Accuracy System**: Automated tracking service fetches actual gameweek scores from FPL API, compares against AI predictions, and calculates accuracy metrics.
-- **Mid-Season Transfer Shirt Fix**: Player shirt images derive team codes from current team lookup (`team?.code`) instead of stale `player.team_code` field across all locations (Starting XI, bench sections, transfer recommendation cards), ensuring accurate team colors after mid-season transfers (e.g., Eze: Crystal Palace → Arsenal). Transfer cards now display shirt images instead of player photos for consistent visual presentation.
+- **Player Transfer Shirt Fix**: Player shirt images derive team codes from current team lookup (`team?.code`) instead of stale `player.team_code` field across all locations (Starting XI, bench sections, transfer recommendation cards), ensuring accurate team colors after player transfers (e.g., Eze: Crystal Palace → Arsenal in pre-season). Transfer cards now display shirt images instead of player photos for consistent visual presentation.
 - **Comprehensive Test Suite**: 58 Vitest tests cover unit, integration, and validator aspects, preventing regression bugs and ensuring data integrity.
 
 ## External Dependencies

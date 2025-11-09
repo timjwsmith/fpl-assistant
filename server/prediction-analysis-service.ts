@@ -218,8 +218,31 @@ export class PredictionAnalysisService {
       // Store captain info for later use
       const captainInfo = userTeam.players.find((p: any) => p.is_captain);
       
+      // Fetch FPL picks data to get automatic substitutions
+      const settings = await storage.getUserSettings(userId);
+      const managerId = settings?.manager_id;
+      
+      let autoSubPlayerIds: Set<number> | null = null;
+      if (managerId) {
+        try {
+          const picksData = await fplApi.getManagerPicks(managerId, gameweek);
+          // automatic_subs is an array of {element_in, element_out, entry, event} objects
+          if (picksData.automatic_subs && Array.isArray(picksData.automatic_subs)) {
+            autoSubPlayerIds = new Set(picksData.automatic_subs.map((sub: any) => sub.element_in));
+          } else {
+            autoSubPlayerIds = new Set(); // Empty array = no auto-subs
+          }
+          console.log(`[PredictionAnalysis] GW${gameweek} auto-subs from API: ${JSON.stringify(Array.from(autoSubPlayerIds))}`);
+        } catch (error) {
+          console.error(`[PredictionAnalysis] Failed to fetch picks for manager ${managerId}, GW${gameweek}. Falling back to eventPoints heuristic:`, error);
+          autoSubPlayerIds = null; // null = use fallback
+        }
+      } else {
+        console.warn(`[PredictionAnalysis] No manager_id found for user ${userId}. Falling back to eventPoints heuristic.`);
+      }
+      
       // Get all players who actually played
-      // Include: Starting XI (positions 1-11) OR bench players who got minutes (total_points > 0)
+      // Include: Starting XI (positions 1-11) OR bench players who were ACTUALLY auto-subbed
       const teamPerformance = userTeam.players
         .filter((p: any) => p.player_id) // Filter out null player_ids
         .map((p: any) => {
@@ -233,13 +256,20 @@ export class PredictionAnalysisService {
             ? this.aggregateExplainArray(liveElement.explain)
             : {};
           
+          // Check if this bench player was actually auto-subbed
+          // If autoSubPlayerIds is null (API unavailable), fall back to eventPoints heuristic
+          const wasAutoSubbed = autoSubPlayerIds !== null 
+            ? autoSubPlayerIds.has(p.player_id)
+            : (p.position > 11 && eventPoints > 0); // Fallback: assume any bench player with points was auto-subbed
+          
           return {
             name: playerData?.web_name || 'Unknown',
             points: eventPoints,
             position: ['GKP', 'DEF', 'MID', 'FWD'][(playerData?.element_type || 1) - 1] || 'Unknown',
             isCaptain: p.is_captain,
             lineupPosition: p.position, // 1-15 lineup slot
-            playedFromBench: p.position > 11 && eventPoints > 0, // Bench player who came on
+            playedFromBench: wasAutoSubbed, // TRUE auto-sub check (or fallback heuristic)
+            player_id: p.player_id, // Store for filtering
             // Use the actual scoring breakdown from the explain array
             scoringBreakdown,
             // Keep basic stats for reference
@@ -250,7 +280,7 @@ export class PredictionAnalysisService {
         })
         .filter((p: any) => 
           p.lineupPosition <= 11 || // Starting XI
-          (p.lineupPosition > 11 && p.points > 0) // Bench player who actually played
+          p.playedFromBench // Only bench players who were auto-subbed (verified or heuristic)
         );
       
       // Get captain info from teamPerformance (which already has scoringBreakdown from FPL API)

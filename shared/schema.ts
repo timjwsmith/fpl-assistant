@@ -125,6 +125,12 @@ export type FPLPick = z.infer<typeof fplPickSchema>;
 export const fplTeamPicksSchema = z.object({
   picks: z.array(fplPickSchema),
   chips: z.string().nullable(),
+  automatic_subs: z.array(z.object({
+    element_in: z.number(),
+    element_out: z.number(),
+    entry: z.number(),
+    event: z.number(),
+  })).optional(),
   entry_history: z.object({
     event: z.number(),
     points: z.number(),

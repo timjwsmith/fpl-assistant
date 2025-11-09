@@ -70,6 +70,32 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 
 ## Recent Changes
 
+### 2025-11-09: Fixed Bench Player Analysis Bug
+**Problem**: Bench players who played in real football matches but were NOT auto-subbed into the user's FPL team were incorrectly appearing in the underperformers analysis.
+
+**Root Cause**: The code used `eventPoints > 0` to identify auto-subs, but `eventPoints` represents points from the actual football match, not FPL auto-substitutions. This meant bench players like Cullen (position 13, scored 1pt in real life, but stayed on bench with all starters playing) were wrongly included in analysis.
+
+**Solution**: Fetch FPL API `/picks/` endpoint which includes `automatic_subs` array
+- Query FPL API to get actual auto-sub data for each gameweek
+- Use `automatic_subs.element_in` array to create set of players who were TRULY auto-subbed
+- Only include bench players who appear in this auto-sub list, not all bench players with points
+- Updated TypeScript schema to include `automatic_subs` field in `FPLTeamPicks` type
+
+**Technical Changes**:
+```typescript
+// OLD (incorrect):
+.filter(p => p.lineupPosition > 11 && p.points > 0) // Any bench player with points
+
+// NEW (correct):
+const picksData = await fplApi.getManagerPicks(managerId, gameweek);
+const autoSubPlayerIds = new Set(picksData.automatic_subs.map(sub => sub.element_in));
+.filter(p => p.lineupPosition > 11 && autoSubPlayerIds.has(p.player_id)) // Only ACTUAL auto-subs
+```
+
+**Example Fix**: GW10 with Cullen (bench, 1pt, NO auto-sub) previously appeared in underperformers. Now correctly excluded because `automatic_subs` array is empty.
+
+**Files Modified**: `server/prediction-analysis-service.ts`, `shared/schema.ts`
+
 ### 2025-11-09: Per-Gameweek Analysis Regeneration
 **Problem**: When the prediction analysis logic was fixed (e.g., excluding bench players from underperformers), users had no way to regenerate analyses for past gameweeks with the corrected logic. They were stuck with outdated/incorrect analyses unless they manually deleted and recreated them.
 
@@ -86,7 +112,7 @@ The FPL Assistant is an intelligent tool designed to optimize Fantasy Premier Le
 4. Loading state: Button shows spinning icon during regeneration
 5. Auto-refresh: UI updates immediately after regeneration completes
 
-**Example Use Case**: After fixing bench player bug, user can click "Regenerate" on GW10 to replace incorrect Cullen analysis with corrected version that excludes bench substitutes.
+**Example Use Case**: After fixing bench player bug, user can click "Regenerate" on GW10 to replace incorrect Cullen analysis with corrected version.
 
 **Files Modified**: `server/prediction-analysis-service.ts`, `server/routes.ts`, `client/src/components/prediction-accuracy.tsx`
 

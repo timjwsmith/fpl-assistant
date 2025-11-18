@@ -979,7 +979,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[Update Acceptance Route] Accepted lineup optimizations: ${acceptedLineupOptimizations.length}/${updatedLineupOptimizations.length}`);
 
       // Recalculate transfer cost based on accepted transfers only
-      const freeTransfers = userTeam.free_transfers || 1;
+      // Note: Free transfers should be fetched from FPL API in production
+      // For now, default to 1 free transfer per gameweek
+      const freeTransfers = 1;
       let transferCost = 0;
       if (acceptedTransfers.length > freeTransfers) {
         const extraTransfers = acceptedTransfers.length - freeTransfers;

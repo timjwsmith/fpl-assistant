@@ -159,6 +159,21 @@ class TransferApplicationService {
         await storage.updateGameweekPlanStatus(gameweekPlanId, 'applied');
         result.success = true;
         console.log(`[Transfer Application] ✓ Successfully applied plan ${gameweekPlanId}`);
+
+        // Record 6-week transfer predictions for tracking
+        try {
+          if (plan.transfers && Array.isArray(plan.transfers) && plan.transfers.length > 0) {
+            await storage.createMultiWeekPredictions(
+              userId,
+              gameweekPlanId,
+              plan.gameweek,
+              plan.transfers
+            );
+          }
+        } catch (error) {
+          // Log but don't fail plan application
+          console.error(`[Transfer Application] Failed to record multi-week predictions for plan ${gameweekPlanId}:`, error);
+        }
       } else {
         console.error(`[Transfer Application] ✗ Partial failure for plan ${gameweekPlanId}`, result.errors);
       }

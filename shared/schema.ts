@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { pgTable, text, integer, jsonb, timestamp, boolean, index, serial, uniqueIndex, real } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, jsonb, timestamp, boolean, index, serial, uniqueIndex, real, varchar } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 
@@ -547,6 +547,7 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   }),
   gameweekPlans: many(gameweekPlans),
   changeHistory: many(changeHistory),
+  multiWeekTransferPredictions: many(multiWeekTransferPredictions),
 }));
 
 export const userSettingsRelations = relations(userSettingsTable, ({ one }) => ({
@@ -598,11 +599,12 @@ export const automationSettingsRelations = relations(automationSettings, ({ one 
   }),
 }));
 
-export const gameweekPlansRelations = relations(gameweekPlans, ({ one }) => ({
+export const gameweekPlansRelations = relations(gameweekPlans, ({ one, many }) => ({
   user: one(users, {
     fields: [gameweekPlans.userId],
     references: [users.id],
   }),
+  multiWeekTransferPredictions: many(multiWeekTransferPredictions),
 }));
 
 export const changeHistoryRelations = relations(changeHistory, ({ one }) => ({
@@ -668,6 +670,47 @@ export const insertAiDecisionLedgerSchema = createInsertSchema(aiDecisionLedger)
 export type InsertAiDecisionLedger = z.infer<typeof insertAiDecisionLedgerSchema>;
 export type AiDecisionLedger = typeof aiDecisionLedger.$inferSelect;
 
+// Multi-Week Transfer Predictions Table (for tracking 6-week transfer gain predictions)
+export const multiWeekTransferPredictions = pgTable('multi_week_transfer_predictions', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  gameweekPlanId: integer('gameweek_plan_id').references(() => gameweekPlans.id, { onDelete: 'cascade' }).notNull(),
+  startGameweek: integer('start_gameweek').notNull(),
+  playerOutId: integer('player_out_id').notNull(),
+  playerInId: integer('player_in_id').notNull(),
+  predictedGain: real('predicted_gain').notNull(),
+  timeframeWeeks: integer('timeframe_weeks').default(6).notNull(),
+  status: text('status', { enum: ['pending', 'tracking', 'completed', 'voided'] }).notNull().default('pending'),
+  weeksElapsed: integer('weeks_elapsed').default(0).notNull(),
+  pointsActualToDate: real('points_actual_to_date').default(0).notNull(),
+  actualGainFinal: real('actual_gain_final'),
+  accuracyPercent: real('accuracy_percent'),
+  voidReason: text('void_reason'),
+  closedAt: timestamp('closed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
+}, (table) => ({
+  userIdStatusClosedAtIdx: index('multi_week_transfer_pred_user_status_closed_idx').on(table.userId, table.status, table.closedAt),
+  gameweekPlanIdIdx: index('multi_week_transfer_pred_plan_idx').on(table.gameweekPlanId),
+  statusStartGameweekIdx: index('multi_week_transfer_pred_status_gw_idx').on(table.status, table.startGameweek),
+}));
+
+export const insertMultiWeekTransferPredictionSchema = createInsertSchema(multiWeekTransferPredictions).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertMultiWeekTransferPrediction = z.infer<typeof insertMultiWeekTransferPredictionSchema>;
+export type MultiWeekTransferPrediction = typeof multiWeekTransferPredictions.$inferSelect;
+
+// Scheduler State Table (for persistent job timestamp tracking)
+export const schedulerState = pgTable("scheduler_state", {
+  id: serial("id").primaryKey(),
+  jobName: varchar("job_name", { length: 50 }).notNull().unique(),
+  lastRunAt: timestamp("last_run_at").notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().$onUpdate(() => new Date())
+});
+
+export const insertSchedulerStateSchema = createInsertSchema(schedulerState).omit({ id: true, updatedAt: true });
+export type InsertSchedulerState = z.infer<typeof insertSchedulerStateSchema>;
+export type SchedulerState = typeof schedulerState.$inferSelect;
+
 // Relations
 export const aiPrecomputationsRelations = relations(aiPrecomputations, ({ one }) => ({
   // No user relation as these are shared across all users for a given snapshot
@@ -680,6 +723,17 @@ export const aiDecisionLedgerRelations = relations(aiDecisionLedger, ({ one }) =
   }),
   plan: one(gameweekPlans, {
     fields: [aiDecisionLedger.planId],
+    references: [gameweekPlans.id],
+  }),
+}));
+
+export const multiWeekTransferPredictionsRelations = relations(multiWeekTransferPredictions, ({ one }) => ({
+  user: one(users, {
+    fields: [multiWeekTransferPredictions.userId],
+    references: [users.id],
+  }),
+  plan: one(gameweekPlans, {
+    fields: [multiWeekTransferPredictions.gameweekPlanId],
     references: [gameweekPlans.id],
   }),
 }));

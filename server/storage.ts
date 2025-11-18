@@ -15,6 +15,8 @@ import {
   changeHistory,
   aiPrecomputations,
   aiDecisionLedger,
+  multiWeekTransferPredictions,
+  schedulerState,
   type User,
   type InsertUser,
   type UserTeam,
@@ -42,6 +44,10 @@ import {
   type AiPrecomputation,
   type InsertAiDecisionLedger,
   type AiDecisionLedger,
+  type InsertMultiWeekTransferPrediction,
+  type MultiWeekTransferPrediction,
+  type SchedulerState,
+  type InsertSchedulerState,
 } from "@shared/schema";
 
 if (!process.env.DATABASE_URL) {
@@ -157,6 +163,32 @@ export interface IStorage {
   getDecisionsByGameweek(userId: number, gameweek: number): Promise<AiDecisionLedger[]>;
   getDecisionsBySnapshot(snapshotId: string): Promise<AiDecisionLedger[]>;
   getDecisionById(id: number): Promise<AiDecisionLedger | null>;
+
+  // Multi-Week Transfer Predictions
+  createMultiWeekPredictions(
+    userId: number,
+    gameweekPlanId: number,
+    startGameweek: number,
+    transfers: Array<{
+      player_out_id: number,
+      player_in_id: number,
+      expected_points_gain: number,
+      expected_points_gain_timeframe?: string
+    }>
+  ): Promise<void>;
+  getPredictionsByStatus(status: string): Promise<MultiWeekTransferPrediction[]>;
+  getCompletedPredictionsByUser(userId: number): Promise<MultiWeekTransferPrediction[]>;
+  updatePredictionTracking(id: number, updates: Partial<MultiWeekTransferPrediction>): Promise<void>;
+  getMultiWeekAccuracyStats(userId: number): Promise<{
+    totalPredictions: number,
+    averageAccuracyPercent: number,
+    averageError: number,
+    byPriceTier: { tier: string, avgError: number }[]
+  }>;
+
+  // Scheduler State
+  getSchedulerLastRun(jobName: string): Promise<Date | null>;
+  setSchedulerLastRun(jobName: string, lastRunAt: Date): Promise<void>;
 }
 
 export class PostgresStorage implements IStorage {
@@ -999,6 +1031,142 @@ export class PostgresStorage implements IStorage {
       .where(eq(aiDecisionLedger.id, id))
       .limit(1);
     return result[0] || null;
+  }
+
+  async createMultiWeekPredictions(
+    userId: number,
+    gameweekPlanId: number,
+    startGameweek: number,
+    transfers: Array<{
+      player_out_id: number,
+      player_in_id: number,
+      expected_points_gain: number,
+      expected_points_gain_timeframe?: string
+    }>
+  ): Promise<void> {
+    // Only proceed if there are transfers
+    if (!transfers || transfers.length === 0) {
+      return;
+    }
+
+    // Helper function to extract weeks from timeframe string
+    const extractWeeks = (timeframe?: string): number => {
+      if (!timeframe) return 6; // Default to 6 weeks
+      const match = timeframe.match(/(\d+)/);
+      return match ? parseInt(match[1]) : 6;
+    };
+
+    // Create prediction records for each transfer
+    const predictionRecords: InsertMultiWeekTransferPrediction[] = transfers.map(transfer => ({
+      userId,
+      gameweekPlanId,
+      startGameweek,
+      playerOutId: transfer.player_out_id,
+      playerInId: transfer.player_in_id,
+      predictedGain: transfer.expected_points_gain,
+      timeframeWeeks: extractWeeks(transfer.expected_points_gain_timeframe),
+      status: 'pending' as const,
+      weeksElapsed: 0,
+      pointsActualToDate: 0,
+    }));
+
+    // Insert all predictions
+    await db
+      .insert(multiWeekTransferPredictions)
+      .values(predictionRecords);
+    
+    console.log(`[Multi-Week Predictions] Created ${predictionRecords.length} prediction records for plan ${gameweekPlanId}`);
+  }
+
+  async getPredictionsByStatus(status: string): Promise<MultiWeekTransferPrediction[]> {
+    return db
+      .select()
+      .from(multiWeekTransferPredictions)
+      .where(eq(multiWeekTransferPredictions.status, status as 'pending' | 'tracking' | 'completed' | 'voided'))
+      .orderBy(multiWeekTransferPredictions.startGameweek);
+  }
+
+  async getCompletedPredictionsByUser(userId: number): Promise<MultiWeekTransferPrediction[]> {
+    return db
+      .select()
+      .from(multiWeekTransferPredictions)
+      .where(
+        and(
+          eq(multiWeekTransferPredictions.userId, userId),
+          eq(multiWeekTransferPredictions.status, 'completed')
+        )
+      )
+      .orderBy(desc(multiWeekTransferPredictions.closedAt))
+      .limit(10);
+  }
+
+  async updatePredictionTracking(id: number, updates: Partial<MultiWeekTransferPrediction>): Promise<void> {
+    await db
+      .update(multiWeekTransferPredictions)
+      .set(updates)
+      .where(eq(multiWeekTransferPredictions.id, id));
+  }
+
+  async getMultiWeekAccuracyStats(userId: number): Promise<{
+    totalPredictions: number,
+    averageAccuracyPercent: number,
+    averageError: number,
+    byPriceTier: { tier: string, avgError: number }[]
+  }> {
+    const completedPredictions = await db
+      .select()
+      .from(multiWeekTransferPredictions)
+      .where(and(
+        eq(multiWeekTransferPredictions.userId, userId),
+        eq(multiWeekTransferPredictions.status, 'completed')
+      ));
+
+    if (completedPredictions.length === 0) {
+      return {
+        totalPredictions: 0,
+        averageAccuracyPercent: 0,
+        averageError: 0,
+        byPriceTier: []
+      };
+    }
+
+    const totalPredictions = completedPredictions.length;
+    
+    const totalAccuracy = completedPredictions.reduce((sum, pred) => 
+      sum + (pred.accuracyPercent || 0), 0);
+    const averageAccuracyPercent = totalAccuracy / totalPredictions;
+
+    const totalError = completedPredictions.reduce((sum, pred) => 
+      sum + Math.abs((pred.actualGainFinal || 0) - pred.predictedGain), 0);
+    const averageError = totalError / totalPredictions;
+
+    return {
+      totalPredictions,
+      averageAccuracyPercent,
+      averageError,
+      byPriceTier: []
+    };
+  }
+
+  // Scheduler State methods
+  async getSchedulerLastRun(jobName: string): Promise<Date | null> {
+    const result = await db
+      .select()
+      .from(schedulerState)
+      .where(eq(schedulerState.jobName, jobName))
+      .limit(1);
+    
+    return result[0]?.lastRunAt || null;
+  }
+
+  async setSchedulerLastRun(jobName: string, lastRunAt: Date): Promise<void> {
+    await db
+      .insert(schedulerState)
+      .values({ jobName, lastRunAt })
+      .onConflictDoUpdate({
+        target: schedulerState.jobName,
+        set: { lastRunAt, updatedAt: new Date() }
+      });
   }
 }
 

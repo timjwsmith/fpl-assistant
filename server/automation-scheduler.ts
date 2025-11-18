@@ -3,6 +3,7 @@ import { fplApi } from './fpl-api';
 import { fplAuth } from './fpl-auth';
 import { gameweekAnalyzer } from './gameweek-analyzer';
 import { transferApplication } from './transfer-application';
+import { seedPendingPredictions, updateTrackingPredictions, voidInvalidPredictions } from './multi-week-tracker';
 import type { AutomationSettings, GameweekPlan } from '@shared/schema';
 
 const CHECK_INTERVAL = 30 * 60 * 1000; // 30 minutes in milliseconds
@@ -33,6 +34,9 @@ class AutomationScheduler {
     this.intervalId = setInterval(() => {
       this.checkAndApplyPlans().catch(error => {
         console.error('[AutoScheduler] Error in scheduled check:', error);
+      });
+      this.checkScheduledJobs().catch(error => {
+        console.error('[AutoScheduler] Error in scheduled jobs check:', error);
       });
     }, CHECK_INTERVAL);
 
@@ -135,6 +139,40 @@ class AutomationScheduler {
 
     } catch (error) {
       console.error('[AutoScheduler] Error in checkAndApplyPlans:', error);
+    }
+  }
+
+  async checkScheduledJobs(): Promise<void> {
+    const now = new Date();
+    const HOUR_24 = 24 * 60 * 60 * 1000; // 24 hours in ms
+    const DAY_7 = 7 * HOUR_24; // 7 days in ms
+
+    try {
+      // Seed predictions (run once per day)
+      const lastSeedRun = await storage.getSchedulerLastRun('seed_predictions');
+      if (!lastSeedRun || (now.getTime() - lastSeedRun.getTime()) > HOUR_24) {
+        console.log('[AutoScheduler] Running daily seedPendingPredictions job...');
+        await seedPendingPredictions(storage, fplApi);
+        await storage.setSchedulerLastRun('seed_predictions', now);
+      }
+
+      // Update predictions (run once per week)
+      const lastUpdateRun = await storage.getSchedulerLastRun('update_predictions');
+      if (!lastUpdateRun || (now.getTime() - lastUpdateRun.getTime()) > DAY_7) {
+        console.log('[AutoScheduler] Running weekly updateTrackingPredictions job...');
+        await updateTrackingPredictions(storage, fplApi);
+        await storage.setSchedulerLastRun('update_predictions', now);
+      }
+
+      // Void predictions (run once per week)
+      const lastVoidRun = await storage.getSchedulerLastRun('void_predictions');
+      if (!lastVoidRun || (now.getTime() - lastVoidRun.getTime()) > DAY_7) {
+        console.log('[AutoScheduler] Running weekly voidInvalidPredictions job...');
+        await voidInvalidPredictions(storage, fplApi);
+        await storage.setSchedulerLastRun('void_predictions', now);
+      }
+    } catch (error) {
+      console.error('[AutoScheduler] Error in checkScheduledJobs:', error);
     }
   }
 

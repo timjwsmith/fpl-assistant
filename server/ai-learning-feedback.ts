@@ -27,6 +27,18 @@ interface AILearningContext {
       error: number;
     }>;
   };
+  multiWeekPredictionAccuracy?: {
+    totalPredictions: number;
+    averageAccuracyPercent: number;
+    averageAbsoluteError: number;
+    trend: 'overestimating' | 'underestimating' | 'balanced';
+    recentExamples: Array<{
+      playerName: string;
+      predicted: number;
+      actual: number;
+      error: number;
+    }>;
+  };
   recentMistakes: LearningInsight[];
   captainPatterns: {
     successfulPicks: string[];
@@ -73,6 +85,44 @@ export class AILearningFeedbackService {
     // Calculate prediction accuracy metrics
     const predictionAccuracy = this.calculatePredictionAccuracy(plansWithPredictions);
 
+    // Fetch multi-week transfer prediction accuracy data
+    let multiWeekPredictionAccuracy = undefined;
+    try {
+      const multiWeekStats = await storage.getMultiWeekAccuracyStats(userId);
+      
+      if (multiWeekStats.totalPredictions > 0) {
+        console.log(`[AILearning] Found ${multiWeekStats.totalPredictions} completed multi-week predictions`);
+        
+        // Calculate trend based on average accuracy percent
+        // accuracyPercent of 100% = perfect, <100% = overestimating, >100% = underestimating
+        let trend: 'overestimating' | 'underestimating' | 'balanced';
+        if (multiWeekStats.averageAccuracyPercent < 90) {
+          trend = 'overestimating';
+        } else if (multiWeekStats.averageAccuracyPercent > 110) {
+          trend = 'underestimating';
+        } else {
+          trend = 'balanced';
+        }
+        
+        // Fetch recent examples with player names
+        const recentExamples = await this.fetchMultiWeekPredictionExamples(userId, players);
+        
+        multiWeekPredictionAccuracy = {
+          totalPredictions: multiWeekStats.totalPredictions,
+          averageAccuracyPercent: multiWeekStats.averageAccuracyPercent,
+          averageAbsoluteError: multiWeekStats.averageError,
+          trend,
+          recentExamples,
+        };
+        
+        console.log(`[AILearning] Multi-week accuracy: ${multiWeekStats.averageAccuracyPercent.toFixed(1)}% avg accuracy, ${multiWeekStats.averageError.toFixed(1)} pts avg error, trend: ${trend}`);
+      } else {
+        console.log(`[AILearning] No completed multi-week predictions found for user ${userId}`);
+      }
+    } catch (error) {
+      console.error('[AILearning] Error fetching multi-week accuracy stats:', error instanceof Error ? error.message : 'Unknown error');
+    }
+
     // Identify recent mistakes (last 5 gameweeks where AI hurt performance)
     const recentMistakes = await this.identifyRecentMistakes(analyzedPlans.slice(-10), players);
 
@@ -95,11 +145,64 @@ export class AILearningFeedbackService {
         successRate,
       },
       predictionAccuracy,
+      multiWeekPredictionAccuracy,
       recentMistakes,
       captainPatterns,
       transferPatterns,
       keyLessons,
     };
+  }
+
+  /**
+   * Fetch recent multi-week transfer prediction examples with player names
+   * @param userId - User ID
+   * @param players - Array of FPL players (from snapshot)
+   * @returns Recent prediction examples sorted by error (worst first)
+   */
+  private async fetchMultiWeekPredictionExamples(
+    userId: number, 
+    players: FPLPlayer[]
+  ): Promise<Array<{
+    playerName: string;
+    predicted: number;
+    actual: number;
+    error: number;
+  }>> {
+    try {
+      // Fetch completed multi-week predictions for this user only (SECURITY FIX)
+      const completedPredictions = await storage.getCompletedPredictionsByUser(userId);
+
+      if (completedPredictions.length === 0) {
+        return [];
+      }
+
+      // Create player map for quick lookup
+      const playersMap = new Map(players.map(p => [p.id, p]));
+
+      // Map predictions to examples with player names
+      const examples = completedPredictions
+        .filter(p => p.actualGainFinal !== null && p.actualGainFinal !== undefined)
+        .map(p => {
+          const playerIn = playersMap.get(p.playerInId);
+          const predicted = p.predictedGain;
+          const actual = p.actualGainFinal!;
+          const error = Math.abs(predicted - actual);
+
+          return {
+            playerName: playerIn?.web_name || `Player ${p.playerInId}`,
+            predicted,
+            actual,
+            error,
+          };
+        });
+
+      // Sort by error (worst predictions first) and take top 5
+      examples.sort((a, b) => b.error - a.error);
+      return examples.slice(0, 5);
+    } catch (error) {
+      console.error('[AILearning] Error fetching multi-week prediction examples:', error);
+      return [];
+    }
   }
 
   /**
@@ -395,6 +498,65 @@ export class AILearningFeedbackService {
       } else if (context.predictionAccuracy.overallBias > 5) {
         prompt += `⚠️ WARNING: You are over-predicting by ${context.predictionAccuracy.overallBias.toFixed(1)} points per gameweek. Be more conservative in your predictions.\n\n`;
       }
+    }
+
+    // Multi-week prediction calibration
+    if (context.multiWeekPredictionAccuracy && context.multiWeekPredictionAccuracy.totalPredictions > 0) {
+      prompt += '\n═══════════════════════════════════════════════════════════════════════\n';
+      prompt += '📊 MULTI-WEEK PREDICTION CALIBRATION 📊\n';
+      prompt += '═══════════════════════════════════════════════════════════════════════\n\n';
+      prompt += '**CRITICAL: LEARN FROM YOUR PAST 6-WEEK TRANSFER PREDICTIONS**\n\n';
+      
+      const mwAcc = context.multiWeekPredictionAccuracy;
+      prompt += `Historical 6-week prediction accuracy:\n`;
+      prompt += `- Total predictions tracked: ${mwAcc.totalPredictions}\n`;
+      prompt += `- Average accuracy: ${mwAcc.averageAccuracyPercent.toFixed(1)}%\n`;
+      prompt += `- Average error: ${mwAcc.averageAbsoluteError.toFixed(1)} points per transfer\n`;
+      
+      // Calculate calibration factor and trend description
+      const calibrationFactor = mwAcc.averageAccuracyPercent / 100;
+      let trendDescription = '';
+      
+      if (mwAcc.trend === 'overestimating') {
+        const overestimatePercent = 100 - mwAcc.averageAccuracyPercent;
+        trendDescription = `You tend to OVERESTIMATE 6-week gains by ${overestimatePercent.toFixed(0)}%`;
+        prompt += `- Trend: ${trendDescription}\n\n`;
+        
+        prompt += '**CALIBRATION INSTRUCTION:**\n';
+        prompt += `When setting \`expected_points_gain\` for transfers, REDUCE your raw prediction by ${overestimatePercent.toFixed(0)}%:\n`;
+        prompt += `- Calibration factor: ${calibrationFactor.toFixed(2)}\n`;
+        prompt += `- Example: Raw calculation suggests +20 pts → Calibrated: ${(20 * calibrationFactor).toFixed(0)} pts (20 × ${calibrationFactor.toFixed(2)})\n`;
+        prompt += `- Example: Raw calculation suggests +15 pts → Calibrated: ${(15 * calibrationFactor).toFixed(0)} pts (15 × ${calibrationFactor.toFixed(2)})\n\n`;
+      } else if (mwAcc.trend === 'underestimating') {
+        const underestimatePercent = mwAcc.averageAccuracyPercent - 100;
+        trendDescription = `You tend to UNDERESTIMATE 6-week gains by ${underestimatePercent.toFixed(0)}%`;
+        prompt += `- Trend: ${trendDescription}\n\n`;
+        
+        prompt += '**CALIBRATION INSTRUCTION:**\n';
+        prompt += `When setting \`expected_points_gain\` for transfers, INCREASE your raw prediction by ${underestimatePercent.toFixed(0)}%:\n`;
+        prompt += `- Calibration factor: ${calibrationFactor.toFixed(2)}\n`;
+        prompt += `- Example: Raw calculation suggests +20 pts → Calibrated: ${(20 * calibrationFactor).toFixed(0)} pts (20 × ${calibrationFactor.toFixed(2)})\n`;
+        prompt += `- Example: Raw calculation suggests +15 pts → Calibrated: ${(15 * calibrationFactor).toFixed(0)} pts (15 × ${calibrationFactor.toFixed(2)})\n\n`;
+      } else {
+        trendDescription = 'Your 6-week predictions are well-calibrated (balanced)';
+        prompt += `- Trend: ${trendDescription}\n\n`;
+        prompt += '**CALIBRATION INSTRUCTION:**\n';
+        prompt += 'Your multi-week predictions are accurate. Continue with current prediction methodology.\n\n';
+      }
+      
+      // Show recent examples
+      if (mwAcc.recentExamples.length > 0) {
+        prompt += '**Recent 6-week transfer prediction examples:**\n';
+        for (const example of mwAcc.recentExamples.slice(0, 5)) {
+          const errorDirection = example.predicted > example.actual ? 'overestimated' : 'underestimated';
+          prompt += `- ${example.playerName}: Predicted +${example.predicted.toFixed(1)} pts, Actual +${example.actual.toFixed(1)} pts (${errorDirection} by ${example.error.toFixed(1)} pts)\n`;
+        }
+        prompt += '\n';
+      }
+      
+      prompt += '**⚠️ ACTION REQUIRED:**\n';
+      prompt += 'Apply the calibration factor above to ALL \`expected_points_gain\` values in your transfer recommendations.\n';
+      prompt += 'This is MANDATORY to improve prediction accuracy based on historical performance.\n\n';
     }
 
     // Recent mistakes

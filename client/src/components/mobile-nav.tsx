@@ -1,4 +1,4 @@
-import { Home, Users, Repeat, Calendar, Settings } from "lucide-react";
+import { Home, Users, Repeat, Calendar, BarChart3, Settings } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +28,12 @@ const navItems = [
     testId: "mobile-nav-planner",
   },
   {
+    title: "AI Impact",
+    url: "/ai-impact",
+    icon: BarChart3,
+    testId: "mobile-nav-ai-impact",
+  },
+  {
     title: "Settings",
     url: "/settings",
     icon: Settings,
@@ -43,7 +49,7 @@ export function MobileNav() {
       className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-bottom"
       data-testid="mobile-nav"
     >
-      <div className="grid grid-cols-5 h-16">
+      <div className="grid grid-cols-6 h-16">
         {navItems.map((item) => {
           const isActive = location === item.url;
           const Icon = item.icon;

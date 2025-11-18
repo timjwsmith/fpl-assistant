@@ -242,6 +242,7 @@ export class GameweekAnalyzerService {
       let chipValidation: SquadValidation | null = null;
       let transferCost = 0;
       let allValidationErrors: string[] = [];
+      let predictionsMap = new Map<number, number>(); // Will be populated inside retry loop
 
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         console.log(`[GameweekAnalyzer] Attempt ${attempt}/${maxAttempts} to generate valid plan`);
@@ -266,17 +267,125 @@ export class GameweekAnalyzerService {
             inputData.maxTransferHit
           );
 
-          // 5. Validate chip usage
+          // 4.5. Generate fresh predictions for this retry attempt
+          // CRITICAL: Predictions must complete BEFORE validation runs to avoid race conditions
+          console.log(`\n[GameweekAnalyzer] 🔮 Generating fresh predictions for attempt ${attempt}...`);
+          
+          // Get current squad player IDs
+          const currentSquadPlayerIds = inputData.currentTeam.players
+            .filter(p => p.player_id)
+            .map(p => p.player_id!);
+          
+          // Get transferred-out player IDs from AI response (for transfer card display)
+          const transferredOutPlayerIds = new Set(aiResponse.transfers.map(t => t.player_out_id));
+          
+          // Get transferred-in player IDs from AI response (needed for validation)
+          const transferredInPlayerIds = new Set(aiResponse.transfers.map(t => t.player_in_id));
+          
+          // Combine: current squad + transferred-out players + transferred-in players
+          const allRelevantPlayerIds = new Set([
+            ...currentSquadPlayerIds,
+            ...Array.from(transferredOutPlayerIds),
+            ...Array.from(transferredInPlayerIds)
+          ]);
+          
+          console.log(`[GameweekAnalyzer] Need predictions for ${allRelevantPlayerIds.size} players (${currentSquadPlayerIds.length} current squad + ${transferredOutPlayerIds.size} transferred-out + ${transferredInPlayerIds.size} transferred-in)`);
+          
+          // Fetch existing predictions to avoid regenerating
+          const existingPredictions = await storage.getPredictionsByGameweek(userId, gameweek);
+          const existingPredictionsSet = new Set(
+            existingPredictions
+              .filter(p => p.snapshotId === inputData.context.snapshotId)
+              .map(p => p.playerId)
+          );
+          
+          // Generate predictions for players that don't have them yet
+          let predictionsGenerated = 0;
+          let predictionsSkipped = 0;
+          
+          for (const playerId of Array.from(allRelevantPlayerIds)) {
+            // Check if prediction already exists for this player + gameweek + snapshot
+            if (existingPredictionsSet.has(playerId)) {
+              console.log(`  ⏭️  Player ${playerId} already has prediction - skipping`);
+              predictionsSkipped++;
+              continue;
+            }
+            
+            // Find player data
+            const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === playerId);
+            if (!player) {
+              console.warn(`  ⚠️  Player ${playerId} not found in snapshot - skipping`);
+              continue;
+            }
+            
+            // Get upcoming fixtures for this player
+            const upcomingFixtures = inputData.upcomingFixtures
+              .filter((f: FPLFixture) => 
+                !f.finished && 
+                f.event && 
+                f.event >= gameweek && 
+                (f.team_h === player.team || f.team_a === player.team)
+              )
+              .slice(0, 3);
+            
+            try {
+              console.log(`  🎯 Generating prediction for ${player.web_name} (ID: ${playerId})...`);
+              
+              // Generate prediction using AI service (AWAIT to ensure completion)
+              await aiPredictionService.predictPlayerPoints({
+                player,
+                upcomingFixtures,
+                userId,
+                gameweek,
+                snapshotId: inputData.context.snapshotId,
+              });
+              
+              predictionsGenerated++;
+              console.log(`  ✅ Prediction generated for ${player.web_name}`);
+            } catch (error) {
+              console.error(`  ❌ Failed to generate prediction for ${player.web_name} (ID: ${playerId}):`, error instanceof Error ? error.message : 'Unknown error');
+              // Continue with other players even if one fails
+            }
+          }
+          
+          console.log(`\n[GameweekAnalyzer] 📊 Prediction generation complete: ${predictionsGenerated} generated, ${predictionsSkipped} skipped`);
+          
+          // Fetch all predictions from storage (including newly generated ones)
+          // CRITICAL: This must happen AFTER all predictions are generated
+          const savedPredictions = await storage.getPredictionsByGameweek(userId, gameweek);
+          const relevantPredictions = savedPredictions.filter(p => 
+            allRelevantPlayerIds.has(p.playerId) && 
+            p.snapshotId === inputData.context.snapshotId
+          );
+          
+          // Build predictionsMap from fetched results
+          // DO NOT add estimates for transferred-in players - validation must use actual predictions only
+          predictionsMap = new Map(relevantPredictions.map(p => [p.playerId, p.predictedPoints]));
+          console.log(`[GameweekAnalyzer] predictionsMap created with ${predictionsMap.size} actual predictions (no estimates)`);
+
+          // 5. Validate transfer net gain
+          const transferNetGainValidation = await this.validateTransferNetGain(
+            inputData.currentTeam,
+            aiResponse.transfers,
+            aiResponse.formation,
+            aiResponse.captain_id,
+            aiResponse.vice_captain_id,
+            inputData.context.snapshot.data.players,
+            predictionsMap,
+            transferCost
+          );
+
+          // 6. Validate chip usage
           chipValidation = await this.validateChipUsage(
             userId,
             aiResponse.chip_to_play as 'wildcard' | 'freehit' | 'benchboost' | 'triplecaptain' | null,
             inputData.chipsUsed
           );
 
-          // Check if validation passed
-          const allErrors = [...validation.errors, ...chipValidation.errors];
-          if (validation.isValid && chipValidation.isValid) {
-            console.log(`[GameweekAnalyzer] Validation passed on attempt ${attempt}`);
+          // Check if all validations passed
+          const allErrors = [...validation.errors, ...transferNetGainValidation.errors, ...chipValidation.errors];
+          if (validation.isValid && transferNetGainValidation.isValid && chipValidation.isValid) {
+            console.log(`[GameweekAnalyzer] All validations passed on attempt ${attempt}`);
             break; // Success! Exit retry loop
           } else {
             // Validation failed
@@ -311,11 +420,25 @@ export class GameweekAnalyzerService {
         throw new Error('Failed to generate gameweek plan - internal error');
       }
 
-      // At this point, validation has passed
+      // At this point, all validations have passed (validation is from last iteration of retry loop)
+      // Retrieve transferNetGainValidation from last iteration to get warnings
+      // Re-run validation to get the warnings (validation is lightweight since we already validated)
+      const transferNetGainValidation = await this.validateTransferNetGain(
+        inputData.currentTeam,
+        aiResponse.transfers,
+        aiResponse.formation,
+        aiResponse.captain_id,
+        aiResponse.vice_captain_id,
+        inputData.context.snapshot.data.players,
+        predictionsMap,
+        transferCost
+      );
+
       // 6. Prepare strategic insights with validation results (only warnings, no errors)
       const strategicInsights = [
         ...aiResponse.strategic_insights,
         ...validation.warnings,
+        ...transferNetGainValidation.warnings,
         ...chipValidation.warnings,
       ];
 
@@ -507,128 +630,87 @@ export class GameweekAnalyzerService {
 
       console.log(`[GameweekAnalyzer] Current plan has ${currentPlayerIds.size} players (${inputData.currentTeam.players.length} original - ${transferredOutIds.size} out + ${transferredInIds.size} in)`);
 
-      // 6.7. CRITICAL FIX: Generate predictions for ALL players including transferred-out players
-      // This ensures transfer cards can show individual player predicted points for both IN and OUT players
+      // 6.7. Generate predictions for transferred-out players (for transfer card display)
+      // Current squad predictions were already generated before retry loop
+      console.log(`\n[GameweekAnalyzer] 🔮 Generating predictions for ${transferredOutIds.size} transferred-out players (for transfer card display)...`);
+      
+      if (transferredOutIds.size > 0) {
+        // Check which transferred-out players need predictions
+        const transferredOutPredictionsGenerated = await storage.getPredictionsByGameweek(userId, gameweek);
+        const transferredOutPredictionsSet = new Set(
+          transferredOutPredictionsGenerated
+            .filter(p => p.snapshotId === inputData.context.snapshotId)
+            .map(p => p.playerId)
+        );
+        
+        let transferredOutPredictionsCreated = 0;
+        
+        for (const playerId of Array.from(transferredOutIds)) {
+          // Check if prediction already exists for this player + gameweek + snapshot
+          if (transferredOutPredictionsSet.has(playerId)) {
+            console.log(`  ⏭️  Transferred-out player ${playerId} already has prediction - skipping`);
+            continue;
+          }
+          
+          // Find player data
+          const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === playerId);
+          if (!player) {
+            console.warn(`  ⚠️  Transferred-out player ${playerId} not found in snapshot - skipping`);
+            continue;
+          }
+          
+          // Get upcoming fixtures for this player
+          const upcomingFixtures = inputData.upcomingFixtures
+            .filter((f: FPLFixture) => 
+              !f.finished && 
+              f.event && 
+              f.event >= gameweek && 
+              (f.team_h === player.team || f.team_a === player.team)
+            )
+            .slice(0, 3);
+          
+          try {
+            console.log(`  🎯 Generating prediction for transferred-out ${player.web_name} (ID: ${playerId})...`);
+            
+            // Generate prediction using AI service
+            await aiPredictionService.predictPlayerPoints({
+              player,
+              upcomingFixtures,
+              userId,
+              gameweek,
+              snapshotId: inputData.context.snapshotId,
+            });
+            
+            transferredOutPredictionsCreated++;
+            console.log(`  ✅ Prediction generated for ${player.web_name}`);
+          } catch (error) {
+            console.error(`  ❌ Failed to generate prediction for ${player.web_name} (ID: ${playerId}):`, error instanceof Error ? error.message : 'Unknown error');
+            // Continue with other players even if one fails
+          }
+        }
+        
+        console.log(`\n[GameweekAnalyzer] 📊 Transferred-out prediction generation complete: ${transferredOutPredictionsCreated} generated, ${transferredOutIds.size - transferredOutPredictionsCreated} skipped`);
+      }
+
+      // Update predictionsMap with transferred-out players for transfer card display
+      // Fetch latest predictions to include newly generated transferred-out predictions
+      const latestPredictions = await storage.getPredictionsByGameweek(userId, gameweek);
       const allRelevantPlayerIds = new Set([
         ...Array.from(currentPlayerIds), // Current squad (after transfers)
-        ...Array.from(transferredOutIds), // Also generate for transferred-out players for transfer card display
+        ...Array.from(transferredOutIds), // Transferred-out players for transfer card display
       ]);
       
-      console.log(`\n[GameweekAnalyzer] 🔮 Generating predictions for ${allRelevantPlayerIds.size} players (${currentPlayerIds.size} current squad + ${transferredOutIds.size} transferred-out)...`);
-      
-      const existingSquadPlayerIds = inputData.currentTeam.players
-        .filter(p => p.player_id && !transferredOutIds.has(p.player_id))
-        .map(p => p.player_id!);
-      
-      console.log(`[GameweekAnalyzer] Breaking down: ${existingSquadPlayerIds.length} existing + ${transferredInIds.size} transferred-in + ${transferredOutIds.size} transferred-out = ${allRelevantPlayerIds.size} total`);
-      
-      // Fetch existing predictions once before the loop (performance optimization)
-      const existingPredictionsBeforeGeneration = await storage.getPredictionsByGameweek(userId, gameweek);
-      const existingPredictionsSet = new Set(
-        existingPredictionsBeforeGeneration
-          .filter(p => p.snapshotId === inputData.context.snapshotId)
-          .map(p => p.playerId)
-      );
-      
-      // Generate predictions for ALL relevant players (current squad + transferred-out for transfer cards)
-      let predictionsGenerated = 0;
-      let predictionsSkipped = 0;
-      
-      for (const playerId of Array.from(allRelevantPlayerIds)) {
-        // Check if prediction already exists for this player + gameweek + snapshot
-        if (existingPredictionsSet.has(playerId)) {
-          console.log(`  ⏭️  Player ${playerId} already has prediction for this snapshot - skipping`);
-          predictionsSkipped++;
-          continue;
-        }
-        
-        // Find player data
-        const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === playerId);
-        if (!player) {
-          console.warn(`  ⚠️  Player ${playerId} not found in snapshot - skipping`);
-          continue;
-        }
-        
-        // Get upcoming fixtures for this player
-        const upcomingFixtures = inputData.upcomingFixtures
-          .filter((f: FPLFixture) => 
-            !f.finished && 
-            f.event && 
-            f.event >= gameweek && 
-            (f.team_h === player.team || f.team_a === player.team)
-          )
-          .slice(0, 3);
-        
-        try {
-          console.log(`  🎯 Generating prediction for ${player.web_name} (ID: ${playerId})...`);
-          
-          // Generate prediction using AI service
-          await aiPredictionService.predictPlayerPoints({
-            player,
-            upcomingFixtures,
-            userId,
-            gameweek,
-            snapshotId: inputData.context.snapshotId,
-          });
-          
-          predictionsGenerated++;
-          console.log(`  ✅ Prediction generated for ${player.web_name}`);
-        } catch (error) {
-          console.error(`  ❌ Failed to generate prediction for ${player.web_name} (ID: ${playerId}):`, error instanceof Error ? error.message : 'Unknown error');
-          // Continue with other players even if one fails
-        }
-      }
-      
-      console.log(`\n[GameweekAnalyzer] 📊 Prediction generation complete: ${predictionsGenerated} generated, ${predictionsSkipped} skipped (already existed), ${currentPlayerIds.size - predictionsGenerated - predictionsSkipped} failed`);
-
-      // Fetch all predictions for this gameweek (includes both new and historical predictions)
-      const savedPredictions = await storage.getPredictionsByGameweek(userId, gameweek);
-
-      // Filter to predictions for ALL relevant players (current squad + transferred-out for transfer cards)
-      // This ensures predictionsMap includes transferred-out players so transfer cards can show player_out_predicted_points
-      const relevantPredictions = savedPredictions.filter(p => allRelevantPlayerIds.has(p.playerId));
-
-      console.log(`[GameweekAnalyzer] Snapshot validation: checking ${relevantPredictions.length} predictions for all relevant players (${currentPlayerIds.size} current + ${transferredOutIds.size} transferred-out, ignoring ${savedPredictions.length - relevantPredictions.length} stale predictions from previous runs)`);
-
-      // Validate only relevant predictions have matching snapshot_id
-      const mismatchedPredictions = relevantPredictions.filter(
-        p => p.snapshotId && p.snapshotId !== inputData.context.snapshotId
+      const relevantPredictions = latestPredictions.filter(p => 
+        allRelevantPlayerIds.has(p.playerId) && 
+        p.snapshotId === inputData.context.snapshotId
       );
 
-      if (mismatchedPredictions.length > 0) {
-        console.error('[GameweekAnalyzer] Snapshot mismatch in predictions:', {
-          expected: inputData.context.snapshotId,
-          found: mismatchedPredictions.map(p => ({ playerId: p.playerId, snapshotId: p.snapshotId }))
-        });
-        throw new Error(`Snapshot validation failed: ${mismatchedPredictions.length} predictions have mismatched snapshot_id`);
-      }
+      console.log(`[GameweekAnalyzer] Updating predictionsMap with ${relevantPredictions.length} predictions (current squad + transferred-out)`);
 
-      console.log(`[GameweekAnalyzer] ✓ All ${relevantPredictions.length} predictions for current team players match snapshot ${inputData.context.snapshotId.substring(0, 8)}...`);
-
-      // CRITICAL FIX: Generate predictions for transferred-in players
-      // These players don't have predictions yet, so we need to estimate their points
-      // to ensure they're properly considered for the starting XI
-      const predictionsMap = new Map(relevantPredictions.map(p => [p.playerId, p.predictedPoints]));
-      
-      console.log(`[GameweekAnalyzer] Initial predictionsMap has ${predictionsMap.size} players before adding transferred-in estimates`);
-      
-      for (const transfer of aiResponse.transfers) {
-        const playerInName = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === transfer.player_in_id)?.web_name || `Player ${transfer.player_in_id}`;
-        const playerOutName = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === transfer.player_out_id)?.web_name || `Player ${transfer.player_out_id}`;
-        
-        if (!predictionsMap.has(transfer.player_in_id)) {
-          // Find the player being transferred out to use as baseline
-          const playerOutPrediction = predictionsMap.get(transfer.player_out_id) || 2;
-          
-          // Estimate new player's points as: old player's points + expected gain
-          const estimatedPoints = Math.max(0, Math.round(playerOutPrediction + transfer.expected_points_gain));
-          
-          console.log(`[GameweekAnalyzer] ✅ Adding estimate for transferred-in player ${playerInName} (ID: ${transfer.player_in_id}): ${estimatedPoints} pts (baseline from ${playerOutName}: ${playerOutPrediction}, gain: ${transfer.expected_points_gain})`);
-          
-          predictionsMap.set(transfer.player_in_id, estimatedPoints);
-        } else {
-          const existingPrediction = predictionsMap.get(transfer.player_in_id);
-          console.log(`[GameweekAnalyzer] ⚠️ Transferred-in player ${playerInName} (ID: ${transfer.player_in_id}) already has prediction: ${existingPrediction} pts - NOT adding estimate`);
+      // Update predictionsMap with all relevant predictions (including transferred-out)
+      for (const pred of relevantPredictions) {
+        if (!predictionsMap.has(pred.playerId)) {
+          predictionsMap.set(pred.playerId, pred.predictedPoints);
         }
       }
       
@@ -1244,48 +1326,6 @@ export class GameweekAnalyzerService {
       console.log(`  Final GROSS: ${finalGrossPoints} → ${Math.round(finalGrossPoints)} (rounded)`);
       console.log(`  Transfer cost: ${transferCost}`);
       console.log(`  Correct NET: ${correctNetPoints}`);
-      
-      // Validate transfer value: Block plans where taking a hit results in net point loss
-      if (transferCost > 0) {
-        // Calculate baseline (no-transfer) prediction by using current squad
-        const baselineLineup = await this.generateLineup(
-          inputData.currentTeam,
-          [], // No transfers
-          aiResponse.formation,
-          aiResponse.captain_id,
-          aiResponse.vice_captain_id,
-          inputData.context.snapshot.data.players,
-          Array.from(predictionsMap.entries()).map(([playerId, predictedPoints]) => ({ playerId, predictedPoints }))
-        );
-        
-        // Calculate baseline GROSS points (same logic as main calculation above)
-        let baselineGross = 0;
-        for (const pick of baselineLineup) {
-          if (pick.position <= 11 || pick.multiplier > 1) {
-            const prediction = predictionsMap.get(pick.player_id);
-            if (prediction !== undefined) {
-              baselineGross += prediction * pick.multiplier;
-            }
-          }
-        }
-        
-        const transferNetGain = correctNetPoints - baselineGross;
-        
-        console.log(`[GameweekAnalyzer] Transfer value validation:`);
-        console.log(`  Baseline (no transfers): ${baselineGross} pts`);
-        console.log(`  With transfers (after -${transferCost}): ${correctNetPoints} pts`);
-        console.log(`  Net gain from transfers: ${transferNetGain > 0 ? '+' : ''}${transferNetGain} pts`);
-        
-        if (transferNetGain <= 0) {
-          throw new Error(
-            `Transfer plan rejected: Taking a -${transferCost} point hit results in ${transferNetGain} net gain. ` +
-            `Baseline (no transfers) = ${baselineGross} pts, Transfer plan = ${correctNetPoints} pts. ` +
-            `AI must recommend transfers that provide positive value or recommend no transfers.`
-          );
-        }
-        
-        console.log(`[GameweekAnalyzer] ✅ Transfer plan validated: +${transferNetGain} pts net gain`);
-      }
       
       // Update both predicted points (NET) and baseline (GROSS) with deterministic calculations
       await storage.updateGameweekPlanPredictions(plan.id, correctNetPoints, Math.round(finalGrossPoints));
@@ -2683,6 +2723,136 @@ CRITICAL REQUIREMENTS:
       } else {
         warnings.push(`Planning to use ${chipToPlay} chip this gameweek`);
       }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings,
+    };
+  }
+
+  private async validateTransferNetGain(
+    currentTeam: UserTeam,
+    transfers: AIGameweekResponse['transfers'],
+    formation: string,
+    captain_id: number,
+    vice_captain_id: number,
+    allPlayers: FPLPlayer[],
+    predictionsMap: Map<number, number>,
+    transferCost: number
+  ): Promise<SquadValidation> {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    // Return early if no transfer cost (validation not needed)
+    if (transferCost === 0) {
+      console.log(`[GameweekAnalyzer] No transfer cost - skipping net gain validation`);
+      return {
+        isValid: true,
+        errors,
+        warnings,
+      };
+    }
+
+    console.log(`[GameweekAnalyzer] Validating transfer net gain with ${transferCost} point cost...`);
+
+    // CRITICAL: Check if all transferred-in players have predictions
+    // If any are missing, validation must fail to force AI to recommend players with predictions
+    const transferredInPlayerIds = transfers.map(t => t.player_in_id);
+    const missingPredictions: number[] = [];
+    
+    for (const playerId of transferredInPlayerIds) {
+      if (!predictionsMap.has(playerId)) {
+        missingPredictions.push(playerId);
+      }
+    }
+    
+    if (missingPredictions.length > 0) {
+      const missingPlayerNames = missingPredictions.map(id => {
+        const player = allPlayers.find(p => p.id === id);
+        return player ? `${player.web_name} (ID: ${id})` : `Player ${id}`;
+      }).join(', ');
+      
+      console.error(`[GameweekAnalyzer] ❌ Validation failed: Missing predictions for transferred-in players: ${missingPlayerNames}`);
+      errors.push(
+        `Transfer plan rejected: Missing predictions for transferred-in players: ${missingPlayerNames}. ` +
+        `AI must only recommend transfers for players that have generated predictions.`
+      );
+      
+      return {
+        isValid: false,
+        errors,
+        warnings,
+      };
+    }
+    
+    console.log(`[GameweekAnalyzer] ✅ All transferred-in players have predictions`);
+
+    // Calculate baseline (no-transfer) prediction by using current squad
+    const baselineLineup = await this.generateLineup(
+      currentTeam,
+      [], // No transfers
+      formation,
+      captain_id,
+      vice_captain_id,
+      allPlayers,
+      Array.from(predictionsMap.entries()).map(([playerId, predictedPoints]) => ({ playerId, predictedPoints }))
+    );
+
+    // Calculate baseline GROSS points (same logic as main calculation)
+    let baselineGross = 0;
+    for (const pick of baselineLineup) {
+      if (pick.position <= 11 || pick.multiplier > 1) {
+        const prediction = predictionsMap.get(pick.player_id);
+        if (prediction !== undefined) {
+          baselineGross += prediction * pick.multiplier;
+        }
+      }
+    }
+
+    // Generate transfer lineup
+    const transferLineup = await this.generateLineup(
+      currentTeam,
+      transfers,
+      formation,
+      captain_id,
+      vice_captain_id,
+      allPlayers,
+      Array.from(predictionsMap.entries()).map(([playerId, predictedPoints]) => ({ playerId, predictedPoints }))
+    );
+
+    // Calculate transfer GROSS points
+    let transferGross = 0;
+    for (const pick of transferLineup) {
+      if (pick.position <= 11 || pick.multiplier > 1) {
+        const prediction = predictionsMap.get(pick.player_id);
+        if (prediction !== undefined) {
+          transferGross += prediction * pick.multiplier;
+        }
+      }
+    }
+
+    // Calculate NET points (after transfer cost)
+    const transferNet = transferGross - transferCost;
+    const transferNetGain = transferNet - baselineGross;
+
+    console.log(`[GameweekAnalyzer] Transfer value validation:`);
+    console.log(`  Baseline (no transfers): ${baselineGross} pts`);
+    console.log(`  Transfer GROSS: ${transferGross} pts`);
+    console.log(`  Transfer cost: -${transferCost} pts`);
+    console.log(`  Transfer NET: ${transferNet} pts`);
+    console.log(`  Net gain from transfers: ${transferNetGain > 0 ? '+' : ''}${transferNetGain} pts`);
+
+    if (transferNetGain <= 0) {
+      errors.push(
+        `Transfer plan rejected: Taking a -${transferCost} point hit results in ${transferNetGain} net gain. ` +
+        `Baseline (no transfers) = ${baselineGross} pts, Transfer plan = ${transferNet} pts. ` +
+        `AI must recommend transfers that provide positive value or recommend no transfers.`
+      );
+    } else {
+      warnings.push(`Transfer plan validated: +${transferNetGain} pts net gain`);
+      console.log(`[GameweekAnalyzer] ✅ Transfer plan validated: +${transferNetGain} pts net gain`);
     }
 
     return {

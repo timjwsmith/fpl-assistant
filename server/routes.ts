@@ -1201,6 +1201,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update the submitted field in the database
       await storage.updateGameweekPlanSubmitted(planId, newSubmittedStatus);
 
+      // If marking as submitted (not un-submitting), record multi-week predictions
+      if (newSubmittedStatus && plan.transfers && Array.isArray(plan.transfers) && plan.transfers.length > 0) {
+        console.log(`[Mark Submitted Route] Recording ${plan.transfers.length} multi-week predictions for plan ${planId}`);
+        await storage.createMultiWeekPredictions(
+          plan.userId,
+          planId,
+          plan.gameweek,
+          plan.transfers as any[]
+        );
+      }
+
       // Fetch the updated plan
       const updatedPlan = await storage.getGameweekPlanById(planId);
 

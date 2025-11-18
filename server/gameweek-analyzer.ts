@@ -2835,24 +2835,40 @@ CRITICAL REQUIREMENTS:
 
     // Calculate NET points (after transfer cost)
     const transferNet = transferGross - transferCost;
-    const transferNetGain = transferNet - baselineGross;
+    const nextGWNet = transferNet - baselineGross;
+
+    // Calculate multi-gameweek gain from AI's strategic analysis
+    const multiGameweekGain = transfers.reduce((sum, t) => sum + (t.expected_points_gain || 0), 0);
+    const multiGameweekNet = multiGameweekGain - transferCost;
 
     console.log(`[GameweekAnalyzer] Transfer value validation:`);
     console.log(`  Baseline (no transfers): ${baselineGross} pts`);
     console.log(`  Transfer GROSS: ${transferGross} pts`);
     console.log(`  Transfer cost: -${transferCost} pts`);
     console.log(`  Transfer NET: ${transferNet} pts`);
-    console.log(`  Net gain from transfers: ${transferNetGain > 0 ? '+' : ''}${transferNetGain} pts`);
+    console.log(`  Next GW net gain: ${nextGWNet > 0 ? '+' : ''}${nextGWNet} pts`);
+    console.log(`  Multi-gameweek gain: +${multiGameweekGain} pts (over ${transfers[0]?.expected_points_gain_timeframe || 'multiple gameweeks'})`);
+    console.log(`  Multi-gameweek net: ${multiGameweekNet > 0 ? '+' : ''}${multiGameweekNet} pts`);
 
-    if (transferNetGain <= 0) {
+    // Check multi-gameweek net gain (primary validation)
+    if (multiGameweekNet <= 0) {
+      // Genuinely bad transfer - block it
       errors.push(
-        `Transfer plan rejected: Taking a -${transferCost} point hit results in ${transferNetGain} net gain. ` +
-        `Baseline (no transfers) = ${baselineGross} pts, Transfer plan = ${transferNet} pts. ` +
-        `AI must recommend transfers that provide positive value or recommend no transfers.`
+        `Transfer plan rejected: Multi-gameweek gain (${multiGameweekGain} pts) does not justify -${transferCost} hit (net: ${multiGameweekNet} pts). ` +
+        `AI must recommend transfers with positive long-term value.`
       );
+    } else if (nextGWNet < 0) {
+      // Good long-term but negative short-term - allow with warning
+      warnings.push(
+        `Strategic transfer: Loses ${Math.abs(nextGWNet).toFixed(1)} pts in next gameweek but gains ${multiGameweekNet.toFixed(1)} pts over ${transfers[0]?.expected_points_gain_timeframe || 'multiple gameweeks'}. Long-term value justified.`
+      );
+      console.log(`[GameweekAnalyzer] ✅ Strategic transfer validated: Short-term loss but long-term gain`);
     } else {
-      warnings.push(`Transfer plan validated: +${transferNetGain} pts net gain`);
-      console.log(`[GameweekAnalyzer] ✅ Transfer plan validated: +${transferNetGain} pts net gain`);
+      // Good both short and long term
+      warnings.push(
+        `Optimal transfer: Gains ${nextGWNet.toFixed(1)} pts in next gameweek and ${multiGameweekNet.toFixed(1)} pts over ${transfers[0]?.expected_points_gain_timeframe || 'multiple gameweeks'}.`
+      );
+      console.log(`[GameweekAnalyzer] ✅ Optimal transfer validated: Positive both short-term and long-term`);
     }
 
     return {

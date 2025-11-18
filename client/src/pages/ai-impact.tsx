@@ -310,10 +310,11 @@ export default function AIImpact() {
             </CardContent>
           </Card>
 
-          {/* Multi-Week Prediction Tracker */}
-          <MultiWeekPredictionTracker userId={userId} />
         </>
       )}
+
+      {/* Multi-Week Prediction Tracker - Always visible */}
+      <MultiWeekPredictionTracker userId={userId} />
     </div>
   );
 }

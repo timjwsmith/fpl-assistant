@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage, db } from "./storage";
 import { fplApi } from "./fpl-api";
 import { aiPredictions } from "./ai-predictions";
 import { managerSync } from "./manager-sync";
@@ -17,7 +17,8 @@ import { predictionAnalysisService } from "./prediction-analysis-service";
 import { gameweekSnapshot } from "./gameweek-data-snapshot";
 import { precomputationCache } from "./precomputation-cache";
 import { z } from "zod";
-import { userSettingsSchema } from "@shared/schema";
+import { userSettingsSchema, multiWeekTransferPredictions, type MultiWeekTransferPrediction } from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // FPL Data Endpoints
@@ -1497,6 +1498,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: "Unable to fetch impact summary - please try again later",
         details: error instanceof Error ? error.message : "Unknown error"
       });
+    }
+  });
+
+  app.get("/api/multi-week-predictions/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid user ID" });
+      }
+
+      // Fetch all predictions for this user, sorted by newest first
+      const predictions = await db
+        .select()
+        .from(multiWeekTransferPredictions)
+        .where(eq(multiWeekTransferPredictions.userId, userId))
+        .orderBy(desc(multiWeekTransferPredictions.createdAt))
+        .limit(20);
+
+      // Enrich with player names
+      const planningGameweek = await fplApi.getPlanningGameweek();
+      const gameweek = planningGameweek?.id || 1;
+      const snapshot = await gameweekSnapshot.getSnapshot(gameweek);
+      const players = snapshot.data.players;
+      
+      const enrichedPredictions = predictions.map((pred: MultiWeekTransferPrediction) => {
+        const playerIn = players.find(p => p.id === pred.playerInId);
+        const playerOut = players.find(p => p.id === pred.playerOutId);
+        
+        return {
+          ...pred,
+          playerInName: playerIn?.web_name || 'Unknown',
+          playerOutName: playerOut?.web_name || 'Unknown',
+          // Calculate progress percentage
+          progressPercent: pred.status === 'tracking' 
+            ? (pred.weeksElapsed / pred.timeframeWeeks * 100)
+            : pred.status === 'completed' ? 100 : 0
+        };
+      });
+      
+      res.json(enrichedPredictions);
+    } catch (error) {
+      console.error('Error fetching multi-week predictions:', error);
+      res.status(500).json({ error: 'Failed to fetch multi-week predictions' });
     }
   });
 

@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAIImpactSummary, useAnalyzeAllGameweeks } from "@/hooks/use-ai-impact";
 import { useFPLPlayers } from "@/hooks/use-fpl-data";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { MultiWeekPredictionTracker } from "@/components/MultiWeekPredictionTracker";
 
 export default function AIImpact() {
   const userId = 1;
@@ -308,6 +309,9 @@ export default function AIImpact() {
               </Table>
             </CardContent>
           </Card>
+
+          {/* Multi-Week Prediction Tracker */}
+          <MultiWeekPredictionTracker userId={userId} />
         </>
       )}
     </div>

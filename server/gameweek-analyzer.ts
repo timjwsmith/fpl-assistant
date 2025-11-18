@@ -1258,7 +1258,17 @@ export class GameweekAnalyzerService {
           Array.from(predictionsMap.entries()).map(([playerId, predictedPoints]) => ({ playerId, predictedPoints }))
         );
         
-        const baselineGross = this.calculateLineupPoints(baselineLineup, false);
+        // Calculate baseline GROSS points (same logic as main calculation above)
+        let baselineGross = 0;
+        for (const pick of baselineLineup) {
+          if (pick.position <= 11 || pick.multiplier > 1) {
+            const prediction = predictionsMap.get(pick.player_id);
+            if (prediction !== undefined) {
+              baselineGross += prediction * pick.multiplier;
+            }
+          }
+        }
+        
         const transferNetGain = correctNetPoints - baselineGross;
         
         console.log(`[GameweekAnalyzer] Transfer value validation:`);
@@ -1277,7 +1287,8 @@ export class GameweekAnalyzerService {
         console.log(`[GameweekAnalyzer] ✅ Transfer plan validated: +${transferNetGain} pts net gain`);
       }
       
-      await storage.updateGameweekPlanPredictedPoints(plan.id, correctNetPoints);
+      // Update both predicted points (NET) and baseline (GROSS) with deterministic calculations
+      await storage.updateGameweekPlanPredictions(plan.id, correctNetPoints, Math.round(finalGrossPoints));
       plan.predictedPoints = correctNetPoints; // Update local object
 
       console.log(`[GameweekAnalyzer] Analysis complete, plan ID: ${plan.id}`);

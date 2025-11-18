@@ -1183,16 +1183,16 @@ export class GameweekAnalyzerService {
         const pointsDifference = Math.abs(aiResponse.predicted_points - calculatedGrossPoints);
         if (pointsDifference > 3) {
           console.warn(`[GameweekAnalyzer] ⚠️  AI predicted_points (${aiResponse.predicted_points}) differs significantly from calculated (${calculatedGrossPoints}) by ${pointsDifference} points`);
-          console.warn(`[GameweekAnalyzer]    This may indicate an AI calculation error - review recommended`);
+          console.warn(`[GameweekAnalyzer]    AI calculation error detected - using deterministic calculation instead`);
         } else if (pointsDifference > 0) {
           console.log(`[GameweekAnalyzer] ℹ️  AI predicted_points (${aiResponse.predicted_points}) differs slightly from calculated (${calculatedGrossPoints}) by ${pointsDifference} points`);
-          console.log(`[GameweekAnalyzer]    This is acceptable variance - using AI's original prediction`);
+          console.log(`[GameweekAnalyzer]    Using deterministic calculation for accuracy`);
         } else {
           console.log(`[GameweekAnalyzer] ✅ AI and calculated values match exactly: ${aiResponse.predicted_points} pts`);
         }
-        // KEEP AI's original prediction - do NOT override
-        // The baselinePredictedPoints was already saved with AI's value on line 443
-        finalGrossPoints = aiResponse.predicted_points;
+        // ALWAYS use deterministic calculated value with captain multiplier
+        // AI's free-form prediction often misses captain multiplier and other factors
+        finalGrossPoints = calculatedGrossPoints;
         predictionReliable = true;
       }
       
@@ -1244,6 +1244,39 @@ export class GameweekAnalyzerService {
       console.log(`  Final GROSS: ${finalGrossPoints} → ${Math.round(finalGrossPoints)} (rounded)`);
       console.log(`  Transfer cost: ${transferCost}`);
       console.log(`  Correct NET: ${correctNetPoints}`);
+      
+      // Validate transfer value: Block plans where taking a hit results in net point loss
+      if (transferCost > 0) {
+        // Calculate baseline (no-transfer) prediction by using current squad
+        const baselineLineup = await this.generateLineup(
+          inputData.currentTeam,
+          [], // No transfers
+          aiResponse.formation,
+          aiResponse.captain_id,
+          aiResponse.vice_captain_id,
+          inputData.context.snapshot.data.players,
+          Array.from(predictionsMap.entries()).map(([playerId, predictedPoints]) => ({ playerId, predictedPoints }))
+        );
+        
+        const baselineGross = this.calculateLineupPoints(baselineLineup, false);
+        const transferNetGain = correctNetPoints - baselineGross;
+        
+        console.log(`[GameweekAnalyzer] Transfer value validation:`);
+        console.log(`  Baseline (no transfers): ${baselineGross} pts`);
+        console.log(`  With transfers (after -${transferCost}): ${correctNetPoints} pts`);
+        console.log(`  Net gain from transfers: ${transferNetGain > 0 ? '+' : ''}${transferNetGain} pts`);
+        
+        if (transferNetGain <= 0) {
+          throw new Error(
+            `Transfer plan rejected: Taking a -${transferCost} point hit results in ${transferNetGain} net gain. ` +
+            `Baseline (no transfers) = ${baselineGross} pts, Transfer plan = ${correctNetPoints} pts. ` +
+            `AI must recommend transfers that provide positive value or recommend no transfers.`
+          );
+        }
+        
+        console.log(`[GameweekAnalyzer] ✅ Transfer plan validated: +${transferNetGain} pts net gain`);
+      }
+      
       await storage.updateGameweekPlanPredictedPoints(plan.id, correctNetPoints);
       plan.predictedPoints = correctNetPoints; // Update local object
 

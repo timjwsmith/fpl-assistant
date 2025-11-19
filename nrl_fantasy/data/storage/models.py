@@ -149,3 +149,73 @@ class Projection(Base):
     
     # Relationships
     player = relationship("Player", back_populates="projections")
+
+
+class User(Base):
+    """User account for NRL Fantasy integration"""
+    __tablename__ = "nrl_users"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String(255), unique=True, nullable=False)
+    nrl_fantasy_username = Column(String(200), nullable=True)
+    display_name = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_sync_at = Column(DateTime, nullable=True)
+    is_active = Column(Boolean, default=True)
+    
+    # Relationships
+    fantasy_teams = relationship("UserFantasyTeam", back_populates="user")
+    
+    def __repr__(self):
+        return f"<User(id={self.id}, email='{self.email}', display_name='{self.display_name}')>"
+
+
+class UserFantasyTeam(Base):
+    """User's NRL Fantasy team"""
+    __tablename__ = "user_fantasy_teams"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("nrl_users.id"), nullable=False)
+    nrl_team_id = Column(String(100), nullable=False)
+    team_name = Column(String(200), nullable=False)
+    round_created = Column(Integer, nullable=False)
+    bank_balance = Column(Integer, default=0)
+    trades_remaining = Column(Integer, default=0)
+    current_round = Column(Integer, nullable=False)
+    total_points = Column(Integer, nullable=True)
+    league_rank = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    is_active = Column(Boolean, default=True)
+    
+    # Relationships
+    user = relationship("User", back_populates="fantasy_teams")
+    squad_players = relationship("UserFantasySquad", back_populates="team")
+    
+    def __repr__(self):
+        return f"<UserFantasyTeam(id={self.id}, team_name='{self.team_name}', user_id={self.user_id})>"
+
+
+class UserFantasySquad(Base):
+    """Player selection in user's fantasy team"""
+    __tablename__ = "user_fantasy_squad"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    team_id = Column(Integer, ForeignKey("user_fantasy_teams.id"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    position = Column(String(50), nullable=False)
+    is_captain = Column(Boolean, default=False)
+    is_vice_captain = Column(Boolean, default=False)
+    is_on_bench = Column(Boolean, default=False)
+    bench_position = Column(Integer, nullable=True)
+    added_round = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    team = relationship("UserFantasyTeam", back_populates="squad_players")
+    player = relationship("Player")
+    
+    def __repr__(self):
+        return f"<UserFantasySquad(id={self.id}, team_id={self.team_id}, player_id={self.player_id}, position='{self.position}')>"

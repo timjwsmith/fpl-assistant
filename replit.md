@@ -1,10 +1,10 @@
 # NRL Fantasy Edge - Project Documentation
 
 ## Overview
-AI-powered NRL Fantasy predictions and optimization platform built with Python FastAPI, machine learning, and advanced statistical analysis.
+AI-powered NRL Fantasy predictions and optimization platform built with Python FastAPI, machine learning, and advanced statistical analysis. **Now with NRL Fantasy integration** to import your actual teams and get personalized recommendations!
 
-**Status**: Phase 2 Complete (Real data ingestion, ML predictions, bye planning, PostgreSQL support)  
-**Current Version**: 1.0.0  
+**Status**: Phase 3 In Progress (NRL Fantasy Team Integration)  
+**Current Version**: 2.0.0-beta  
 **Database**: SQLite (dev) / PostgreSQL (production)  
 **API Framework**: FastAPI 0.115.0  
 **ML Library**: scikit-learn (Gradient Boosting)
@@ -12,6 +12,14 @@ AI-powered NRL Fantasy predictions and optimization platform built with Python F
 ---
 
 ## Recent Changes
+
+### Phase 3 Features - NRL Fantasy Integration (2025-11-19) 🆕
+- ✅ **NRL Fantasy API Client**: Reverse-engineered client for fantasy.nrl.com
+- ✅ **User Account System**: Database tables for users and fantasy teams
+- ✅ **Team Sync Service**: Import your actual 17-player squads from NRL Fantasy
+- ✅ **Personalized API Endpoints**: 6 new endpoints for team import & recommendations
+- ✅ **Auto-Refresh**: Sync your teams weekly from NRL Fantasy
+- ⏳ **Endpoint Discovery**: Real API endpoints need to be discovered (placeholder logic in place)
 
 ### Phase 2 Features (2025-11-19)
 - ✅ **Real Data Ingestion**: NRL-Data GitHub repository integration
@@ -43,6 +51,7 @@ AI-powered NRL Fantasy predictions and optimization platform built with Python F
 - **Storage**: SQLAlchemy models, database connection management
 - **Ingestion**: External data fetchers (NRL-Data GitHub, FootyStatistics)
 - **Models**: Player, Match, FantasyScore, PlayerMatchStats, Projection
+- **User Models**: User, UserFantasyTeam, UserFantasySquad (Phase 3)
 
 #### 2. **Prediction Engines** (`nrl_fantasy/models/`)
 - **Basic Predictor**: Weighted average (last 3-5 games) with confidence scoring
@@ -61,9 +70,15 @@ AI-powered NRL Fantasy predictions and optimization platform built with Python F
 - **Engine**: NRL Fantasy 2024 rules implementation
 - Validates against official scores (±2 points accuracy)
 
-#### 5. **API** (`nrl_fantasy/api/`)
+#### 5. **Integrations** (`nrl_fantasy/integrations/`) 🆕
+- **NRL Fantasy Client**: API client for fantasy.nrl.com
+- **Endpoint Discovery**: Tool to reverse-engineer API endpoints
+- **Team Sync Service**: Import and sync user teams from NRL Fantasy
+
+#### 6. **API** (`nrl_fantasy/api/`)
 - **Core Endpoints**: Predictions, team projection, value picks
 - **Advanced Endpoints**: ML predictions, defensive strength, bye planning, data import
+- **User Endpoints**: Team import, personalized recommendations (Phase 3)
 
 ---
 
@@ -123,6 +138,17 @@ POST /api/advanced/train-model          # Train gradient boosting model
 GET  /api/advanced/defensive-strength/{team}?position=HLF
 POST /api/advanced/bye-plan             # Multi-week bye planning
 POST /api/advanced/import-data/{season} # Import NRL-Data for season
+```
+
+### User Endpoints (Phase 3) 🆕
+
+```bash
+POST /api/user/sync                     # Sync NRL Fantasy account (requires username/password)
+GET  /api/user/{user_id}/teams          # Get user's synced fantasy teams
+GET  /api/user/team/{team_id}           # Get team details with 17-player squad
+POST /api/user/team/{team_id}/project   # Get personalized captain/trade suggestions
+GET  /api/user/team/{team_id}/bye-analysis  # Bye round planning for saved team
+POST /api/user/team/{team_id}/refresh   # Re-sync team from NRL Fantasy
 ```
 
 ### Documentation

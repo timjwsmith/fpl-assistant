@@ -4,16 +4,29 @@ from sqlalchemy.orm import sessionmaker, Session
 from contextlib import contextmanager
 from typing import Generator
 
-from nrl_fantasy.config import settings
+from nrl_fantasy.config import settings, DatabaseConfig
 from nrl_fantasy.data.storage.models import Base
 
 
-# Create engine
-engine = create_engine(
-    settings.nrl_database_url,
-    connect_args={"check_same_thread": False} if "sqlite" in settings.nrl_database_url else {},
-    echo=False
-)
+# Get database URL
+db_url = DatabaseConfig.get_database_url()
+
+# Create engine with appropriate settings
+if DatabaseConfig.is_postgresql():
+    engine = create_engine(
+        db_url,
+        pool_size=10,
+        max_overflow=20,
+        pool_pre_ping=True,
+        pool_recycle=3600,
+        echo=False
+    )
+else:
+    engine = create_engine(
+        db_url,
+        connect_args={"check_same_thread": False},
+        echo=False
+    )
 
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

@@ -19,6 +19,7 @@ from nrl_fantasy.models.predictor import PlayerPredictor
 from nrl_fantasy.optimization.team_optimizer import TeamOptimizer
 from nrl_fantasy.data.storage.models import Player, Projection, FantasyPriceHistory
 from nrl_fantasy.api.advanced_endpoints import router as advanced_router
+from nrl_fantasy.api.user_endpoints import router as user_router
 from sqlalchemy import and_
 
 # Initialize FastAPI app
@@ -47,8 +48,9 @@ static_path.mkdir(exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
-# Include advanced endpoints router
+# Include routers
 app.include_router(advanced_router)
+app.include_router(user_router)
 
 
 @app.on_event("startup")

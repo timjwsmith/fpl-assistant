@@ -1,6 +1,7 @@
 """SQLAlchemy models for NRL Fantasy database"""
+from typing import Optional
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Boolean
-from sqlalchemy.orm import relationship, declarative_base
+from sqlalchemy.orm import relationship, declarative_base, Mapped, mapped_column
 from datetime import datetime
 
 Base = declarative_base()
@@ -155,14 +156,14 @@ class User(Base):
     """User account for NRL Fantasy integration"""
     __tablename__ = "nrl_users"
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    email = Column(String(255), unique=True, nullable=False)
-    nrl_fantasy_username = Column(String(200), nullable=True)
-    display_name = Column(String(200), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    last_sync_at = Column(DateTime, nullable=True)
-    is_active = Column(Boolean, default=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    nrl_fantasy_username: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    display_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_sync_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     
     # Relationships
     fantasy_teams = relationship("UserFantasyTeam", back_populates="user")
@@ -175,19 +176,19 @@ class UserFantasyTeam(Base):
     """User's NRL Fantasy team"""
     __tablename__ = "user_fantasy_teams"
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("nrl_users.id"), nullable=False)
-    nrl_team_id = Column(String(100), nullable=False)
-    team_name = Column(String(200), nullable=False)
-    round_created = Column(Integer, nullable=False)
-    bank_balance = Column(Integer, default=0)
-    trades_remaining = Column(Integer, default=0)
-    current_round = Column(Integer, nullable=False)
-    total_points = Column(Integer, nullable=True)
-    league_rank = Column(Integer, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    is_active = Column(Boolean, default=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("nrl_users.id"), nullable=False)
+    nrl_team_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    team_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    round_created: Mapped[int] = mapped_column(Integer, nullable=False)
+    bank_balance: Mapped[int] = mapped_column(Integer, default=0)
+    trades_remaining: Mapped[int] = mapped_column(Integer, default=0)
+    current_round: Mapped[int] = mapped_column(Integer, nullable=False)
+    total_points: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    league_rank: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     
     # Relationships
     user = relationship("User", back_populates="fantasy_teams")
@@ -201,17 +202,17 @@ class UserFantasySquad(Base):
     """Player selection in user's fantasy team"""
     __tablename__ = "user_fantasy_squad"
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    team_id = Column(Integer, ForeignKey("user_fantasy_teams.id"), nullable=False)
-    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
-    position = Column(String(50), nullable=False)
-    is_captain = Column(Boolean, default=False)
-    is_vice_captain = Column(Boolean, default=False)
-    is_on_bench = Column(Boolean, default=False)
-    bench_position = Column(Integer, nullable=True)
-    added_round = Column(Integer, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    team_id: Mapped[int] = mapped_column(Integer, ForeignKey("user_fantasy_teams.id"), nullable=False)
+    player_id: Mapped[int] = mapped_column(Integer, ForeignKey("players.id"), nullable=False)
+    position: Mapped[str] = mapped_column(String(50), nullable=False)
+    is_captain: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_vice_captain: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_on_bench: Mapped[bool] = mapped_column(Boolean, default=False)
+    bench_position: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    added_round: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
     team = relationship("UserFantasyTeam", back_populates="squad_players")

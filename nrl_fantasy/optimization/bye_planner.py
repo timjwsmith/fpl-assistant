@@ -1,5 +1,5 @@
 """Multi-week bye round planning optimizer"""
-from typing import Dict, List
+from typing import Dict, List, Optional, Any
 from sqlalchemy.orm import Session
 from nrl_fantasy.data.storage.models import Player, Projection
 
@@ -24,7 +24,7 @@ class ByePlanner:
             17: ['Canterbury Bulldogs', 'Wests Tigers']
         }
     
-    def get_team_bye_round(self, team: str) -> int:
+    def get_team_bye_round(self, team: Any) -> int:
         """Get which round a team has their bye"""
         for round_num, teams in self.bye_schedule.items():
             if team in teams:
@@ -141,7 +141,7 @@ class ByePlanner:
         ]
     
     def _find_replacement(self, position: str, active_teams: List[str], 
-                         season: int, round_num: int) -> Dict:
+                         season: int, round_num: int) -> Optional[Dict]:
         """Find best replacement player from active teams"""
         # Get projections for players from active teams
         players = self.db.query(Player, Projection).join(Projection).filter(

@@ -1,11 +1,11 @@
-modules = ["nodejs-20", "bash", "web", "postgresql-16"]
+modules = ["nodejs-20", "bash", "web", "postgresql-16", "python-3.11"]
 [agent]
 expertMode = true
 integrations = ["javascript_openai_ai_integrations:1.0.0"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["glib"]
+packages = ["glib", "glibcLocales", "libxcrypt"]
 
 [workflows]
 runButton = "Project"
@@ -19,6 +19,10 @@ author = "agent"
 task = "workflow.run"
 args = "Server"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "NRL Fantasy API"
+
 [[workflows.workflow]]
 name = "Server"
 author = "agent"
@@ -31,13 +35,21 @@ waitForPort = 5000
 [workflows.workflow.metadata]
 outputType = "webview"
 
+[[workflows.workflow]]
+name = "NRL Fantasy API"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python -m uvicorn nrl_fantasy.main:app --host 0.0.0.0 --port 5000 --reload"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 32845
-externalPort = 5000
 
 [[ports]]
 localPort = 34169
@@ -90,6 +102,10 @@ externalPort = 6000
 [[ports]]
 localPort = 44465
 externalPort = 8008
+
+[[ports]]
+localPort = 44863
+externalPort = 5000
 
 [[ports]]
 localPort = 45849

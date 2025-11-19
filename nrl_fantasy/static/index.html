@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NRL Fantasy Edge - AI-Powered Predictions</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 16px;
+            font-size: 1.5rem;
+        }
+        
+        .input-group {
+            margin-bottom: 16px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        input, select, button {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .result {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+        
+        .result h3 {
+            color: #667eea;
+            margin-bottom: 12px;
+        }
+        
+        .result p {
+            margin: 8px 0;
+            line-height: 1.6;
+        }
+        
+        .value-picks {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+        
+        .pick-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .pick-card h4 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .pick-card .stats {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+        
+        .error {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c33;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏉 NRL Fantasy Edge</h1>
+            <p class="subtitle">AI-Powered Predictions & Optimization</p>
+        </header>
+        
+        <div class="card">
+            <h2>🎯 Player Projection</h2>
+            <div class="input-group">
+                <label for="playerId">Player ID (1-128):</label>
+                <input type="number" id="playerId" placeholder="Enter player ID" min="1" max="128">
+            </div>
+            <button onclick="getPlayerProjection()">Get Projection</button>
+            <div id="playerResult"></div>
+        </div>
+        
+        <div class="card">
+            <h2>💎 Value Picks</h2>
+            <div class="input-group">
+                <label for="position">Position (optional):</label>
+                <select id="position">
+                    <option value="">All Positions</option>
+                    <option value="FRF">Front Row Forward</option>
+                    <option value="HOK">Hooker</option>
+                    <option value="2RF">Second Row Forward</option>
+                    <option value="HLF">Halfback</option>
+                    <option value="CTW">Centre/Winger</option>
+                    <option value="FLB">Fullback</option>
+                </select>
+            </div>
+            <button onclick="getValuePicks()">Find Value Picks</button>
+            <div id="valueResult"></div>
+        </div>
+        
+        <div class="card">
+            <h2>📊 API Endpoints</h2>
+            <p><strong>GET /api/players/{player_id}/projection</strong> - Get player prediction</p>
+            <p><strong>POST /api/team/project</strong> - Project team total and get captain suggestions</p>
+            <p><strong>GET /api/players/value-picks</strong> - Get top value picks</p>
+            <p style="margin-top: 16px; color: #666;">
+                Visit <a href="/docs" style="color: #667eea; text-decoration: none;">/docs</a> for interactive API documentation
+            </p>
+        </div>
+    </div>
+    
+    <script>
+        async function getPlayerProjection() {
+            const playerId = document.getElementById('playerId').value;
+            const resultDiv = document.getElementById('playerResult');
+            
+            if (!playerId) {
+                resultDiv.innerHTML = '<div class="error">Please enter a player ID</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="loading" style="display: block;">Loading...</div>';
+            
+            try {
+                const response = await fetch(`/api/players/${playerId}/projection`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="result">
+                            <h3>${data.player.name}</h3>
+                            <p><strong>Team:</strong> ${data.player.team}</p>
+                            <p><strong>Position:</strong> ${data.player.positions.join(', ')}</p>
+                            <p><strong>Predicted Points (Round ${data.round}):</strong> ${data.predicted_points}</p>
+                            <p><strong>Confidence:</strong> ${(data.confidence * 100).toFixed(0)}%</p>
+                            <p><strong>Recent Form:</strong> Last 3 avg: ${data.recent_form.avg_last_3 || 'N/A'}, 
+                               Avg minutes: ${data.recent_form.avg_minutes || 'N/A'}</p>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">Error: ${data.detail}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function getValuePicks() {
+            const position = document.getElementById('position').value;
+            const resultDiv = document.getElementById('valueResult');
+            
+            resultDiv.innerHTML = '<div class="loading" style="display: block;">Loading...</div>';
+            
+            try {
+                let url = '/api/players/value-picks?limit=6';
+                if (position) url += `&position=${position}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (response.ok && data.picks.length > 0) {
+                    const picksHtml = data.picks.map(pick => `
+                        <div class="pick-card">
+                            <h4>${pick.name}</h4>
+                            <div class="stats">
+                                <p><strong>Team:</strong> ${pick.team}</p>
+                                <p><strong>Position:</strong> ${pick.position}</p>
+                                <p><strong>Price:</strong> $${pick.price}k</p>
+                                <p><strong>Predicted Points:</strong> ${pick.predicted_points}</p>
+                                <p><strong>Value Score:</strong> ${pick.value_score} pts/$100k</p>
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    resultDiv.innerHTML = `
+                        <div class="result">
+                            <h3>Top Value Picks</h3>
+                            <p>Found ${data.total_count} players ${position ? `(${position})` : '(all positions)'}</p>
+                            <div class="value-picks">${picksHtml}</div>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = '<div class="error">No value picks found. Generate projections first.</div>';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

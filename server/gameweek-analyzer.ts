@@ -571,10 +571,25 @@ export class GameweekAnalyzerService {
       // Round predicted points since database column is integer (half-points from calculations)
       // Add accepted: true to all transfers and lineup optimizations by default (user can override)
       // Save baseline prediction (GROSS points before transfer cost) separately from final prediction (NET points)
+      
+      // Deduplicate transfers - AI sometimes generates duplicates
+      const uniqueTransfers = Array.from(
+        new Map(
+          aiResponse.transfers.map(t => [
+            `${t.player_out_id}-${t.player_in_id}`, // Use combination as key
+            t
+          ])
+        ).values()
+      );
+      
+      if (uniqueTransfers.length < aiResponse.transfers.length) {
+        console.warn(`[GameweekAnalyzer] ⚠️  Removed ${aiResponse.transfers.length - uniqueTransfers.length} duplicate transfer(s)`);
+      }
+      
       const plan = await storage.saveGameweekPlan({
         userId,
         gameweek,
-        transfers: aiResponse.transfers.map(t => ({
+        transfers: uniqueTransfers.map(t => ({
           ...t, 
           accepted: true,
           player_out_predicted_points: 0, // Will be enriched after predictions are generated
@@ -618,8 +633,9 @@ export class GameweekAnalyzerService {
       }
 
       // Calculate player IDs in the current plan (after transfers)
-      const transferredOutIds = new Set(aiResponse.transfers.map(t => t.player_out_id));
-      const transferredInIds = new Set(aiResponse.transfers.map(t => t.player_in_id));
+      // Use uniqueTransfers (deduplicated) instead of aiResponse.transfers
+      const transferredOutIds = new Set(uniqueTransfers.map(t => t.player_out_id));
+      const transferredInIds = new Set(uniqueTransfers.map(t => t.player_in_id));
       
       const currentPlayerIds = new Set([
         ...inputData.currentTeam.players
@@ -722,8 +738,8 @@ export class GameweekAnalyzerService {
       console.log(predictionsArray.slice(0, 15).map(p => `  ${p.name}: ${p.predictedPoints} pts`).join('\n'));
 
       // Enrich AI response transfers with individual player predicted points for the next gameweek
-      console.log(`[GameweekAnalyzer] 📊 Enriching ${aiResponse.transfers.length} transfers with individual player predictions...`);
-      const enrichedTransfers = aiResponse.transfers.map(transfer => {
+      console.log(`[GameweekAnalyzer] 📊 Enriching ${uniqueTransfers.length} transfers with individual player predictions...`);
+      const enrichedTransfers = uniqueTransfers.map(transfer => {
         const playerOutPredicted = predictionsMap.get(transfer.player_out_id) || 0;
         const playerInPredicted = predictionsMap.get(transfer.player_in_id) || 0;
         
@@ -756,7 +772,7 @@ export class GameweekAnalyzerService {
       console.log(`[GameweekAnalyzer] Generating starting XI lineup with ${predictionsMap.size} player predictions...`);
       const lineup = await this.generateLineup(
         inputData.currentTeam,
-        aiResponse.transfers,
+        uniqueTransfers,
         aiResponse.formation,
         aiResponse.captain_id,
         aiResponse.vice_captain_id,
@@ -765,8 +781,8 @@ export class GameweekAnalyzerService {
       );
 
       // 8.5. Enhance transfer reasoning with lineup substitution details
-      if (aiResponse.transfers.length > 0) {
-        console.log(`\n[GameweekAnalyzer] 🔄 Analyzing lineup changes for ${aiResponse.transfers.length} transfers...`);
+      if (uniqueTransfers.length > 0) {
+        console.log(`\n[GameweekAnalyzer] 🔄 Analyzing lineup changes for ${uniqueTransfers.length} transfers...`);
         
         // Create a map of player positions in the current lineup (before transfers)
         const currentLineupMap = new Map(currentLineup.map(p => [p.player_id, p.position]));
@@ -788,10 +804,10 @@ export class GameweekAnalyzerService {
         // CUMULATIVE TRANSFER PROCESSING FIX:
         // Track cumulative transfers to avoid showing the same player benched multiple times
         // Each transfer is analyzed against the state AFTER all previous transfers
-        const cumulativeTransfers: typeof aiResponse.transfers = [];
+        const cumulativeTransfers: typeof uniqueTransfers = [];
         
         // Track all transferred-out player IDs to exclude from substitution detection
-        const transferredOutPlayerIds = new Set(aiResponse.transfers.map(t => t.player_out_id));
+        const transferredOutPlayerIds = new Set(uniqueTransfers.map(t => t.player_out_id));
         console.log(`[GameweekAnalyzer] Transferred-out players (${transferredOutPlayerIds.size}): ${Array.from(transferredOutPlayerIds).map(id => {
           const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id);
           return player?.web_name || id;
@@ -810,7 +826,7 @@ export class GameweekAnalyzerService {
         // Analyze each transfer CUMULATIVELY by comparing:
         // - Baseline lineup (with all previous transfers applied)
         // - Lineup after adding this transfer to the cumulative set
-        for (const transfer of aiResponse.transfers) {
+        for (const transfer of uniqueTransfers) {
           const playerInName = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === transfer.player_in_id)?.web_name || `Player ${transfer.player_in_id}`;
           const playerOutName = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === transfer.player_out_id)?.web_name || `Player ${transfer.player_out_id}`;
           

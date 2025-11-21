@@ -1296,6 +1296,10 @@ export class GameweekAnalyzerService {
         const incorrectPatterns = [
           /This plan is projected to deliver \d+ points this gameweek with no transfer cost deduction[^.]+\./gi,
           /This plan is projected to deliver \d+ points this gameweek before accounting for transfer costs[^.]+\./gi,
+          /No transfer penalties are incurred[^.]+\./gi,
+          /No extra transfer costs[^.]+\./gi,
+          /the second transfer is covered by the bank balance[^.]+\./gi,
+          /only one free transfer is used[^.]+\./gi,
         ];
         
         for (const pattern of incorrectPatterns) {

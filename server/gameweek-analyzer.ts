@@ -737,9 +737,9 @@ export class GameweekAnalyzerService {
       }).sort((a, b) => b.predictedPoints - a.predictedPoints);
       console.log(predictionsArray.slice(0, 15).map(p => `  ${p.name}: ${p.predictedPoints} pts`).join('\n'));
 
-      // Enrich AI response transfers with individual player predicted points for the next gameweek
+      // Log transfer predictions (enrichment will happen after lineup analysis to include substitution_details)
       console.log(`[GameweekAnalyzer] 📊 Enriching ${uniqueTransfers.length} transfers with individual player predictions...`);
-      const enrichedTransfers = uniqueTransfers.map(transfer => {
+      for (const transfer of uniqueTransfers) {
         const playerOutPredicted = predictionsMap.get(transfer.player_out_id) || 0;
         const playerInPredicted = predictionsMap.get(transfer.player_in_id) || 0;
         
@@ -747,13 +747,7 @@ export class GameweekAnalyzerService {
         const playerInName = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === transfer.player_in_id)?.web_name || `Player ${transfer.player_in_id}`;
         
         console.log(`  Transfer: ${playerOutName} (${playerOutPredicted} pts) → ${playerInName} (${playerInPredicted} pts)`);
-        
-        return {
-          ...transfer,
-          player_out_predicted_points: playerOutPredicted,
-          player_in_predicted_points: playerInPredicted,
-        };
-      });
+      }
       
       console.log(`[GameweekAnalyzer] ✅ Enriched transfers will be saved after lineup optimization extraction`);
 
@@ -1183,6 +1177,24 @@ export class GameweekAnalyzerService {
           }
           
           console.log(`  ✅ Created ${pairingCount} lineup optimization card(s)`);
+        }
+        
+        // CRITICAL: Create enrichedTransfers NOW (after lineup analysis) to include substitution_details
+        // This must happen AFTER the lineup analysis loop which adds substitution_details to uniqueTransfers
+        console.log(`\n[GameweekAnalyzer] 📦 Creating enriched transfers with predictions and substitution_details...`);
+        const enrichedTransfers = uniqueTransfers.map(transfer => {
+          const playerOutPredicted = predictionsMap.get(transfer.player_out_id) || 0;
+          const playerInPredicted = predictionsMap.get(transfer.player_in_id) || 0;
+          
+          return {
+            ...transfer,
+            player_out_predicted_points: playerOutPredicted,
+            player_in_predicted_points: playerInPredicted,
+          };
+        });
+        console.log(`  Created ${enrichedTransfers.length} enriched transfers`);
+        for (const t of enrichedTransfers) {
+          console.log(`    ${t.player_out_id} → ${t.player_in_id}: substitution_details=${t.substitution_details ? 'YES' : 'NO'}`);
         }
         
         // CRITICAL: Extract lineup optimizations from transfers with substitution_details

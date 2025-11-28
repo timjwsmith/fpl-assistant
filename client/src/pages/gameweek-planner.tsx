@@ -847,7 +847,7 @@ export default function GameweekPlanner() {
                                   </AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-xs text-muted-foreground mb-1">Out</p>
+                                  <p className="text-xs font-medium text-destructive mb-1">SELL (leaves squad)</p>
                                   <div className="flex items-center gap-2">
                                     <p className="font-semibold truncate">{playerOut?.web_name || 'Unknown'}</p>
                                     {transfer.player_out_predicted_points > 0 && (
@@ -889,7 +889,7 @@ export default function GameweekPlanner() {
                                   </AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-xs text-muted-foreground mb-1">In</p>
+                                  <p className="text-xs font-medium text-chart-2 mb-1">BUY (joins squad)</p>
                                   <div className="flex items-center gap-2">
                                     <p className="font-semibold truncate">{playerIn?.web_name || 'Unknown'}</p>
                                     {transfer.player_in_predicted_points > 0 && (

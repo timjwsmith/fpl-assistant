@@ -885,18 +885,22 @@ export class GameweekAnalyzerService {
           
           console.log(`  Transfer scenario: ${playerOutName} was ${playerOutWasBench ? 'on BENCH' : 'STARTING'}, ${playerInName} is ${playerInIsStarting ? 'STARTING' : 'on BENCH'}`);
           
-          if (playerOutWasBench && playerInIsStarting) {
-            console.log(`  ✅ Bench → Starting transfer detected! Looking for benched player...`);
+          // EXPANDED LOGIC: Check for lineup changes in ALL cases where the incoming player starts
+          // This captures both:
+          // 1. Bench player sold → new player starts → someone else benched
+          // 2. Starter sold → new player starts → different player benched (not just direct replacement)
+          if (playerInIsStarting) {
+            console.log(`  ✅ Incoming player is starting! Checking for lineup changes...`);
             
             // CUMULATIVE FIX: Compare baseline XI (with previous transfers) vs new XI (with this transfer)
             // This ensures each transfer only detects NEW changes, not repeating previous benching decisions
-            const newStartingXI = lineupWithThisTransfer.filter(p => p.position <= 11).map(p => p.player_id);
+            const newStartingXIIds = lineupWithThisTransfer.filter(p => p.position <= 11).map(p => p.player_id);
             
             console.log(`  Baseline starting XI (${baselineStartingXI.length} players): ${baselineStartingXI.map(id => {
               const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id);
               return player?.web_name || id;
             }).join(', ')}`);
-            console.log(`  New starting XI with this transfer (${newStartingXI.length} players): ${newStartingXI.map(id => {
+            console.log(`  New starting XI with this transfer (${newStartingXIIds.length} players): ${newStartingXIIds.map(id => {
               const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id);
               return player?.web_name || id;
             }).join(', ')}`);
@@ -904,19 +908,21 @@ export class GameweekAnalyzerService {
             // Find player who was in baseline starting XI but is now benched
             // POSITION-AWARE FIX: Exclude ALL transferred-out players (not just current transfer)
             // This prevents GK→GK transfers from being shown as "GK benched for MID"
+            // Also exclude the player being transferred out in this transfer
             const benchedPlayerId = baselineStartingXI.find(playerId => 
-              !newStartingXI.includes(playerId) && !transferredOutPlayerIds.has(playerId)
+              !newStartingXIIds.includes(playerId) && 
+              !transferredOutPlayerIds.has(playerId) &&
+              playerId !== transfer.player_out_id
             );
             
             if (benchedPlayerId) {
               const benchedPlayerName = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === benchedPlayerId)?.web_name || `Player ${benchedPlayerId}`;
               console.log(`  🎯 Found benched player: ${benchedPlayerName} (ID: ${benchedPlayerId})`);
             } else {
-              console.log(`  ✅ NO benched player found - no starter is displaced by this transfer.`);
-              console.log(`  This is correct when transferring out a bench player and the new player fills their spot.`);
-              console.log(`  Diagnosis: Baseline starting XI = ${baselineStartingXI.length}, New starting XI = ${newStartingXI.length}`);
-              const playersOnlyInBaseline = baselineStartingXI.filter((id: number) => !newStartingXI.includes(id) && id !== transfer.player_out_id);
-              const playersOnlyInNew = newStartingXI.filter((id: number) => !baselineStartingXI.includes(id));
+              console.log(`  ✅ NO additional benched player found - incoming player simply takes the transferred-out player's spot.`);
+              console.log(`  Diagnosis: Baseline starting XI = ${baselineStartingXI.length}, New starting XI = ${newStartingXIIds.length}`);
+              const playersOnlyInBaseline = baselineStartingXI.filter((id: number) => !newStartingXIIds.includes(id) && id !== transfer.player_out_id);
+              const playersOnlyInNew = newStartingXIIds.filter((id: number) => !baselineStartingXI.includes(id));
               console.log(`  Players only in baseline XI (excluding ${playerOutName}): ${playersOnlyInBaseline.map((id: number) => inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id)?.web_name || id).join(', ') || 'NONE'}`);
               console.log(`  Players only in new XI: ${playersOnlyInNew.map((id: number) => inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id)?.web_name || id).join(', ') || 'NONE'}`);
             }

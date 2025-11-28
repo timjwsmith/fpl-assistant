@@ -2423,6 +2423,74 @@ CRITICAL REQUIREMENTS:
           }
         }
 
+        // ═══════════════════════════════════════════════════════════════════════
+        // CRITICAL BUDGET VALIDATION - Filter out impossible transfers
+        // ═══════════════════════════════════════════════════════════════════════
+        console.log('[GameweekAnalyzer] 💰 Validating transfer budget feasibility...');
+        
+        const bankBalance = inputData.currentTeam.bank || 0; // in tenths (e.g., 5 = £0.5m)
+        console.log(`[GameweekAnalyzer] Bank balance: £${(bankBalance / 10).toFixed(1)}m`);
+        
+        // Calculate cumulative budget as we process transfers
+        let runningBudget = bankBalance;
+        const validTransfers: typeof result.transfers = [];
+        const invalidTransfers: Array<{transfer: any; reason: string; shortfall: number}> = [];
+        
+        for (const transfer of result.transfers) {
+          // Get selling price of OUT player
+          const outPick = currentTeam.players.find((p: any) => p.player_id === transfer.player_out_id);
+          const outPlayer = allPlayers.find((p: FPLPlayer) => p.id === transfer.player_out_id);
+          
+          // selling_price from FPL API, fallback to now_cost
+          const sellingPrice = outPick?.selling_price || outPlayer?.now_cost || 0;
+          
+          // Get cost of IN player
+          const inPlayer = allPlayers.find((p: FPLPlayer) => p.id === transfer.player_in_id);
+          const purchasePrice = inPlayer?.now_cost || 0;
+          
+          // Calculate if transfer is affordable
+          const availableFunds = runningBudget + sellingPrice;
+          const isAffordable = availableFunds >= purchasePrice;
+          
+          console.log(`[GameweekAnalyzer] Transfer: ${outPlayer?.web_name || 'Unknown'} (SP: £${(sellingPrice/10).toFixed(1)}m) → ${inPlayer?.web_name || 'Unknown'} (£${(purchasePrice/10).toFixed(1)}m)`);
+          console.log(`[GameweekAnalyzer]   Available: £${(availableFunds/10).toFixed(1)}m, Cost: £${(purchasePrice/10).toFixed(1)}m, Affordable: ${isAffordable}`);
+          
+          if (isAffordable) {
+            // Update running budget (subtract net cost)
+            runningBudget = availableFunds - purchasePrice;
+            validTransfers.push(transfer);
+            console.log(`[GameweekAnalyzer]   ✅ Transfer approved. Remaining budget: £${(runningBudget/10).toFixed(1)}m`);
+          } else {
+            const shortfall = purchasePrice - availableFunds;
+            invalidTransfers.push({
+              transfer,
+              reason: `Cannot afford ${inPlayer?.web_name} (£${(purchasePrice/10).toFixed(1)}m) - only £${(availableFunds/10).toFixed(1)}m available after selling ${outPlayer?.web_name}`,
+              shortfall: shortfall / 10
+            });
+            console.warn(`[GameweekAnalyzer]   ❌ REJECTED - £${(shortfall/10).toFixed(1)}m short!`);
+          }
+        }
+        
+        // Replace transfers with only valid ones
+        if (invalidTransfers.length > 0) {
+          console.warn(`[GameweekAnalyzer] ⚠️  BUDGET VALIDATION: ${invalidTransfers.length} transfer(s) rejected due to insufficient funds`);
+          result.transfers = validTransfers;
+          
+          // Add warning to reasoning
+          const warningText = `\n\n⚠️ BUDGET WARNING: ${invalidTransfers.length} recommended transfer(s) were removed because they exceed your available budget:\n${invalidTransfers.map(inv => `• ${inv.reason} (£${inv.shortfall.toFixed(1)}m short)`).join('\n')}\n\nThe remaining recommendations are within your budget.`;
+          
+          if (result.reasoning) {
+            result.reasoning += warningText;
+          }
+          
+          // Log summary
+          for (const inv of invalidTransfers) {
+            console.log(`[GameweekAnalyzer] Removed: ${inv.reason}`);
+          }
+        } else {
+          console.log(`[GameweekAnalyzer] ✅ All ${result.transfers.length} transfer(s) validated within budget`);
+        }
+
         // POST-PROCESSING: Enhance reasoning text with transfer cost explanation
         // NOTE: predicted_points field is now calculated from lineup data (lines 1069-1095)
         // so we don't need to detect/fix it here. We only enhance the reasoning text.

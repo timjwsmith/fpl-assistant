@@ -1869,6 +1869,15 @@ BUDGET & TRANSFERS:
 - Bank Balance: £${(inputData.currentTeam.bank / 10).toFixed(1)}m (CASH AVAILABLE NOW)
 - Free Transfers: ${freeTransfers}
 - Team Value: £${(inputData.currentTeam.teamValue / 10).toFixed(1)}m (total squad value)
+
+🚨 BUDGET REALITY CHECK - READ THIS BEFORE RECOMMENDING TRANSFERS 🚨
+Your bank is £${(inputData.currentTeam.bank / 10).toFixed(1)}m. Here's what you can ACTUALLY afford:
+${squadDetails.sort((a: any, b: any) => b.selling_price - a.selling_price).slice(0, 5).map((p: any) => 
+  `• Sell ${p.name} (SP: £${p.selling_price.toFixed(1)}m) → Max buy: £${(p.selling_price + inputData.currentTeam.bank / 10).toFixed(1)}m`
+).join('\n')}
+
+If you want to buy a £14m player like Salah, you need to sell players worth £${(14 - inputData.currentTeam.bank / 10).toFixed(1)}m+
+ONLY recommend transfers where: Bank + Selling Price(s) >= Purchase Price(s)
 ${targetPlayerInfo}
 ${previousPlanContext}
 
@@ -2425,70 +2434,107 @@ CRITICAL REQUIREMENTS:
 
         // ═══════════════════════════════════════════════════════════════════════
         // CRITICAL BUDGET VALIDATION - Filter out impossible transfers
+        // FPL allows selling all players first, then buying - so use COLLECTIVE budget
         // ═══════════════════════════════════════════════════════════════════════
         console.log('[GameweekAnalyzer] 💰 Validating transfer budget feasibility...');
         
         const bankBalance = inputData.currentTeam.bank || 0; // in tenths (e.g., 5 = £0.5m)
         console.log(`[GameweekAnalyzer] Bank balance: £${(bankBalance / 10).toFixed(1)}m`);
         
-        // Calculate cumulative budget as we process transfers
-        let runningBudget = bankBalance;
-        const validTransfers: typeof result.transfers = [];
-        const invalidTransfers: Array<{transfer: any; reason: string; shortfall: number}> = [];
+        // First, calculate COLLECTIVE budget (sell all, then buy all)
+        let totalSellingValue = 0;
+        let totalPurchaseCost = 0;
+        
+        const transferDetails: Array<{
+          transfer: any;
+          outPlayer: FPLPlayer | undefined;
+          inPlayer: FPLPlayer | undefined;
+          sellingPrice: number;
+          purchasePrice: number;
+          netCost: number;
+        }> = [];
         
         for (const transfer of result.transfers) {
-          // Get selling price of OUT player
           const outPick = currentTeam.players.find((p: any) => p.player_id === transfer.player_out_id);
           const outPlayer = allPlayers.find((p: FPLPlayer) => p.id === transfer.player_out_id);
-          
-          // selling_price from FPL API, fallback to now_cost
-          const sellingPrice = outPick?.selling_price || outPlayer?.now_cost || 0;
-          
-          // Get cost of IN player
           const inPlayer = allPlayers.find((p: FPLPlayer) => p.id === transfer.player_in_id);
+          
+          const sellingPrice = outPick?.selling_price || outPlayer?.now_cost || 0;
           const purchasePrice = inPlayer?.now_cost || 0;
           
-          // Calculate if transfer is affordable
-          const availableFunds = runningBudget + sellingPrice;
-          const isAffordable = availableFunds >= purchasePrice;
+          totalSellingValue += sellingPrice;
+          totalPurchaseCost += purchasePrice;
           
-          console.log(`[GameweekAnalyzer] Transfer: ${outPlayer?.web_name || 'Unknown'} (SP: £${(sellingPrice/10).toFixed(1)}m) → ${inPlayer?.web_name || 'Unknown'} (£${(purchasePrice/10).toFixed(1)}m)`);
-          console.log(`[GameweekAnalyzer]   Available: £${(availableFunds/10).toFixed(1)}m, Cost: £${(purchasePrice/10).toFixed(1)}m, Affordable: ${isAffordable}`);
+          transferDetails.push({
+            transfer,
+            outPlayer,
+            inPlayer,
+            sellingPrice,
+            purchasePrice,
+            netCost: purchasePrice - sellingPrice
+          });
           
-          if (isAffordable) {
-            // Update running budget (subtract net cost)
-            runningBudget = availableFunds - purchasePrice;
-            validTransfers.push(transfer);
-            console.log(`[GameweekAnalyzer]   ✅ Transfer approved. Remaining budget: £${(runningBudget/10).toFixed(1)}m`);
-          } else {
-            const shortfall = purchasePrice - availableFunds;
-            invalidTransfers.push({
-              transfer,
-              reason: `Cannot afford ${inPlayer?.web_name} (£${(purchasePrice/10).toFixed(1)}m) - only £${(availableFunds/10).toFixed(1)}m available after selling ${outPlayer?.web_name}`,
-              shortfall: shortfall / 10
-            });
-            console.warn(`[GameweekAnalyzer]   ❌ REJECTED - £${(shortfall/10).toFixed(1)}m short!`);
-          }
+          console.log(`[GameweekAnalyzer] Transfer: ${outPlayer?.web_name || 'Unknown'} (SP: £${(sellingPrice/10).toFixed(1)}m) → ${inPlayer?.web_name || 'Unknown'} (£${(purchasePrice/10).toFixed(1)}m) [Net: £${((purchasePrice - sellingPrice)/10).toFixed(1)}m]`);
         }
         
-        // Replace transfers with only valid ones
-        if (invalidTransfers.length > 0) {
-          console.warn(`[GameweekAnalyzer] ⚠️  BUDGET VALIDATION: ${invalidTransfers.length} transfer(s) rejected due to insufficient funds`);
+        const collectiveBudget = bankBalance + totalSellingValue;
+        const collectivelyAffordable = collectiveBudget >= totalPurchaseCost;
+        
+        console.log(`[GameweekAnalyzer] COLLECTIVE BUDGET CHECK:`);
+        console.log(`[GameweekAnalyzer]   Bank: £${(bankBalance/10).toFixed(1)}m + Selling: £${(totalSellingValue/10).toFixed(1)}m = £${(collectiveBudget/10).toFixed(1)}m available`);
+        console.log(`[GameweekAnalyzer]   Total cost: £${(totalPurchaseCost/10).toFixed(1)}m`);
+        console.log(`[GameweekAnalyzer]   Collectively affordable: ${collectivelyAffordable}`);
+        
+        if (collectivelyAffordable) {
+          // All transfers together are affordable - approve all
+          console.log(`[GameweekAnalyzer] ✅ All ${result.transfers.length} transfer(s) collectively affordable`);
+        } else {
+          // Transfers collectively exceed budget - find best affordable subset
+          const shortfall = totalPurchaseCost - collectiveBudget;
+          console.warn(`[GameweekAnalyzer] ❌ Transfers collectively £${(shortfall/10).toFixed(1)}m over budget`);
+          
+          // Sort by net cost (most expensive first) to remove those first
+          const sortedDetails = [...transferDetails].sort((a, b) => b.netCost - a.netCost);
+          
+          // Try to find an affordable subset by removing most expensive transfers
+          let remainingBudget = bankBalance;
+          const validTransfers: typeof result.transfers = [];
+          const removedTransfers: typeof transferDetails = [];
+          
+          // First pass: add all selling prices
+          let availableBudget = bankBalance;
+          for (const detail of transferDetails) {
+            availableBudget += detail.sellingPrice;
+          }
+          
+          // Second pass: try to include each transfer, removing most expensive if needed
+          // Sort by net cost ascending (cheapest net cost first = most likely to fit)
+          const sortedByNetCost = [...transferDetails].sort((a, b) => a.netCost - b.netCost);
+          
+          let budgetRemaining = availableBudget;
+          for (const detail of sortedByNetCost) {
+            if (budgetRemaining >= detail.purchasePrice) {
+              budgetRemaining -= detail.purchasePrice;
+              validTransfers.push(detail.transfer);
+              console.log(`[GameweekAnalyzer]   ✅ Keeping: ${detail.outPlayer?.web_name} → ${detail.inPlayer?.web_name} (net £${(detail.netCost/10).toFixed(1)}m)`);
+            } else {
+              removedTransfers.push(detail);
+              // Add back the selling price since we're not doing this transfer
+              budgetRemaining += detail.sellingPrice;
+              console.log(`[GameweekAnalyzer]   ❌ Removing: ${detail.outPlayer?.web_name} → ${detail.inPlayer?.web_name} (need £${(detail.purchasePrice/10).toFixed(1)}m, only £${(budgetRemaining/10).toFixed(1)}m left)`);
+            }
+          }
+          
           result.transfers = validTransfers;
           
           // Add warning to reasoning
-          const warningText = `\n\n⚠️ BUDGET WARNING: ${invalidTransfers.length} recommended transfer(s) were removed because they exceed your available budget:\n${invalidTransfers.map(inv => `• ${inv.reason} (£${inv.shortfall.toFixed(1)}m short)`).join('\n')}\n\nThe remaining recommendations are within your budget.`;
-          
-          if (result.reasoning) {
-            result.reasoning += warningText;
+          if (removedTransfers.length > 0) {
+            const warningText = `\n\n⚠️ BUDGET WARNING: ${removedTransfers.length} transfer(s) removed due to insufficient funds (£${(shortfall/10).toFixed(1)}m over budget):\n${removedTransfers.map(r => `• ${r.outPlayer?.web_name} → ${r.inPlayer?.web_name}: Cannot afford £${(r.purchasePrice/10).toFixed(1)}m`).join('\n')}\n\n${validTransfers.length > 0 ? `The remaining ${validTransfers.length} transfer(s) are within your budget.` : 'No affordable transfers could be found. Consider cheaper alternatives.'}`;
+            
+            if (result.reasoning) {
+              result.reasoning += warningText;
+            }
           }
-          
-          // Log summary
-          for (const inv of invalidTransfers) {
-            console.log(`[GameweekAnalyzer] Removed: ${inv.reason}`);
-          }
-        } else {
-          console.log(`[GameweekAnalyzer] ✅ All ${result.transfers.length} transfer(s) validated within budget`);
         }
 
         // POST-PROCESSING: Enhance reasoning text with transfer cost explanation

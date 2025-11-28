@@ -1204,10 +1204,10 @@ export class GameweekAnalyzerService {
           (aiResponse as any).lineupOptimizations = [];
         }
         
-        const finalTransfers = [];
+        // Also copy to lineupOptimizations for backward compatibility (some UI components read from there)
         for (const transfer of enrichedTransfers) {
           if (transfer.substitution_details) {
-            console.log(`  📤 Extracting lineup optimization from transfer ${transfer.player_out_id} → ${transfer.player_in_id}`);
+            console.log(`  📤 Also adding to lineupOptimizations from transfer ${transfer.player_out_id} → ${transfer.player_in_id}`);
             (aiResponse as any).lineupOptimizations.push({
               benched_player_id: transfer.substitution_details.benched_player_id,
               benched_player_name: transfer.substitution_details.benched_player_name,
@@ -1221,18 +1221,13 @@ export class GameweekAnalyzerService {
               accepted: true,
             });
             console.log(`    ✅ Added: ${transfer.substitution_details.benched_player_name} benched for ${transfer.substitution_details.incoming_player_name}`);
-            
-            // Remove substitution_details from transfer object
-            const { substitution_details, ...transferWithoutSubstitution } = transfer;
-            finalTransfers.push(transferWithoutSubstitution);
-          } else {
-            finalTransfers.push(transfer);
           }
         }
-        console.log(`  ✅ Extracted ${(aiResponse as any).lineupOptimizations.length} total lineup optimization(s)`);
+        console.log(`  ✅ Total lineup optimization(s): ${(aiResponse as any).lineupOptimizations.length}`);
         
-        // Save enriched transfers (with individual player predictions) and lineup optimizations separately
-        await storage.updateGameweekPlanTransfers(plan.id, finalTransfers);
+        // Save enriched transfers WITH substitution_details (for transfer card display)
+        // IMPORTANT: Keep substitution_details on transfers so frontend can show lineup impact
+        await storage.updateGameweekPlanTransfers(plan.id, enrichedTransfers);
         console.log(`[GameweekAnalyzer] Transfer recommendations (with individual predictions) saved to database for plan ${plan.id}`);
         
         // Save lineup optimizations if any were created

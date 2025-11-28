@@ -921,7 +921,35 @@ export default function GameweekPlanner() {
                             </div>
                           </div>
 
-                          <p className="text-sm text-muted-foreground">{transfer.reasoning}</p>
+                          {/* Lineup Impact Section */}
+                          {transfer.substitution_details && (
+                            <div className="mt-4 p-3 rounded-md bg-amber-500/10 border border-amber-500/30">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Users className="h-4 w-4 text-amber-500" />
+                                <p className="text-xs font-medium text-amber-600 dark:text-amber-400">LINEUP IMPACT</p>
+                              </div>
+                              <p className="text-sm">
+                                <span className="font-semibold text-chart-2">{transfer.substitution_details.incoming_player_name}</span>
+                                <span className="text-muted-foreground"> ({transfer.substitution_details.incoming_player_position}, {transfer.substitution_details.incoming_player_predicted_points?.toFixed(0) || 0} pts) </span>
+                                <span className="text-muted-foreground">enters starting XI</span>
+                                {transfer.substitution_details.benched_player_name && (
+                                  <>
+                                    <span className="text-muted-foreground">, </span>
+                                    <span className="font-semibold text-amber-600 dark:text-amber-400">{transfer.substitution_details.benched_player_name}</span>
+                                    <span className="text-muted-foreground"> ({transfer.substitution_details.benched_player_position}, {transfer.substitution_details.benched_player_predicted_points?.toFixed(0) || 0} pts) </span>
+                                    <span className="text-muted-foreground">moves to bench</span>
+                                  </>
+                                )}
+                              </p>
+                              {transfer.substitution_details.bench_reason && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Reason: {transfer.substitution_details.bench_reason}
+                                </p>
+                              )}
+                            </div>
+                          )}
+
+                          <p className="text-sm text-muted-foreground mt-4">{transfer.reasoning}</p>
                         </CardContent>
                       </Card>
                     </div>

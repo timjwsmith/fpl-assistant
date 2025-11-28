@@ -1719,12 +1719,18 @@ If significant changes occurred → Explain EXACTLY what changed (with specific 
 
         const suspensionRisk = calculateSuspensionRisk(player.yellow_cards, gameweek);
         
+        // Get selling price from pick data (what you'll actually get when selling)
+        // Falls back to current market price if selling price unavailable
+        const sellingPrice = pick.selling_price ? pick.selling_price / 10 : player.now_cost / 10;
+        const marketPrice = player.now_cost / 10;
+        
         return {
           id: player.id,
           name: player.web_name,
           team: team?.short_name || 'Unknown',
           position: player.element_type === 1 ? 'GK' : player.element_type === 2 ? 'DEF' : player.element_type === 3 ? 'MID' : 'FWD',
-          price: player.now_cost / 10,
+          price: marketPrice,
+          selling_price: sellingPrice,
           form: parseFloat(player.form),
           ppg: parseFloat(player.points_per_game),
           total_points: player.total_points,
@@ -1848,8 +1854,8 @@ CURRENT GAMEWEEK: ${gameweek}
 
 CURRENT SQUAD (15 players WITH THEIR IDS):
 ${squadDetails.map((p: any, i: number) => `ID:${p.id} ${p.name} (${p.position}) - ${p.team}
-   Price: £${p.price}m | Form: ${p.form.toFixed(1)} | PPG: ${p.ppg}
-   Total Points: ${p.total_points} | Selected: ${p.selected_by}%
+   Market Price: £${p.price.toFixed(1)}m | 💰 SELLING PRICE: £${p.selling_price.toFixed(1)}m${p.selling_price < p.price ? ' (LOSS)' : ''}
+   Form: ${p.form.toFixed(1)} | PPG: ${p.ppg} | Total: ${p.total_points}pts
    Status: ${p.status}${p.chance_of_playing !== null ? ` (${p.chance_of_playing}% chance)` : ''}
    News: ${p.news}
    xG: ${p.xG.toFixed(2)} | xA: ${p.xA.toFixed(2)} | ICT: ${p.ict.toFixed(1)}
@@ -1886,11 +1892,13 @@ ${previousPlanContext}
    - If you recommend multiple transfers, verify the FINAL squad composition
    
 3. 💰 BUDGET CONSTRAINTS ARE HARD LIMITS 💰
-   - For a SINGLE transfer: Available budget = Bank + selling price of OUT player
-   - For MULTI-TRANSFER plans: Available budget = Bank + sum of ALL OUT players' selling prices
-   - Example: Bank £0.5m + sell Player A £6.0m + sell Player B £8.0m = £14.5m total available
+   - USE THE 💰 SELLING PRICE shown above (NOT market price) when calculating transfers
+   - For a SINGLE transfer: Available budget = Bank + SELLING PRICE of OUT player
+   - For MULTI-TRANSFER plans: Available budget = Bank + sum of ALL OUT players' SELLING PRICES
+   - Example: Bank £0.5m + sell Player A (SP: £6.0m) + sell Player B (SP: £8.0m) = £14.5m total available
    - You CANNOT exceed the available budget under any circumstances
    - If a transfer plan doesn't fit the budget, you MUST find cheaper alternatives
+   - ⚠️ SELLING PRICE is often LESS than market price - always check the SP value!
    
 4. 📊 TRANSFER HIT LIMITS:
    - Each transfer beyond free transfers costs -4 points
@@ -1948,12 +1956,12 @@ Write ALL reasoning in PURE NATURAL LANGUAGE - like you're explaining to a frien
 For EACH TRANSFER, write a natural paragraph like:
 "I recommend transferring out [Player Name] who costs 6.5 million because he has only averaged 2.1 points per game which is well below the squad average of 3.5. His upcoming fixtures are difficult with matches against Tottenham and Manchester City where the average difficulty rating is 4.5 out of 5. His price is also falling by 0.1 million. Instead, bring in [Player Name] who costs 7.0 million. With your current bank of 0.5 million plus selling [Out Player] for 6.5 million, you will have exactly 7.0 million available which covers the cost. He is in excellent form with 8.2 points in recent matches, his next six fixtures are favorable with an average difficulty of just 2.1, he takes penalties for his team, and 65 percent of league leaders already own him."
 
-**CRITICAL FOR TRANSFERS**: You MUST explicitly calculate and state BOTH the budget AND the 6-gameweek points gain in EVERY transfer reasoning:
+**CRITICAL FOR TRANSFERS**: You MUST explicitly calculate and state BOTH the budget (using SELLING PRICES) AND the 6-gameweek points gain in EVERY transfer reasoning:
 
 **BUDGET CALCULATION (REQUIRED):**
 - State OUT player's selling price
 - State current bank balance  
-- Calculate available funds (bank + selling price)
+- Calculate available funds (bank + player's SELLING PRICE from squad data)
 - State IN player's cost
 - Confirm the transfer is affordable OR if recommending expensive players like Haaland, provide a MULTI-STEP plan showing which 2-3 additional players need downgrading
 

@@ -3,6 +3,7 @@ import { storage } from "./storage";
 import { understatService } from "./understat-api";
 import { snapshotContext, type SnapshotContext } from "./snapshot-context";
 import { decisionLogger } from "./decision-logger";
+import { calibrationService } from "./calibration-service";
 import type {
   FPLPlayer,
   FPLFixture,
@@ -134,6 +135,20 @@ Based on AVAILABILITY FIRST, then form, the NEXT fixture difficulty, underlying 
       console.warn(`[AI Override] ${context.player.web_name} predicted ${predictedPoints} pts but status=${context.player.status}, forcing to 0`);
       predictedPoints = 0;
       reasoning = `Player unavailable (${context.player.status === 'i' ? 'injured' : context.player.status === 'u' ? 'unavailable' : 'suspended'}). ${context.player.news || 'No additional news'}`;
+    }
+
+    // Apply calibration based on historical prediction bias
+    // This adjusts predictions to correct for systematic over/under-prediction by position
+    const rawPrediction = predictedPoints;
+    if (predictedPoints > 0) {
+      try {
+        predictedPoints = await calibrationService.calibratePrediction(predictedPoints, position);
+        if (rawPrediction !== predictedPoints) {
+          console.log(`[Calibration] ${context.player.web_name} (${position}): ${rawPrediction} → ${predictedPoints} pts`);
+        }
+      } catch (calibrationError) {
+        console.warn(`[Calibration] Failed to calibrate prediction for ${context.player.web_name}:`, calibrationError);
+      }
     }
 
     const prediction: Prediction = {

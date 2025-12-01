@@ -167,7 +167,7 @@ export class AILearningFeedbackService {
     if (playerLevelAccuracy?.lessonsFromEvaluations) {
       allLessons.push(...playerLevelAccuracy.lessonsFromEvaluations);
     }
-    const keyLessons = [...new Set(allLessons)].slice(0, 8);
+    const keyLessons = Array.from(new Set(allLessons)).slice(0, 8);
 
     console.log(`[AILearning] Context generated: ${analyzedPlans.length} GWs analyzed, avg impact: ${averageImpact.toFixed(1)}, success rate: ${successRate.toFixed(1)}%, prediction MAE: ${predictionAccuracy.meanAbsoluteError.toFixed(1)}`);
 

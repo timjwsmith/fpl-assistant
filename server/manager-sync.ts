@@ -1,4 +1,5 @@
 import { fplApi } from "./fpl-api";
+import { fplAuth } from "./fpl-auth";
 import { storage } from "./storage";
 import type { InsertUserTeam, FPLPick, FPLPlayer } from "@shared/schema";
 
@@ -13,6 +14,7 @@ interface SyncResult {
   formation: string;
   lastSyncTime: string;
   error?: string;
+  usedAuthenticatedEndpoint?: boolean;
 }
 
 export class ManagerSyncService {
@@ -21,33 +23,97 @@ export class ManagerSyncService {
       const currentGameweek = await fplApi.getCurrentGameweek();
       const nextGameweek = await fplApi.getNextGameweek();
       
-      // Use next gameweek if current is finished, otherwise use current
-      const targetGameweek = currentGameweek && !currentGameweek.finished 
-        ? currentGameweek 
-        : nextGameweek;
-      
-      if (!targetGameweek) {
+      if (!currentGameweek && !nextGameweek) {
         throw new Error("Unable to determine current gameweek");
       }
 
       const managerDetails = await fplApi.getManagerDetails(managerId);
+      const planningGameweek = nextGameweek || currentGameweek!;
       
-      // Try to fetch picks for target gameweek, fall back to current if not available
-      let picks;
-      let actualGameweek = targetGameweek;
+      // PRIORITY 1: Try authenticated my-team endpoint to get user's DRAFT lineup
+      // This captures pending lineup changes (e.g., Virgil moved to bench for GW14)
+      let usedAuthenticatedEndpoint = false;
+      let myTeamPicks: Array<{
+        element: number;
+        position: number;
+        selling_price: number;
+        multiplier: number;
+        purchase_price: number;
+        is_captain: boolean;
+        is_vice_captain: boolean;
+      }> | null = null;
+      let myTeamBank: number | null = null;
+      let myTeamValue: number | null = null;
       
       try {
-        picks = await fplApi.getManagerPicks(managerId, targetGameweek.id);
-      } catch (error) {
-        // If next gameweek picks aren't available yet (e.g., GW hasn't started),
-        // fall back to current gameweek
-        if (currentGameweek && targetGameweek.id !== currentGameweek.id) {
-          console.log(`Picks not available for GW${targetGameweek.id}, falling back to GW${currentGameweek.id}`);
-          picks = await fplApi.getManagerPicks(managerId, currentGameweek.id);
-          actualGameweek = currentGameweek;
-        } else {
-          throw error;
+        const isAuthenticated = await fplAuth.isAuthenticated(userId);
+        if (isAuthenticated) {
+          console.log(`[Manager Sync] User ${userId} is authenticated, fetching draft lineup from my-team endpoint...`);
+          const sessionCookies = await fplAuth.getSessionCookies(userId);
+          const myTeamData = await fplApi.getMyTeam(managerId, sessionCookies);
+          myTeamPicks = myTeamData.picks;
+          myTeamBank = myTeamData.transfers.bank;
+          myTeamValue = myTeamData.transfers.value;
+          usedAuthenticatedEndpoint = true;
+          console.log(`[Manager Sync] ✅ Successfully fetched draft lineup with ${myTeamPicks.length} players`);
+          
+          // Log Virgil's position if present
+          const virgil = myTeamPicks.find(p => p.element === 373);
+          if (virgil) {
+            console.log(`[Manager Sync] Virgil (373) position in draft lineup: ${virgil.position} (${virgil.position <= 11 ? 'STARTING' : 'BENCH'})`);
+          }
         }
+      } catch (authError) {
+        console.log(`[Manager Sync] Authenticated endpoint not available: ${authError instanceof Error ? authError.message : 'Unknown error'}`);
+      }
+      
+      // PRIORITY 2: Try next gameweek picks endpoint (if no authenticated data)
+      let picks;
+      let actualGameweek;
+      
+      if (myTeamPicks) {
+        // Use authenticated my-team data - it has the current draft lineup
+        console.log(`[Manager Sync] Using authenticated draft lineup for GW${planningGameweek.id}`);
+        actualGameweek = planningGameweek;
+        // Create a picks-like structure from myTeamPicks
+        picks = {
+          picks: myTeamPicks.map(p => ({
+            element: p.element,
+            position: p.position,
+            multiplier: p.multiplier,
+            is_captain: p.is_captain,
+            is_vice_captain: p.is_vice_captain,
+            purchase_price: p.purchase_price,
+            selling_price: p.selling_price,
+          })),
+          entry_history: {
+            value: myTeamValue || 0,
+            bank: myTeamBank || 0,
+            event_transfers: 0,
+          },
+        };
+      } else if (nextGameweek) {
+        try {
+          console.log(`[Manager Sync] Attempting to fetch picks for GW${nextGameweek.id} (upcoming)...`);
+          picks = await fplApi.getManagerPicks(managerId, nextGameweek.id);
+          actualGameweek = nextGameweek;
+          console.log(`[Manager Sync] ✅ Successfully fetched GW${nextGameweek.id} picks`);
+        } catch (error) {
+          // Next gameweek picks not available yet - fall back to current gameweek
+          if (currentGameweek) {
+            console.log(`[Manager Sync] GW${nextGameweek.id} picks not available, falling back to GW${currentGameweek.id}`);
+            picks = await fplApi.getManagerPicks(managerId, currentGameweek.id);
+            actualGameweek = currentGameweek;
+          } else {
+            throw error;
+          }
+        }
+      } else if (currentGameweek) {
+        console.log(`[Manager Sync] No next gameweek, fetching current GW${currentGameweek.id} picks`);
+        picks = await fplApi.getManagerPicks(managerId, currentGameweek.id);
+        actualGameweek = currentGameweek;
+      } else {
+        throw new Error("Unable to determine gameweek for sync");
       }
       const allPlayers = await fplApi.getPlayers();
 
@@ -128,6 +194,7 @@ export class ManagerSyncService {
         gameweek: actualGameweek.id,
         formation,
         lastSyncTime: new Date().toISOString(),
+        usedAuthenticatedEndpoint,
       };
     } catch (error) {
       console.error("Error syncing manager team:", error);
@@ -142,6 +209,7 @@ export class ManagerSyncService {
         formation: "0-0-0",
         lastSyncTime: new Date().toISOString(),
         error: error instanceof Error ? error.message : "Unknown error occurred",
+        usedAuthenticatedEndpoint: false,
       };
     }
   }

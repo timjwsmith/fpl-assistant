@@ -130,6 +130,59 @@ class FPLApiService {
     return response.json();
   }
 
+  /**
+   * Get the user's current team with pending lineup changes (requires authentication)
+   * This endpoint shows the user's DRAFT lineup for the upcoming gameweek,
+   * including any bench/starting changes made after the last deadline.
+   */
+  async getMyTeam(managerId: number, sessionCookies: string): Promise<{
+    picks: Array<{
+      element: number;
+      position: number;
+      selling_price: number;
+      multiplier: number;
+      purchase_price: number;
+      is_captain: boolean;
+      is_vice_captain: boolean;
+    }>;
+    chips: Array<{
+      status_for_entry: string;
+      played_by_entry: number[];
+      name: string;
+      number: number;
+      start_event: number;
+      stop_event: number;
+    }>;
+    transfers: {
+      cost: number;
+      status: string;
+      limit: number | null;
+      made: number;
+      bank: number;
+      value: number;
+    };
+  }> {
+    console.log(`[FPL API] Fetching authenticated my-team data for manager ${managerId}`);
+    
+    const response = await fetch(`${FPL_BASE_URL}/my-team/${managerId}/`, {
+      headers: {
+        'Cookie': sessionCookies,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+        'Referer': 'https://fantasy.premierleague.com/',
+      },
+    });
+    
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        throw new Error(`FPL authentication failed - session may have expired`);
+      }
+      throw new Error(`FPL API error: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
   async getManagerTransfers(managerId: number): Promise<FPLTransfer[]> {
     const response = await fetch(`${FPL_BASE_URL}/entry/${managerId}/transfers/`);
     if (!response.ok) {

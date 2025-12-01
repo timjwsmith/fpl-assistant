@@ -16,6 +16,8 @@ import { predictionAccuracyService } from "./prediction-accuracy";
 import { predictionAnalysisService } from "./prediction-analysis-service";
 import { gameweekSnapshot } from "./gameweek-data-snapshot";
 import { precomputationCache } from "./precomputation-cache";
+import { predictionEvaluator } from "./prediction-evaluator";
+import { calibrationService } from "./calibration-service";
 import { z } from "zod";
 import { userSettingsSchema, multiWeekTransferPredictions, type MultiWeekTransferPrediction } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
@@ -1377,6 +1379,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("[API] Error generating analysis:", error);
       res.status(500).json({ 
         error: "Failed to generate prediction analysis",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Prediction Evaluation and Calibration Endpoints
+  app.post("/api/prediction-evaluation/evaluate/:gameweek", async (req, res) => {
+    try {
+      const gameweek = parseInt(req.params.gameweek);
+      
+      if (isNaN(gameweek)) {
+        return res.status(400).json({ error: "Invalid gameweek" });
+      }
+
+      console.log(`[Prediction Evaluation] Evaluating predictions for GW${gameweek}`);
+      
+      await predictionEvaluator.backfillActualPoints(gameweek);
+      const evaluation = await predictionEvaluator.evaluateGameweek(gameweek);
+      
+      res.json(evaluation);
+    } catch (error) {
+      console.error("[Prediction Evaluation] Error:", error);
+      res.status(500).json({ 
+        error: "Failed to evaluate predictions",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.post("/api/prediction-evaluation/evaluate-all", async (req, res) => {
+    try {
+      console.log(`[Prediction Evaluation] Evaluating all completed gameweeks`);
+      
+      await predictionEvaluator.evaluateAllCompletedGameweeks();
+      const learningContext = await predictionEvaluator.getLearningContext();
+      
+      res.json({
+        message: "Evaluation complete",
+        ...learningContext
+      });
+    } catch (error) {
+      console.error("[Prediction Evaluation] Error:", error);
+      res.status(500).json({ 
+        error: "Failed to evaluate predictions",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.get("/api/calibration/status", async (req, res) => {
+    try {
+      const summary = await calibrationService.getCalibrationSummary();
+      res.json(summary);
+    } catch (error) {
+      console.error("[Calibration] Error fetching calibration status:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch calibration status",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.get("/api/prediction-learning/context", async (req, res) => {
+    try {
+      const learningContext = await predictionEvaluator.getLearningContext();
+      res.json(learningContext);
+    } catch (error) {
+      console.error("[Prediction Learning] Error fetching learning context:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch learning context",
         details: error instanceof Error ? error.message : "Unknown error"
       });
     }

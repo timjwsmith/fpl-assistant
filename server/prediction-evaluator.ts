@@ -1,5 +1,6 @@
 import { storage } from "./storage";
 import { fplApi } from "./fpl-api";
+import { calibrationService } from "./calibration-service";
 import type { FPLPlayer, PredictionDB, InsertPredictionEvaluation, InsertPredictionBiasMetrics } from "@shared/schema";
 
 interface PlayerPredictionResult {
@@ -192,6 +193,9 @@ export class PredictionEvaluatorService {
         console.log(`[PredictionEvaluator] Saved bias metrics for ${pos}: MAE=${metrics.mae.toFixed(2)}, Bias=${metrics.bias.toFixed(2)}, Calibration=${calibrationFactor.toFixed(3)}`);
       }
     }
+
+    calibrationService.clearCache();
+    console.log(`[PredictionEvaluator] Cleared calibration cache to apply new factors immediately`);
   }
 
   private calculateCalibrationFactor(bias: number): number {

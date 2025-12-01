@@ -17,6 +17,9 @@ import {
   aiDecisionLedger,
   multiWeekTransferPredictions,
   schedulerState,
+  predictionBiasMetrics,
+  playerMinutesHistory,
+  predictionEvaluations,
   type User,
   type InsertUser,
   type UserTeam,
@@ -48,6 +51,12 @@ import {
   type MultiWeekTransferPrediction,
   type SchedulerState,
   type InsertSchedulerState,
+  type PredictionBiasMetrics,
+  type InsertPredictionBiasMetrics,
+  type PlayerMinutesHistory,
+  type InsertPlayerMinutesHistory,
+  type PredictionEvaluation,
+  type InsertPredictionEvaluation,
 } from "@shared/schema";
 
 if (!process.env.DATABASE_URL) {
@@ -1167,6 +1176,140 @@ export class PostgresStorage implements IStorage {
         target: schedulerState.jobName,
         set: { lastRunAt, updatedAt: new Date() }
       });
+  }
+
+  // Prediction Bias Metrics methods
+  async savePredictionBiasMetrics(metrics: InsertPredictionBiasMetrics): Promise<PredictionBiasMetrics> {
+    const result = await db
+      .insert(predictionBiasMetrics)
+      .values(metrics)
+      .onConflictDoUpdate({
+        target: [predictionBiasMetrics.gameweek, predictionBiasMetrics.position],
+        set: {
+          sampleSize: metrics.sampleSize,
+          meanAbsoluteError: metrics.meanAbsoluteError,
+          meanBias: metrics.meanBias,
+          rootMeanSquareError: metrics.rootMeanSquareError,
+          calibrationFactor: metrics.calibrationFactor,
+          updatedAt: new Date()
+        }
+      })
+      .returning();
+    return result[0];
+  }
+
+  async getLatestBiasMetrics(): Promise<PredictionBiasMetrics[]> {
+    const latestGameweek = await db
+      .select()
+      .from(predictionBiasMetrics)
+      .orderBy(desc(predictionBiasMetrics.gameweek))
+      .limit(1);
+    
+    if (latestGameweek.length === 0) return [];
+    
+    return db
+      .select()
+      .from(predictionBiasMetrics)
+      .where(eq(predictionBiasMetrics.gameweek, latestGameweek[0].gameweek));
+  }
+
+  async getBiasMetricsByPosition(position: 'GK' | 'DEF' | 'MID' | 'FWD' | 'ALL'): Promise<PredictionBiasMetrics | undefined> {
+    const result = await db
+      .select()
+      .from(predictionBiasMetrics)
+      .where(eq(predictionBiasMetrics.position, position))
+      .orderBy(desc(predictionBiasMetrics.gameweek))
+      .limit(1);
+    return result[0];
+  }
+
+  // Player Minutes History methods
+  async savePlayerMinutesHistory(history: InsertPlayerMinutesHistory): Promise<PlayerMinutesHistory> {
+    const result = await db
+      .insert(playerMinutesHistory)
+      .values(history)
+      .onConflictDoUpdate({
+        target: [playerMinutesHistory.playerId, playerMinutesHistory.gameweek, playerMinutesHistory.season],
+        set: {
+          minutesPlayed: history.minutesPlayed,
+          wasInStartingXI: history.wasInStartingXI,
+          wasSubstituted: history.wasSubstituted,
+          injuryFlag: history.injuryFlag,
+          chanceOfPlaying: history.chanceOfPlaying
+        }
+      })
+      .returning();
+    return result[0];
+  }
+
+  async getPlayerMinutesHistory(playerId: number, limit: number = 10): Promise<PlayerMinutesHistory[]> {
+    return db
+      .select()
+      .from(playerMinutesHistory)
+      .where(eq(playerMinutesHistory.playerId, playerId))
+      .orderBy(desc(playerMinutesHistory.gameweek))
+      .limit(limit);
+  }
+
+  async bulkSavePlayerMinutesHistory(records: InsertPlayerMinutesHistory[]): Promise<void> {
+    if (records.length === 0) return;
+    
+    for (const record of records) {
+      await this.savePlayerMinutesHistory(record);
+    }
+  }
+
+  // Prediction Evaluations methods
+  async savePredictionEvaluation(evaluation: InsertPredictionEvaluation): Promise<PredictionEvaluation> {
+    const result = await db
+      .insert(predictionEvaluations)
+      .values(evaluation)
+      .onConflictDoUpdate({
+        target: predictionEvaluations.gameweek,
+        set: {
+          totalPredictions: evaluation.totalPredictions,
+          predictionsWithActuals: evaluation.predictionsWithActuals,
+          overallMAE: evaluation.overallMAE,
+          overallBias: evaluation.overallBias,
+          gkMAE: evaluation.gkMAE,
+          defMAE: evaluation.defMAE,
+          midMAE: evaluation.midMAE,
+          fwdMAE: evaluation.fwdMAE,
+          gkBias: evaluation.gkBias,
+          defBias: evaluation.defBias,
+          midBias: evaluation.midBias,
+          fwdBias: evaluation.fwdBias,
+          topOverpredictions: evaluation.topOverpredictions,
+          topUnderpredictions: evaluation.topUnderpredictions,
+          lessonsLearned: evaluation.lessonsLearned
+        }
+      })
+      .returning();
+    return result[0];
+  }
+
+  async getPredictionEvaluation(gameweek: number): Promise<PredictionEvaluation | undefined> {
+    const result = await db
+      .select()
+      .from(predictionEvaluations)
+      .where(eq(predictionEvaluations.gameweek, gameweek))
+      .limit(1);
+    return result[0];
+  }
+
+  async getRecentPredictionEvaluations(limit: number = 5): Promise<PredictionEvaluation[]> {
+    return db
+      .select()
+      .from(predictionEvaluations)
+      .orderBy(desc(predictionEvaluations.gameweek))
+      .limit(limit);
+  }
+
+  async getAllPredictionsForGameweek(gameweek: number): Promise<PredictionDB[]> {
+    return db
+      .select()
+      .from(predictions)
+      .where(eq(predictions.gameweek, gameweek));
   }
 }
 

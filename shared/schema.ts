@@ -721,6 +721,91 @@ export const insertSchedulerStateSchema = createInsertSchema(schedulerState).omi
 export type InsertSchedulerState = z.infer<typeof insertSchedulerStateSchema>;
 export type SchedulerState = typeof schedulerState.$inferSelect;
 
+// Prediction Bias Metrics Table - stores computed bias/MAE per position for calibration
+export const predictionBiasMetrics = pgTable('prediction_bias_metrics', {
+  id: serial('id').primaryKey(),
+  gameweek: integer('gameweek').notNull(),
+  position: text('position', { enum: ['GK', 'DEF', 'MID', 'FWD', 'ALL'] }).notNull(),
+  sampleSize: integer('sample_size').notNull().default(0),
+  meanAbsoluteError: real('mean_absolute_error').notNull().default(0),
+  meanBias: real('mean_bias').notNull().default(0), // Positive = overpredict, Negative = underpredict
+  rootMeanSquareError: real('root_mean_square_error').notNull().default(0),
+  calibrationFactor: real('calibration_factor').notNull().default(1.0), // Multiply predictions by this
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
+}, (table) => ({
+  gameweekIdx: index('prediction_bias_gameweek_idx').on(table.gameweek),
+  positionIdx: index('prediction_bias_position_idx').on(table.position),
+  gameweekPositionUnique: uniqueIndex('prediction_bias_gw_position_unique').on(table.gameweek, table.position),
+}));
+
+export const insertPredictionBiasMetricsSchema = createInsertSchema(predictionBiasMetrics).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPredictionBiasMetrics = z.infer<typeof insertPredictionBiasMetricsSchema>;
+export type PredictionBiasMetrics = typeof predictionBiasMetrics.$inferSelect;
+
+// Player Minutes History Table - stores historical minutes for probability calculation
+export const playerMinutesHistory = pgTable('player_minutes_history', {
+  id: serial('id').primaryKey(),
+  playerId: integer('player_id').notNull(),
+  gameweek: integer('gameweek').notNull(),
+  season: integer('season').notNull().default(2024),
+  minutesPlayed: integer('minutes_played').notNull().default(0),
+  wasInStartingXI: boolean('was_in_starting_xi').notNull().default(false),
+  wasSubstituted: boolean('was_substituted').notNull().default(false),
+  injuryFlag: text('injury_flag'), // 'a', 'd', 'i', 'u' from FPL
+  chanceOfPlaying: integer('chance_of_playing'), // 0-100
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  playerIdIdx: index('player_minutes_player_id_idx').on(table.playerId),
+  gameweekIdx: index('player_minutes_gameweek_idx').on(table.gameweek),
+  playerGameweekUnique: uniqueIndex('player_minutes_player_gw_unique').on(table.playerId, table.gameweek, table.season),
+}));
+
+export const insertPlayerMinutesHistorySchema = createInsertSchema(playerMinutesHistory).omit({ id: true, createdAt: true });
+export type InsertPlayerMinutesHistory = z.infer<typeof insertPlayerMinutesHistorySchema>;
+export type PlayerMinutesHistory = typeof playerMinutesHistory.$inferSelect;
+
+// Prediction Evaluations Table - stores evaluation runs with overall metrics
+export const predictionEvaluations = pgTable('prediction_evaluations', {
+  id: serial('id').primaryKey(),
+  gameweek: integer('gameweek').notNull(),
+  totalPredictions: integer('total_predictions').notNull().default(0),
+  predictionsWithActuals: integer('predictions_with_actuals').notNull().default(0),
+  overallMAE: real('overall_mae').notNull().default(0),
+  overallBias: real('overall_bias').notNull().default(0),
+  gkMAE: real('gk_mae').default(0),
+  defMAE: real('def_mae').default(0),
+  midMAE: real('mid_mae').default(0),
+  fwdMAE: real('fwd_mae').default(0),
+  gkBias: real('gk_bias').default(0),
+  defBias: real('def_bias').default(0),
+  midBias: real('mid_bias').default(0),
+  fwdBias: real('fwd_bias').default(0),
+  topOverpredictions: jsonb('top_overpredictions').$type<Array<{
+    playerId: number;
+    playerName: string;
+    predicted: number;
+    actual: number;
+    error: number;
+  }>>(),
+  topUnderpredictions: jsonb('top_underpredictions').$type<Array<{
+    playerId: number;
+    playerName: string;
+    predicted: number;
+    actual: number;
+    error: number;
+  }>>(),
+  lessonsLearned: jsonb('lessons_learned').$type<string[]>(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  gameweekIdx: index('prediction_evaluations_gameweek_idx').on(table.gameweek),
+  gameweekUnique: uniqueIndex('prediction_evaluations_gw_unique').on(table.gameweek),
+}));
+
+export const insertPredictionEvaluationSchema = createInsertSchema(predictionEvaluations).omit({ id: true, createdAt: true });
+export type InsertPredictionEvaluation = z.infer<typeof insertPredictionEvaluationSchema>;
+export type PredictionEvaluation = typeof predictionEvaluations.$inferSelect;
+
 // Relations
 export const aiPrecomputationsRelations = relations(aiPrecomputations, ({ one }) => ({
   // No user relation as these are shared across all users for a given snapshot

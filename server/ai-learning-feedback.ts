@@ -1,5 +1,7 @@
 import { storage } from './storage';
-import type { GameweekPlan, FPLPlayer } from '../shared/schema';
+import { predictionEvaluator } from './prediction-evaluator';
+import { calibrationService } from './calibration-service';
+import type { GameweekPlan, FPLPlayer, PredictionEvaluation } from '../shared/schema';
 
 interface LearningInsight {
   gameweek: number;
@@ -38,6 +40,31 @@ interface AILearningContext {
       actual: number;
       error: number;
     }>;
+  };
+  playerLevelAccuracy?: {
+    evaluationsAnalyzed: number;
+    overallMAE: number;
+    overallBias: number;
+    positionBias: {
+      GK: number;
+      DEF: number;
+      MID: number;
+      FWD: number;
+    };
+    calibrationFactors: {
+      overall: number;
+      GK: number;
+      DEF: number;
+      MID: number;
+      FWD: number;
+    };
+    topOverpredictions: Array<{
+      playerName: string;
+      predicted: number;
+      actual: number;
+      error: number;
+    }>;
+    lessonsFromEvaluations: string[];
   };
   recentMistakes: LearningInsight[];
   captainPatterns: {
@@ -132,8 +159,15 @@ export class AILearningFeedbackService {
     // Analyze transfer patterns
     const transferPatterns = await this.analyzeTransferPatterns(analyzedPlans, players);
 
-    // Generate key lessons from the data
-    const keyLessons = this.generateKeyLessons(recentMistakes, captainPatterns, transferPatterns, averageImpact);
+    // Fetch player-level prediction accuracy from evaluation system
+    const playerLevelAccuracy = await this.fetchPlayerLevelAccuracy();
+
+    // Generate key lessons from the data (including evaluation lessons)
+    const allLessons = [...this.generateKeyLessons(recentMistakes, captainPatterns, transferPatterns, averageImpact)];
+    if (playerLevelAccuracy?.lessonsFromEvaluations) {
+      allLessons.push(...playerLevelAccuracy.lessonsFromEvaluations);
+    }
+    const keyLessons = [...new Set(allLessons)].slice(0, 8);
 
     console.log(`[AILearning] Context generated: ${analyzedPlans.length} GWs analyzed, avg impact: ${averageImpact.toFixed(1)}, success rate: ${successRate.toFixed(1)}%, prediction MAE: ${predictionAccuracy.meanAbsoluteError.toFixed(1)}`);
 
@@ -146,11 +180,58 @@ export class AILearningFeedbackService {
       },
       predictionAccuracy,
       multiWeekPredictionAccuracy,
+      playerLevelAccuracy,
       recentMistakes,
       captainPatterns,
       transferPatterns,
       keyLessons,
     };
+  }
+
+  private async fetchPlayerLevelAccuracy(): Promise<AILearningContext['playerLevelAccuracy'] | undefined> {
+    try {
+      const evaluatorContext = await predictionEvaluator.getLearningContext();
+      const calibrationSummary = await calibrationService.getCalibrationSummary();
+
+      if (evaluatorContext.recentEvaluations.length === 0) {
+        console.log('[AILearning] No player-level evaluations found');
+        return undefined;
+      }
+
+      const latestEval = evaluatorContext.recentEvaluations[0];
+      const calibrationFactors = calibrationSummary.factors;
+
+      console.log(`[AILearning] Found ${evaluatorContext.recentEvaluations.length} player-level evaluations, MAE: ${latestEval.overallMAE?.toFixed(1) || 'N/A'}, Bias: ${latestEval.overallBias?.toFixed(1) || 'N/A'}`);
+
+      return {
+        evaluationsAnalyzed: evaluatorContext.recentEvaluations.length,
+        overallMAE: latestEval.overallMAE || 0,
+        overallBias: latestEval.overallBias || 0,
+        positionBias: {
+          GK: latestEval.gkBias || 0,
+          DEF: latestEval.defBias || 0,
+          MID: latestEval.midBias || 0,
+          FWD: latestEval.fwdBias || 0,
+        },
+        calibrationFactors: {
+          overall: calibrationFactors.overall,
+          GK: calibrationFactors.byPosition.GK,
+          DEF: calibrationFactors.byPosition.DEF,
+          MID: calibrationFactors.byPosition.MID,
+          FWD: calibrationFactors.byPosition.FWD,
+        },
+        topOverpredictions: (latestEval.topOverpredictions || []).map(p => ({
+          playerName: p.playerName,
+          predicted: p.predicted,
+          actual: p.actual,
+          error: p.error,
+        })),
+        lessonsFromEvaluations: evaluatorContext.keyLessons,
+      };
+    } catch (error) {
+      console.error('[AILearning] Error fetching player-level accuracy:', error);
+      return undefined;
+    }
   }
 
   /**

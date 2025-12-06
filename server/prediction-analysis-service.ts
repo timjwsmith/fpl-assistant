@@ -171,6 +171,7 @@ export class PredictionAnalysisService {
     planWasApplied: boolean;
     recommendedCaptainFollowed: boolean;
     implementationNote: string;
+    allPlayers: any[];
   }> {
     try {
       // Use unified snapshot for consistency across all analysis
@@ -204,6 +205,7 @@ export class PredictionAnalysisService {
           planWasApplied: false,
           recommendedCaptainFollowed: false,
           implementationNote: 'No team data available for this gameweek',
+          allPlayers,
         };
       }
 
@@ -373,6 +375,7 @@ export class PredictionAnalysisService {
         planWasApplied,
         recommendedCaptainFollowed,
         implementationNote,
+        allPlayers,
       };
     } catch (error) {
       console.error(`[PredictionAnalysis] Error fetching gameweek context:`, error);
@@ -385,6 +388,7 @@ export class PredictionAnalysisService {
         planWasApplied: false,
         recommendedCaptainFollowed: false,
         implementationNote: 'Unable to verify implementation status',
+        allPlayers: [],
       };
     }
   }
@@ -425,15 +429,29 @@ export class PredictionAnalysisService {
       ? `Key fixtures:\n${context.fixtureResults.map((f: any) => `  - ${f.team} vs ${f.opponent}: ${f.result}`).join('\n')}`
       : 'Fixtures data unavailable';
 
-    const prompt = `Analyze why this FPL prediction missed the mark. Focus ONLY on explaining prediction errors for the actual decisions that were made.
+    // Build captain comparison text if user chose a different captain
+    let captainComparisonText = '';
+    if (!context.recommendedCaptainFollowed && plan.captainId) {
+      const recommendedCaptainData = context.allPlayers?.find((p: any) => p.id === plan.captainId);
+      const recommendedCaptainName = recommendedCaptainData?.web_name || 'Unknown';
+      captainComparisonText = `
+⚠️ CAPTAIN CHOICE DIFFERS FROM RECOMMENDATION:
+- AI Recommended Captain: ${recommendedCaptainName}
+- User's Actual Captain: ${context.captain?.name || 'Unknown'}
+`;
+    }
+
+    const prompt = `Analyze why this FPL prediction missed the mark. Focus ONLY on explaining prediction errors for the USER'S ACTUAL TEAM CHOICES.
+
+IMPORTANT: This analysis is based on what the user ACTUALLY picked, not what the AI recommended.
 
 PREDICTION vs REALITY:
 - Gameweek: ${plan.gameweek}
 - Predicted: ${plan.predictedPoints} pts → Actual: ${plan.actualPointsWithAI} pts
 - Difference: ${error} pts (${biasDirection} by ${Math.abs(bias)} pts)
 - League Average: ${context.avgScore} pts
-
-WHAT ACTUALLY HAPPENED:
+${captainComparisonText}
+WHAT THE USER'S ACTUAL TEAM DID:
 ${captainText}
 ${context.teamSummary}
 
@@ -441,7 +459,8 @@ ${underperformersText}
 
 ${fixturesText}
 
-YOUR TASK: In 2-4 bullet points, explain WHY predictions were inaccurate using ONLY definitive statements based on exact data.
+YOUR TASK: In 2-4 bullet points, explain WHY the USER'S ACTUAL TEAM performance differed from predictions using ONLY definitive statements based on exact data.
+${!context.recommendedCaptainFollowed && plan.captainId ? '\n⚠️ IMPORTANT: The user picked a DIFFERENT captain than recommended. Mention this in your first bullet point and explain how it affected the score.' : ''}
 
 REQUIRED FORMAT - Use these patterns:
 1. Start with player name and exact score with breakdown: "Player scored X pts [breakdown]"

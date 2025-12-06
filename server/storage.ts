@@ -1311,6 +1311,19 @@ export class PostgresStorage implements IStorage {
       .from(predictions)
       .where(eq(predictions.gameweek, gameweek));
   }
+
+  async getGameweeksWithMissingActuals(): Promise<number[]> {
+    const result = await db
+      .select({
+        gameweek: predictions.gameweek,
+      })
+      .from(predictions)
+      .where(isNull(predictions.actualPoints))
+      .groupBy(predictions.gameweek)
+      .orderBy(predictions.gameweek);
+    
+    return result.map(r => r.gameweek);
+  }
 }
 
 export const storage = new PostgresStorage();

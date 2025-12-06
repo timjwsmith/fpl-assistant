@@ -267,7 +267,7 @@ export class PredictionEvaluatorService {
     };
   }
 
-  async backfillActualPoints(gameweek: number): Promise<number> {
+  async backfillActualPoints(gameweek: number): Promise<{ updated: number; attempted: number; notFinished: boolean }> {
     console.log(`[PredictionEvaluator] Backfilling actual points for GW${gameweek}`);
     
     const gameweeks = await fplApi.getGameweeks();
@@ -275,7 +275,7 @@ export class PredictionEvaluatorService {
     
     if (!gw || !gw.finished) {
       console.log(`[PredictionEvaluator] GW${gameweek} is not finished yet`);
-      return 0;
+      return { updated: 0, attempted: 0, notFinished: true };
     }
 
     const playersData = await fplApi.getPlayers();
@@ -284,11 +284,17 @@ export class PredictionEvaluatorService {
     const predictionsToUpdate = predictions.filter((p: PredictionDB) => p.actualPoints === null || p.actualPoints === undefined);
     console.log(`[PredictionEvaluator] Found ${predictionsToUpdate.length} predictions needing actual points`);
     
+    if (predictionsToUpdate.length === 0) {
+      return { updated: 0, attempted: 0, notFinished: false };
+    }
+    
     let updatedCount = 0;
+    let attemptedCount = 0;
     
     for (const pred of predictionsToUpdate) {
       const player = playersData.find((p: FPLPlayer) => p.id === pred.playerId);
       if (player) {
+        attemptedCount++;
         const actualPoints = await this.getPlayerActualPoints(pred.playerId, gameweek);
         if (actualPoints !== null) {
           await storage.updateActualPointsByPlayer(pred.userId, gameweek, pred.playerId, actualPoints);
@@ -297,8 +303,8 @@ export class PredictionEvaluatorService {
       }
     }
     
-    console.log(`[PredictionEvaluator] Updated ${updatedCount} predictions with actual points`);
-    return updatedCount;
+    console.log(`[PredictionEvaluator] Updated ${updatedCount}/${attemptedCount} predictions with actual points`);
+    return { updated: updatedCount, attempted: attemptedCount, notFinished: false };
   }
 
   private async getPlayerActualPoints(playerId: number, gameweek: number): Promise<number | null> {

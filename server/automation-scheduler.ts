@@ -4,6 +4,7 @@ import { fplAuth } from './fpl-auth';
 import { gameweekAnalyzer } from './gameweek-analyzer';
 import { transferApplication } from './transfer-application';
 import { seedPendingPredictions, updateTrackingPredictions, voidInvalidPredictions } from './multi-week-tracker';
+import { predictionEvaluator } from './prediction-evaluator';
 import type { AutomationSettings, GameweekPlan } from '@shared/schema';
 
 const CHECK_INTERVAL = 30 * 60 * 1000; // 30 minutes in milliseconds
@@ -25,9 +26,12 @@ class AutomationScheduler {
 
     this.isRunning = true;
 
-    // Run initial check
+    // Run initial checks
     this.checkAndApplyPlans().catch(error => {
       console.error('[AutoScheduler] Error in initial check:', error);
+    });
+    this.checkScheduledJobs().catch(error => {
+      console.error('[AutoScheduler] Error in initial scheduled jobs check:', error);
     });
 
     // Schedule recurring checks
@@ -144,10 +148,21 @@ class AutomationScheduler {
 
   async checkScheduledJobs(): Promise<void> {
     const now = new Date();
+    const HOUR_1 = 60 * 60 * 1000; // 1 hour in ms
     const HOUR_24 = 24 * 60 * 60 * 1000; // 24 hours in ms
     const DAY_7 = 7 * HOUR_24; // 7 days in ms
 
     try {
+      // Backfill prediction actuals (run every hour if there are missing actuals)
+      const lastBackfillRun = await storage.getSchedulerLastRun('backfill_actuals');
+      if (!lastBackfillRun || (now.getTime() - lastBackfillRun.getTime()) > HOUR_1) {
+        const backfillCompleted = await this.backfillPredictionActuals();
+        // Only update last run time if backfill actually completed (not skipped due to API unavailability)
+        if (backfillCompleted) {
+          await storage.setSchedulerLastRun('backfill_actuals', now);
+        }
+      }
+
       // Seed predictions (run once per day)
       const lastSeedRun = await storage.getSchedulerLastRun('seed_predictions');
       if (!lastSeedRun || (now.getTime() - lastSeedRun.getTime()) > HOUR_24) {
@@ -173,6 +188,96 @@ class AutomationScheduler {
       }
     } catch (error) {
       console.error('[AutoScheduler] Error in checkScheduledJobs:', error);
+    }
+  }
+
+  private async backfillPredictionActuals(): Promise<boolean> {
+    console.log('[AutoScheduler] Checking for predictions needing actual points backfill...');
+    
+    try {
+      // Get finished gameweeks that have predictions without actuals first
+      const gameweeksNeedingBackfill = await storage.getGameweeksWithMissingActuals();
+      
+      if (gameweeksNeedingBackfill.length === 0) {
+        console.log('[AutoScheduler] No predictions need backfilling');
+        return true; // No work needed, consider as complete
+      }
+
+      // Check if FPL API is available before attempting backfill
+      const isApiAvailable = await this.checkFplApiAvailability();
+      if (!isApiAvailable) {
+        console.log(`[AutoScheduler] FPL API is updating, will retry backfill for GW ${gameweeksNeedingBackfill.join(', ')} later`);
+        return false; // API unavailable, don't mark as complete so we retry soon
+      }
+
+      console.log(`[AutoScheduler] Found ${gameweeksNeedingBackfill.length} gameweeks needing backfill: ${gameweeksNeedingBackfill.join(', ')}`);
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const gameweek of gameweeksNeedingBackfill) {
+        try {
+          console.log(`[AutoScheduler] Backfilling GW${gameweek}...`);
+          const result = await predictionEvaluator.backfillActualPoints(gameweek);
+          
+          if (result.notFinished) {
+            // Gameweek not finished yet - skip but don't count as failure
+            console.log(`[AutoScheduler] GW${gameweek} not finished yet, skipping`);
+            continue;
+          }
+          
+          if (result.attempted === 0) {
+            // No predictions to backfill - consider complete
+            successCount++;
+          } else if (result.updated > 0) {
+            // Successfully updated some predictions
+            console.log(`[AutoScheduler] ✓ Backfilled ${result.updated}/${result.attempted} predictions for GW${gameweek}`);
+            successCount++;
+            
+            // Now evaluate the gameweek
+            const existingEval = await storage.getPredictionEvaluation(gameweek);
+            if (!existingEval) {
+              await predictionEvaluator.evaluateGameweek(gameweek);
+              console.log(`[AutoScheduler] ✓ Evaluated predictions for GW${gameweek}`);
+            }
+          } else {
+            // Attempted to update but got 0 - all API calls failed
+            console.log(`[AutoScheduler] All ${result.attempted} player API calls failed for GW${gameweek}`);
+            failCount++;
+          }
+        } catch (error) {
+          failCount++;
+          console.error(`[AutoScheduler] Error backfilling GW${gameweek}:`, error);
+        }
+      }
+
+      // Only mark as complete if at least one GW succeeded
+      // If all failed (likely API issues), don't mark complete so we retry soon
+      if (successCount === 0 && failCount > 0) {
+        console.log(`[AutoScheduler] All ${failCount} backfill attempts failed, will retry soon`);
+        return false;
+      }
+      
+      return true; // At least some backfill completed
+    } catch (error) {
+      console.error('[AutoScheduler] Error in backfillPredictionActuals:', error);
+      return false;
+    }
+  }
+
+  private async checkFplApiAvailability(): Promise<boolean> {
+    try {
+      const response = await fetch('https://fantasy.premierleague.com/api/bootstrap-static/');
+      if (!response.ok) {
+        return false;
+      }
+      const text = await response.text();
+      if (text.includes('The game is being updated')) {
+        return false;
+      }
+      return true;
+    } catch {
+      return false;
     }
   }
 

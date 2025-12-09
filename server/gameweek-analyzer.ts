@@ -1223,7 +1223,27 @@ export class GameweekAnalyzerService {
             console.log(`    ✅ Added: ${transfer.substitution_details.benched_player_name} benched for ${transfer.substitution_details.incoming_player_name}`);
           }
         }
-        console.log(`  ✅ Total lineup optimization(s): ${(aiResponse as any).lineupOptimizations.length}`);
+        console.log(`  ✅ Total lineup optimization(s) before deduplication: ${(aiResponse as any).lineupOptimizations.length}`);
+        
+        // CRITICAL: Deduplicate lineup optimizations to prevent benching same player twice
+        // A player can only be benched once per gameweek, so keep the first (better) recommendation
+        const seenBenchedPlayerIds = new Set<number>();
+        const deduplicatedOptimizations: any[] = [];
+        
+        for (const opt of (aiResponse as any).lineupOptimizations) {
+          if (!seenBenchedPlayerIds.has(opt.benched_player_id)) {
+            seenBenchedPlayerIds.add(opt.benched_player_id);
+            deduplicatedOptimizations.push(opt);
+          } else {
+            console.log(`  ⚠️  Skipping duplicate bench recommendation for ${opt.benched_player_name} (already benched for another player)`);
+          }
+        }
+        
+        if (deduplicatedOptimizations.length < (aiResponse as any).lineupOptimizations.length) {
+          console.log(`  🔄 Removed ${(aiResponse as any).lineupOptimizations.length - deduplicatedOptimizations.length} duplicate lineup optimization(s)`);
+          (aiResponse as any).lineupOptimizations = deduplicatedOptimizations;
+        }
+        console.log(`  ✅ Total lineup optimization(s) after deduplication: ${(aiResponse as any).lineupOptimizations.length}`);
         
         // Save enriched transfers WITH substitution_details (for transfer card display)
         // IMPORTANT: Keep substitution_details on transfers so frontend can show lineup impact

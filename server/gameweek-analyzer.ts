@@ -775,7 +775,21 @@ export class GameweekAnalyzerService {
       );
 
       // 8.5. Enhance transfer reasoning with lineup substitution details
+      // Check if we're using fallback data - if so, skip substitution detection entirely
+      const usingFallbackData = Boolean((inputData.currentTeam as any)._lineupFromFallback);
+      
+      // ALWAYS run this block when there are transfers (to create enrichedTransfers)
+      // But conditionally skip substitution analysis when using fallback data
       if (uniqueTransfers.length > 0) {
+        console.log(`\n[GameweekAnalyzer] 🔄 Processing ${uniqueTransfers.length} transfers...`);
+        
+        if (usingFallbackData) {
+          console.log(`  ⚠️ SKIPPING substitution detection: Using fallback lineup data (previous GW positions may not reflect current user selections)`);
+          console.log(`  ℹ️  Transfer predictions will be shown, but lineup impact will be omitted until team data is current`);
+        }
+        
+        // Only run full substitution analysis when NOT using fallback data
+        if (!usingFallbackData) {
         console.log(`\n[GameweekAnalyzer] 🔄 Analyzing lineup changes for ${uniqueTransfers.length} transfers...`);
         
         // Create a map of player positions in the current lineup (before transfers)
@@ -1045,6 +1059,16 @@ export class GameweekAnalyzerService {
         // ADDITIONAL CHECK: Detect lineup changes from auto-pick optimization (not caused by transfers)
         // Example: Leno chosen to start over Dúbravka (both in squad, no transfer)
         console.log(`\n[GameweekAnalyzer] 🔍 Checking for lineup changes from auto-pick optimization...`);
+        
+        // IMPORTANT: Skip auto-pick optimizations when using fallback/stale lineup data
+        // This prevents confusing suggestions like "bench Keane" when Keane is already benched
+        // in the user's actual FPL team (we just can't see it because GW hasn't started)
+        const lineupFromFallback = (inputData.currentTeam as any)._lineupFromFallback;
+        if (lineupFromFallback) {
+          console.log(`  ⚠️ SKIPPING auto-pick optimization: Using fallback lineup data (previous GW positions may not reflect current user selections)`);
+          console.log(`  ℹ️  To see accurate lineup optimizations, sync your team after the gameweek deadline`);
+        }
+        
         const originalStartingXI = inputData.currentTeam.players
           .filter(p => p.position <= 11 && p.player_id)
           .map(p => p.player_id!);
@@ -1077,7 +1101,10 @@ export class GameweekAnalyzerService {
         }).join(', ') || 'NONE'}`);
         
         // Create substitution cards for auto-pick lineup changes
-        if (benchedByAutoPick.length > 0 && startingByAutoPick.length > 0) {
+        // SKIP if using fallback data (positions may not reflect user's actual current lineup)
+        if (lineupFromFallback) {
+          console.log(`  ⏭️  Skipping auto-pick optimization card creation due to stale lineup data`);
+        } else if (benchedByAutoPick.length > 0 && startingByAutoPick.length > 0) {
           console.log(`  ✅ Found ${benchedByAutoPick.length} benched, ${startingByAutoPick.length} starting by auto-pick!`);
           
           // Create mutable copy for one-to-one pairing
@@ -1181,8 +1208,11 @@ export class GameweekAnalyzerService {
           
           console.log(`  ✅ Created ${pairingCount} lineup optimization card(s)`);
         }
+        } // End of if (!usingFallbackData) block for substitution/auto-pick analysis
         
-        // CRITICAL: Create enrichedTransfers NOW (after lineup analysis) to include substitution_details
+        // CRITICAL: Create enrichedTransfers NOW - this runs ALWAYS (even with fallback data)
+        // When using fallback: transfers have predictions but NO substitution_details
+        // When NOT using fallback: transfers have both predictions AND substitution_details
         // This must happen AFTER the lineup analysis loop which adds substitution_details to uniqueTransfers
         console.log(`\n[GameweekAnalyzer] 📦 Creating enriched transfers with predictions and substitution_details...`);
         const enrichedTransfersRaw = uniqueTransfers.map(transfer => {
@@ -1558,44 +1588,76 @@ export class GameweekAnalyzerService {
     };
   }
 
-  private async getCurrentTeam(userId: number, gameweek: number): Promise<UserTeam> {
+  private async getCurrentTeam(userId: number, gameweek: number): Promise<UserTeam & { _lineupFromFallback?: boolean }> {
     // Try to get team from database first
     let team = await storage.getTeam(userId, gameweek);
+    let lineupFromFallback = false;
 
     if (!team) {
-      // If not in DB, try previous gameweek
+      // If not in DB, try previous gameweek (FALLBACK - lineup may be stale)
       team = await storage.getTeam(userId, gameweek - 1);
+      if (team) {
+        console.log(`[GameweekAnalyzer] ⚠️ Using GW${gameweek - 1} team data as fallback for GW${gameweek}`);
+        lineupFromFallback = true;
+      }
     }
 
     if (!team) {
       // If still not found, fetch from FPL API using manager ID
       const userSettings = await storage.getUserSettings(userId);
       if (userSettings?.manager_id) {
-        const picks = await fplApi.getManagerPicks(userSettings.manager_id, gameweek);
-        const players = picks.picks.map((p, idx) => ({
-          player_id: p.element,
-          position: p.position,
-          is_captain: p.is_captain,
-          is_vice_captain: p.is_vice_captain,
-        }));
+        try {
+          const picks = await fplApi.getManagerPicks(userSettings.manager_id, gameweek);
+          const players = picks.picks.map((p, idx) => ({
+            player_id: p.element,
+            position: p.position,
+            is_captain: p.is_captain,
+            is_vice_captain: p.is_vice_captain,
+          }));
 
-        // Save to DB for future use
-        team = await storage.saveTeam({
-          userId,
-          gameweek,
-          players,
-          formation: '4-4-2', // Default, will be determined by AI
-          teamValue: picks.entry_history.value,
-          bank: picks.entry_history.bank,
-          transfersMade: picks.entry_history.event_transfers,
-          lastDeadlineBank: picks.entry_history.bank,
-        });
+          // Save to DB for future use
+          team = await storage.saveTeam({
+            userId,
+            gameweek,
+            players,
+            formation: '4-4-2', // Default, will be determined by AI
+            teamValue: picks.entry_history.value,
+            bank: picks.entry_history.bank,
+            transfersMade: picks.entry_history.event_transfers,
+            lastDeadlineBank: picks.entry_history.bank,
+          });
+        } catch (err) {
+          // GW not started yet - try previous gameweek from API
+          console.log(`[GameweekAnalyzer] ⚠️ GW${gameweek} picks not available, fetching GW${gameweek - 1}`);
+          const picks = await fplApi.getManagerPicks(userSettings.manager_id, gameweek - 1);
+          const players = picks.picks.map((p, idx) => ({
+            player_id: p.element,
+            position: p.position,
+            is_captain: p.is_captain,
+            is_vice_captain: p.is_vice_captain,
+          }));
+
+          team = await storage.saveTeam({
+            userId,
+            gameweek: gameweek - 1, // Save as previous GW since that's what we fetched
+            players,
+            formation: '4-4-2',
+            teamValue: picks.entry_history.value,
+            bank: picks.entry_history.bank,
+            transfersMade: picks.entry_history.event_transfers,
+            lastDeadlineBank: picks.entry_history.bank,
+          });
+          lineupFromFallback = true;
+        }
       } else {
         throw new Error('No team found and no manager ID set to fetch from FPL API');
       }
     }
 
-    return team;
+    // Attach metadata about data source
+    (team as any)._lineupFromFallback = lineupFromFallback;
+
+    return team as UserTeam & { _lineupFromFallback?: boolean };
   }
 
   private async getManagerData(userId: number): Promise<FPLManager | null> {

@@ -1596,6 +1596,19 @@ export class GameweekAnalyzerService {
     let team = await storage.getTeam(userId, gameweek);
     let lineupFromFallback = false;
 
+    // CRITICAL: Check if gameweek deadline has passed
+    // Even if we have a team record for the current GW, the POSITIONS in it
+    // are from the previous GW until the deadline passes and picks are locked in
+    // The FPL API only returns confirmed picks, not pending lineup changes
+    const gameweeks = await fplApi.getGameweeks();
+    const currentGW = gameweeks.find((gw: any) => gw.id === gameweek);
+    const deadlinePassed = currentGW ? new Date(currentGW.deadline_time) < new Date() : false;
+    
+    if (!deadlinePassed) {
+      console.log(`[GameweekAnalyzer] ⚠️ GW${gameweek} deadline not yet passed - lineup positions are from GW${gameweek - 1}`);
+      lineupFromFallback = true;
+    }
+
     if (!team) {
       // If not in DB, try previous gameweek (FALLBACK - lineup may be stale)
       team = await storage.getTeam(userId, gameweek - 1);

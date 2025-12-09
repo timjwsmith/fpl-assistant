@@ -1057,7 +1057,7 @@ export default function GameweekPlanner() {
                 )})}
               </div>
             </div>
-          ) : plan.recommendationsChanged && plan.changeReasoning?.includes('lineup optimizations changed') ? (
+          ) : plan.recommendationsChanged && plan.changeReasoning?.includes('lineup optimizations changed') && !plan.usingFallbackData ? (
             (() => {
               // Find previous plan for the same gameweek to show what was removed
               const previousPlan = allPlans?.filter(p => p.gameweek === plan.gameweek && p.id !== plan.id)

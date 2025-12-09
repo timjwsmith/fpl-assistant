@@ -544,6 +544,11 @@ export class GameweekAnalyzerService {
           console.log(`  - Chip changed: ${chipChanged} (${previousPlan.chipToPlay} → ${aiResponse.chip_to_play})`);
           console.log(`  - Lineup optimizations changed: ${lineupOptimizationsChanged} (prev: ${prevLineupOpts}, curr: ${currLineupOpts})`);
           
+          // Check if we're in fallback mode - if so, don't flag lineup optimizations as "changed"
+          // because they were suppressed intentionally due to stale lineup data
+          const usingFallbackData = Boolean((inputData.currentTeam as any)?._lineupFromFallback);
+          const effectiveLineupOptimizationsChanged = lineupOptimizationsChanged && !usingFallbackData;
+          
           actualRecommendationsChanged = true;
           actualChangeReasoning = `Recommendations updated based on latest analysis. Changes: ${
             [
@@ -552,7 +557,7 @@ export class GameweekAnalyzerService {
               viceCaptainChanged ? 'vice captain changed' : null,
               formationChanged ? 'formation adjusted' : null,
               chipChanged ? 'chip strategy changed' : null,
-              lineupOptimizationsChanged ? 'lineup optimizations changed' : null,
+              effectiveLineupOptimizationsChanged ? 'lineup optimizations changed' : null,
             ].filter(Boolean).join(', ')
           }.`;
         } else {

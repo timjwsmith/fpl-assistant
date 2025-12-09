@@ -69,6 +69,7 @@ export const db = drizzle(sql);
 export interface IStorage {
   getOrCreateUser(fplManagerId: number): Promise<User>;
   getUserSettings(userId: number): Promise<UserSettings | undefined>;
+  getAllUserSettings(): Promise<UserSettings[]>;
   saveUserSettings(userId: number, settings: UserSettings): Promise<UserSettings>;
   deleteUserSettings(userId: number): Promise<boolean>;
   
@@ -255,6 +256,21 @@ export class PostgresStorage implements IStorage {
       auto_captain: dbRow.autoCaptain,
       notifications_enabled: dbRow.notificationsEnabled ?? undefined,
     };
+  }
+
+  async getAllUserSettings(): Promise<(UserSettings & { userId: number })[]> {
+    const allSettings = await db
+      .select()
+      .from(userSettingsTable);
+
+    return allSettings.map(dbRow => ({
+      userId: dbRow.userId,
+      manager_id: dbRow.managerId,
+      primary_league_id: dbRow.primaryLeagueId ?? undefined,
+      risk_tolerance: dbRow.riskTolerance,
+      auto_captain: dbRow.autoCaptain,
+      notifications_enabled: dbRow.notificationsEnabled ?? undefined,
+    }));
   }
 
   async saveUserSettings(userId: number, settings: UserSettings): Promise<UserSettings> {

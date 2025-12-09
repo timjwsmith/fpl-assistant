@@ -5,6 +5,7 @@ import { gameweekAnalyzer } from './gameweek-analyzer';
 import { transferApplication } from './transfer-application';
 import { seedPendingPredictions, updateTrackingPredictions, voidInvalidPredictions } from './multi-week-tracker';
 import { predictionEvaluator } from './prediction-evaluator';
+import { predictionAccuracyService } from './prediction-accuracy';
 import type { AutomationSettings, GameweekPlan } from '@shared/schema';
 
 const CHECK_INTERVAL = 30 * 60 * 1000; // 30 minutes in milliseconds
@@ -233,6 +234,19 @@ class AutomationScheduler {
             // Successfully updated some predictions
             console.log(`[AutoScheduler] ✓ Backfilled ${result.updated}/${result.attempted} predictions for GW${gameweek}`);
             successCount++;
+            
+            // Also update gameweek_plans table with actual team points for all users
+            try {
+              const allUsers = await storage.getAllUserSettings();
+              for (const userSettings of allUsers) {
+                if (userSettings.manager_id) {
+                  await predictionAccuracyService.updateActualPoints(userSettings.userId, gameweek);
+                  console.log(`[AutoScheduler] ✓ Updated gameweek_plans actual points for user ${userSettings.userId}, GW${gameweek}`);
+                }
+              }
+            } catch (planError) {
+              console.error(`[AutoScheduler] Error updating gameweek_plans for GW${gameweek}:`, planError);
+            }
             
             // Now evaluate the gameweek
             const existingEval = await storage.getPredictionEvaluation(gameweek);

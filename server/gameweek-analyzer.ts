@@ -1182,7 +1182,7 @@ export class GameweekAnalyzerService {
         // CRITICAL: Create enrichedTransfers NOW (after lineup analysis) to include substitution_details
         // This must happen AFTER the lineup analysis loop which adds substitution_details to uniqueTransfers
         console.log(`\n[GameweekAnalyzer] 📦 Creating enriched transfers with predictions and substitution_details...`);
-        const enrichedTransfers = uniqueTransfers.map(transfer => {
+        const enrichedTransfersRaw = uniqueTransfers.map(transfer => {
           const playerOutPredicted = predictionsMap.get(transfer.player_out_id) || 0;
           const playerInPredicted = predictionsMap.get(transfer.player_in_id) || 0;
           
@@ -1192,7 +1192,36 @@ export class GameweekAnalyzerService {
             player_in_predicted_points: playerInPredicted,
           };
         });
-        console.log(`  Created ${enrichedTransfers.length} enriched transfers`);
+        
+        // CRITICAL FIX: Filter out bad transfers where player IN is predicted lower than player OUT
+        // This prevents recommending players with rotation/injury risk for short-term loss
+        const enrichedTransfers = enrichedTransfersRaw.filter(transfer => {
+          const playerIn = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === transfer.player_in_id);
+          const playerOut = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === transfer.player_out_id);
+          
+          // Rule 1: Reject if incoming player is predicted LOWER than outgoing for THIS gameweek
+          if (transfer.player_in_predicted_points < transfer.player_out_predicted_points) {
+            console.log(`  ❌ REJECTED transfer: ${playerOut?.web_name} (${transfer.player_out_predicted_points} pts) → ${playerIn?.web_name} (${transfer.player_in_predicted_points} pts)`);
+            console.log(`     Reason: Incoming player predicted LOWER than outgoing player for this gameweek`);
+            return false;
+          }
+          
+          // Rule 2: Reject if incoming player has very low prediction (< 2 points = likely won't play)
+          if (transfer.player_in_predicted_points < 2) {
+            console.log(`  ❌ REJECTED transfer: ${playerOut?.web_name} → ${playerIn?.web_name} (${transfer.player_in_predicted_points} pts)`);
+            console.log(`     Reason: Incoming player predicted < 2 points (rotation/injury risk)`);
+            return false;
+          }
+          
+          console.log(`  ✅ APPROVED transfer: ${playerOut?.web_name} (${transfer.player_out_predicted_points} pts) → ${playerIn?.web_name} (${transfer.player_in_predicted_points} pts)`);
+          return true;
+        });
+        
+        if (enrichedTransfers.length < enrichedTransfersRaw.length) {
+          console.log(`  🚫 Filtered out ${enrichedTransfersRaw.length - enrichedTransfers.length} bad transfer(s)`);
+        }
+        
+        console.log(`  Created ${enrichedTransfers.length} validated enriched transfers`);
         for (const t of enrichedTransfers) {
           console.log(`    ${t.player_out_id} → ${t.player_in_id}: substitution_details=${t.substitution_details ? 'YES' : 'NO'}`);
         }

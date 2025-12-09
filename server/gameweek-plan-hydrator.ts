@@ -101,6 +101,7 @@ export class GameweekPlanHydrator {
         priority: transfer.priority,
         cost_impact: transfer.cost_impact,
         accepted: transfer.accepted ?? true, // Defensive default for legacy records
+        substitution_details: transferWithPredictions.substitution_details, // Include lineup impact info
       };
     });
 

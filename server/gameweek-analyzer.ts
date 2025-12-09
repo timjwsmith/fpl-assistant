@@ -807,12 +807,15 @@ export class GameweekAnalyzerService {
           return player?.web_name || id;
         }).join(', ')}`);
         
-        // Initialize baseline starting XI using ACTUAL FPL positions (before any transfers)
+        // Initialize baseline starting XI using ORIGINAL FPL positions (before any optimization)
+        // This ensures we detect when a transferred-in player displaces someone from the original XI
+        // Example: If Keane (2pts) was starting in FPL and we bring in Guéhi (4pts), 
+        // we correctly show "Keane benched for Guéhi"
         let baselineStartingXI = inputData.currentTeam.players
           .filter(p => p.position <= 11 && p.player_id)
           .map(p => p.player_id!);
         
-        console.log(`[GameweekAnalyzer] Baseline starting XI (${baselineStartingXI.length} players): ${baselineStartingXI.map(id => {
+        console.log(`[GameweekAnalyzer] Baseline starting XI from ORIGINAL FPL positions (${baselineStartingXI.length} players): ${baselineStartingXI.map(id => {
           const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id);
           return player?.web_name || id;
         }).join(', ')}`);

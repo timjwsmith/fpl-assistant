@@ -31,6 +31,7 @@ interface PlanData extends GameweekPlan {
   freeTransfers?: number;
   transfersCost?: number;
   strategicInsights?: string[];
+  usingFallbackData?: boolean;
 }
 
 interface LeagueAnalysis {
@@ -461,6 +462,15 @@ export default function GameweekPlanner() {
 
   return (
     <div className="space-y-6 md:space-y-8" data-testid="page-gameweek-planner">
+      {plan?.usingFallbackData && (
+        <Alert className="bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800">
+          <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+          <AlertDescription className="text-yellow-800 dark:text-yellow-200">
+            <strong>Using previous gameweek lineup data</strong> - Some recommendations may not reflect your current team selections. 
+            Sync your team after making changes in FPL to get accurate lineup optimizations.
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="flex flex-col md:flex-row items-start md:items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-4xl font-bold tracking-tight">Gameweek Planner</h1>

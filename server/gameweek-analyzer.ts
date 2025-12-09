@@ -586,6 +586,9 @@ export class GameweekAnalyzerService {
         console.warn(`[GameweekAnalyzer] ⚠️  Removed ${aiResponse.transfers.length - uniqueTransfers.length} duplicate transfer(s)`);
       }
       
+      // Determine if we're using fallback data for the lineup
+      const usingFallbackData = Boolean((inputData.currentTeam as any)._lineupFromFallback);
+      
       const plan = await storage.saveGameweekPlan({
         userId,
         gameweek,
@@ -625,6 +628,7 @@ export class GameweekAnalyzerService {
         snapshotGameweek: inputData.context.gameweek,
         snapshotTimestamp: new Date(inputData.context.timestamp),
         snapshotEnriched: inputData.context.enriched,
+        dataSource: usingFallbackData ? 'fallback' : 'live',
       });
 
       // Validate that the saved plan has the correct snapshot_id
@@ -775,8 +779,7 @@ export class GameweekAnalyzerService {
       );
 
       // 8.5. Enhance transfer reasoning with lineup substitution details
-      // Check if we're using fallback data - if so, skip substitution detection entirely
-      const usingFallbackData = Boolean((inputData.currentTeam as any)._lineupFromFallback);
+      // Note: usingFallbackData was already determined above (before saveGameweekPlan call)
       
       // ALWAYS run this block when there are transfers (to create enrichedTransfers)
       // But conditionally skip substitution analysis when using fallback data

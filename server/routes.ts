@@ -790,7 +790,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { gameweekPlanHydrator } = await import("./gameweek-plan-hydrator");
       const hydratedPlan = await gameweekPlanHydrator.hydratePlan(rawPlan, snapshot.data.players);
       
-      res.json(hydratedPlan);
+      // Add usingFallbackData flag based on dataSource column
+      const usingFallbackData = rawPlan.dataSource === 'fallback';
+      
+      res.json({
+        ...hydratedPlan,
+        usingFallbackData,
+      });
     } catch (error) {
       console.error("[Automation Plan Route] Error fetching plan:", error);
       res.status(500).json({ 

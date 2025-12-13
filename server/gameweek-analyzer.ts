@@ -577,6 +577,16 @@ export class GameweekAnalyzerService {
       // Add accepted: true to all transfers and lineup optimizations by default (user can override)
       // Save baseline prediction (GROSS points before transfer cost) separately from final prediction (NET points)
       
+      // Calculate the actual NET predicted points (after transfer cost)
+      const netPredictedPoints = Math.round(aiResponse.predicted_points - transferCost);
+      
+      // Post-process the AI reasoning to ensure predicted points mentioned in text match the actual calculated value
+      // This fixes inconsistencies where AI might state a different number in its narrative
+      const correctedReasoning = this.correctPredictedPointsInReasoning(
+        aiResponse.reasoning,
+        netPredictedPoints
+      );
+      
       // Deduplicate transfers - AI sometimes generates duplicates
       const uniqueTransfers = Array.from(
         new Map(
@@ -611,11 +621,11 @@ export class GameweekAnalyzerService {
         viceCaptainId: aiResponse.vice_captain_id,
         chipToPlay: aiResponse.chip_to_play as 'wildcard' | 'freehit' | 'benchboost' | 'triplecaptain' | null,
         formation: aiResponse.formation,
-        predictedPoints: Math.round(aiResponse.predicted_points - transferCost),
+        predictedPoints: netPredictedPoints,
         baselinePredictedPoints: Math.round(aiResponse.predicted_points), // Baseline AI prediction (GROSS, before transfer cost)
         confidence: aiResponse.confidence,
         aiReasoning: JSON.stringify({
-          reasoning: aiResponse.reasoning,
+          reasoning: correctedReasoning,
           insights: strategicInsights,
           validation: {
             isValid: validation.isValid && chipValidation.isValid,
@@ -2994,6 +3004,41 @@ CRITICAL REQUIREMENTS:
     }
 
     return cost;
+  }
+
+  /**
+   * Post-process AI reasoning text to ensure predicted points mentioned in the narrative
+   * match the actual calculated NET predicted points.
+   * This fixes inconsistencies where the AI might state a different number in its text.
+   */
+  private correctPredictedPointsInReasoning(reasoning: string, netPredictedPoints: number): string {
+    // Common patterns where AI mentions predicted points in its reasoning
+    // Examples: "deliver 66 points", "projected to deliver 66 points", "66 points this gameweek"
+    const patterns = [
+      /(\bdeliver\s+)(\d+)(\s+points?\b)/gi,
+      /(\bprojected\s+to\s+deliver\s+)(\d+)(\s+points?\b)/gi,
+      /(\bexpected\s+to\s+score\s+)(\d+)(\s+points?\b)/gi,
+      /(\bpredict(?:ed|ing)?\s+)(\d+)(\s+points?\b)/gi,
+      /(\bplan\s+(?:will|should)\s+(?:deliver|score)\s+)(\d+)(\s+points?\b)/gi,
+      /(\bnet\s+(?:of\s+)?|(?:after\s+(?:transfer\s+)?(?:cost|penalty|penalties)\s+)?)(\d+)(\s+points?\s+this\s+gameweek\b)/gi,
+    ];
+
+    let correctedReasoning = reasoning;
+    
+    for (const pattern of patterns) {
+      correctedReasoning = correctedReasoning.replace(pattern, (match, prefix, oldPoints, suffix) => {
+        const parsedOldPoints = parseInt(oldPoints, 10);
+        // Only correct if the old value is within a reasonable range of the correct value (avoid false positives)
+        // This handles cases where AI might mention other point values (e.g., player points) that shouldn't be corrected
+        if (Math.abs(parsedOldPoints - netPredictedPoints) <= 20) {
+          console.log(`[GameweekAnalyzer] Correcting predicted points in reasoning: ${parsedOldPoints} → ${netPredictedPoints}`);
+          return `${prefix}${netPredictedPoints}${suffix}`;
+        }
+        return match; // Don't change if difference is too large (likely a different kind of points reference)
+      });
+    }
+    
+    return correctedReasoning;
   }
 
   private async validateChipUsage(

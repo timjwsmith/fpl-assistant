@@ -742,7 +742,7 @@ export default function TeamModeller() {
               data-testid="button-sync-fpl"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${syncManagerTeamMutation.isPending ? 'animate-spin' : ''}`} />
-              {syncManagerTeamMutation.isPending ? "Syncing..." : "Sync from FPL"}
+              {syncManagerTeamMutation.isPending ? "Syncing..." : "Reset to FPL Team"}
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={handleReset} data-testid="button-reset">

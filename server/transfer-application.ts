@@ -2,7 +2,7 @@ import { storage } from './storage';
 import { fplAuth } from './fpl-auth';
 import { fplApi } from './fpl-api';
 import { gameweekSnapshot } from './gameweek-data-snapshot';
-import type { TransferRecommendation, FPLPlayer } from '@shared/schema';
+import type { TransferRecommendation, FPLPlayer, GameweekPlan } from '@shared/schema';
 
 const FPL_BASE_URL = 'https://fantasy.premierleague.com/api';
 
@@ -173,6 +173,17 @@ class TransferApplicationService {
         } catch (error) {
           // Log but don't fail plan application
           console.error(`[Transfer Application] Failed to record multi-week predictions for plan ${gameweekPlanId}:`, error);
+        }
+
+        // Save the applied lineup so subsequent plan generations use it as baseline
+        try {
+          const appliedLineup = await this.computeAndSaveAppliedLineup(userId, plan, managerId);
+          if (appliedLineup) {
+            console.log(`[Transfer Application] ✓ Saved applied lineup for GW${plan.gameweek}`);
+          }
+        } catch (error) {
+          // Log but don't fail plan application
+          console.error(`[Transfer Application] Failed to save applied lineup:`, error);
         }
       } else {
         console.error(`[Transfer Application] ✗ Partial failure for plan ${gameweekPlanId}`, result.errors);
@@ -567,6 +578,172 @@ class TransferApplicationService {
 
       return false;
     }
+  }
+
+  private async computeAndSaveAppliedLineup(
+    userId: number,
+    plan: GameweekPlan,
+    managerId: number
+  ): Promise<boolean> {
+    console.log(`[Transfer Application] Computing applied lineup for GW${plan.gameweek}...`);
+    
+    // Start with the original team snapshot or fetch current picks
+    let lineup: Array<{
+      player_id: number;
+      position: number;
+      is_captain: boolean;
+      is_vice_captain: boolean;
+      multiplier: number;
+    }> = [];
+    
+    if (plan.originalTeamSnapshot?.players) {
+      // Use original team snapshot
+      lineup = plan.originalTeamSnapshot.players
+        .filter(p => p.player_id !== null)
+        .map(p => ({
+          player_id: p.player_id!,
+          position: p.position,
+          is_captain: p.is_captain,
+          is_vice_captain: p.is_vice_captain,
+          multiplier: p.multiplier,
+        }));
+      console.log(`  Using original team snapshot with ${lineup.length} players`);
+    } else {
+      // Fetch current picks from FPL
+      try {
+        const picks = await fplApi.getManagerPicks(managerId, plan.gameweek - 1);
+        lineup = picks.picks.map(p => ({
+          player_id: p.element,
+          position: p.position,
+          is_captain: p.is_captain,
+          is_vice_captain: p.is_vice_captain,
+          multiplier: p.multiplier,
+        }));
+        console.log(`  Fetched previous GW picks with ${lineup.length} players`);
+      } catch (error) {
+        console.error(`  Failed to fetch picks, cannot compute applied lineup:`, error);
+        return false;
+      }
+    }
+    
+    if (lineup.length !== 15) {
+      console.error(`  Invalid lineup size: ${lineup.length}, expected 15`);
+      return false;
+    }
+    
+    // Apply accepted transfers (swap out old players for new ones)
+    const acceptedTransfers = (plan.transfers || []).filter(t => t.accepted);
+    for (const transfer of acceptedTransfers) {
+      const playerIndex = lineup.findIndex(p => p.player_id === transfer.player_out_id);
+      if (playerIndex !== -1) {
+        console.log(`  Applying transfer: ${transfer.player_out_id} → ${transfer.player_in_id}`);
+        lineup[playerIndex].player_id = transfer.player_in_id;
+      } else {
+        // Player not found in lineup (e.g., benched player auto-subbed)
+        // This shouldn't happen with correct data, but handle gracefully
+        console.warn(`  ⚠️ Player ${transfer.player_out_id} not found in lineup - fetching fresh picks from FPL`);
+        
+        // Fetch fresh picks from FPL to ensure we have the correct 15-player squad
+        try {
+          const freshPicks = await fplApi.getManagerPicks(managerId, plan.gameweek);
+          // Rebuild lineup from fresh picks
+          lineup = freshPicks.picks.map(p => ({
+            player_id: p.element,
+            position: p.position,
+            is_captain: p.is_captain,
+            is_vice_captain: p.is_vice_captain,
+            multiplier: p.multiplier,
+          }));
+          console.log(`  ✓ Rebuilt lineup from fresh FPL picks (${lineup.length} players)`);
+          // Now the incoming player should already be in the lineup from the fresh fetch
+          // since transfers have already been applied to FPL
+        } catch (fetchError) {
+          console.error(`  ❌ Failed to fetch fresh picks, incoming player ${transfer.player_in_id} may be missing:`, fetchError);
+          // As a last resort, add the player to the first available bench position
+          const benchPositions = [12, 13, 14, 15];
+          for (const benchPos of benchPositions) {
+            const existingPlayer = lineup.find(p => p.position === benchPos);
+            if (!existingPlayer) {
+              // Found an empty bench slot
+              lineup.push({
+                player_id: transfer.player_in_id,
+                position: benchPos,
+                is_captain: false,
+                is_vice_captain: false,
+                multiplier: 0, // Bench players have 0 multiplier
+              });
+              console.log(`  Added incoming player ${transfer.player_in_id} to bench position ${benchPos}`);
+              break;
+            }
+          }
+        }
+      }
+    }
+    
+    // Apply accepted lineup optimizations (swap bench with starting XI)
+    const acceptedOptimizations = (plan.lineupOptimizations || []).filter((lo: any) => lo.accepted);
+    for (const opt of acceptedOptimizations as Array<{
+      benched_player_id: number;
+      starting_player_id: number;
+      accepted: boolean;
+    }>) {
+      const benchedIndex = lineup.findIndex(p => p.player_id === opt.benched_player_id);
+      const startingIndex = lineup.findIndex(p => p.player_id === opt.starting_player_id);
+      
+      if (benchedIndex !== -1 && startingIndex !== -1) {
+        console.log(`  Applying lineup swap: bench ${opt.benched_player_id} ↔ starting ${opt.starting_player_id}`);
+        // Swap positions AND multipliers
+        // Players in positions 1-11 should have multiplier 1 (or 2 for captain)
+        // Players in positions 12-15 (bench) should have multiplier 0
+        const tempPosition = lineup[benchedIndex].position;
+        const tempMultiplier = lineup[benchedIndex].multiplier;
+        lineup[benchedIndex].position = lineup[startingIndex].position;
+        lineup[benchedIndex].multiplier = lineup[startingIndex].multiplier;
+        lineup[startingIndex].position = tempPosition;
+        lineup[startingIndex].multiplier = tempMultiplier;
+      }
+    }
+    
+    // Apply captain/vice-captain from plan
+    if (plan.captainId) {
+      for (const player of lineup) {
+        player.is_captain = player.player_id === plan.captainId;
+        player.multiplier = player.is_captain ? 2 : (player.position <= 11 ? 1 : 0);
+      }
+    }
+    if (plan.viceCaptainId) {
+      for (const player of lineup) {
+        player.is_vice_captain = player.player_id === plan.viceCaptainId;
+      }
+    }
+    
+    // Sort by position to ensure proper order
+    lineup.sort((a, b) => a.position - b.position);
+    
+    // Determine formation from starting XI positions
+    const formation = plan.formation || this.determineFormation(lineup);
+    
+    // Save to applied_lineups table
+    await storage.saveAppliedLineup({
+      userId,
+      gameweek: plan.gameweek,
+      lineup,
+      formation,
+      captainId: plan.captainId || lineup.find(p => p.is_captain)?.player_id || 0,
+      viceCaptainId: plan.viceCaptainId || lineup.find(p => p.is_vice_captain)?.player_id || 0,
+      sourcePlanId: plan.id,
+      sourceType: 'plan',
+    });
+    
+    console.log(`  ✓ Saved applied lineup: ${lineup.length} players, formation ${formation}`);
+    return true;
+  }
+  
+  private determineFormation(lineup: Array<{ position: number }>): string {
+    // Positions 1-11 are starting XI
+    // Position 1 is GK, positions 2-11 are outfield
+    // Default to 4-4-2 if we can't determine
+    return '4-4-2';
   }
 
   private async validatePlan(plan: any, managerId: number, players: FPLPlayer[]): Promise<void> {

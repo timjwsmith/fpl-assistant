@@ -1606,7 +1606,9 @@ export class GameweekAnalyzerService {
   }
 
   private async getCurrentTeam(userId: number, gameweek: number): Promise<UserTeam & { _lineupFromFallback?: boolean }> {
-    // Try to get team from database first
+    // APPROACH: First ensure we have a base team with accurate bank/value,
+    // THEN overlay applied lineup positions if available
+    
     let team = await storage.getTeam(userId, gameweek);
     let lineupFromFallback = false;
 
@@ -1618,13 +1620,14 @@ export class GameweekAnalyzerService {
     const currentGW = gameweeks.find((gw: any) => gw.id === gameweek);
     const deadlinePassed = currentGW ? new Date(currentGW.deadline_time) < new Date() : false;
     
-    if (!deadlinePassed) {
-      console.log(`[GameweekAnalyzer] ⚠️ GW${gameweek} deadline not yet passed - lineup positions are from GW${gameweek - 1}`);
+    if (!deadlinePassed && !team) {
+      console.log(`[GameweekAnalyzer] ⚠️ GW${gameweek} deadline not yet passed - will need fallback data`);
       lineupFromFallback = true;
     }
 
+    // Step 1: Ensure we have a base team with accurate bank/value
     if (!team) {
-      // If not in DB, try previous gameweek (FALLBACK - lineup may be stale)
+      // Try previous gameweek from DB (FALLBACK - lineup may be stale)
       team = await storage.getTeam(userId, gameweek - 1);
       if (team) {
         console.log(`[GameweekAnalyzer] ⚠️ Using GW${gameweek - 1} team data as fallback for GW${gameweek}`);
@@ -1633,7 +1636,7 @@ export class GameweekAnalyzerService {
     }
 
     if (!team) {
-      // If still not found, fetch from FPL API using manager ID
+      // Fetch from FPL API using manager ID
       const userSettings = await storage.getUserSettings(userId);
       if (userSettings?.manager_id) {
         try {
@@ -1681,6 +1684,29 @@ export class GameweekAnalyzerService {
         }
       } else {
         throw new Error('No team found and no manager ID set to fetch from FPL API');
+      }
+    }
+
+    // Step 2: Overlay applied lineup positions if available (before deadline passes)
+    // This ensures we have accurate bank/value from the base team, but correct lineup positions
+    // from the previously applied plan
+    if (!deadlinePassed) {
+      const appliedLineup = await storage.getAppliedLineup(userId, gameweek);
+      if (appliedLineup) {
+        console.log(`[GameweekAnalyzer] ✓ Found applied lineup for GW${gameweek} from plan #${appliedLineup.sourcePlanId} - overlaying on base team`);
+        // Overlay applied lineup positions onto the base team (preserving bank/value)
+        team = {
+          ...team,
+          players: appliedLineup.lineup.map(p => ({
+            player_id: p.player_id,
+            position: p.position,
+            is_captain: p.is_captain,
+            is_vice_captain: p.is_vice_captain,
+          })),
+          formation: appliedLineup.formation,
+        };
+        // Applied lineup is authoritative - not fallback data
+        lineupFromFallback = false;
       }
     }
 

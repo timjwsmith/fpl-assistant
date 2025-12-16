@@ -246,28 +246,22 @@ export function PredictionAccuracy({ userId, startGameweek = 8 }: PredictionAccu
             </div>
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">Actual Total</p>
-              <p className="text-2xl font-bold">
-                {metrics.totalActualPoints}
-              </p>
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                {metrics.overallBias !== null && metrics.overallBias > 0 && (
+              {(() => {
+                const percentDiff = metrics.totalPredictedPoints > 0 
+                  ? ((metrics.totalActualPoints - metrics.totalPredictedPoints) / metrics.totalPredictedPoints) * 100
+                  : 0;
+                const isNegative = percentDiff < 0;
+                return (
                   <>
-                    <TrendingUp className="h-3 w-3 text-destructive" />
-                    <span className="text-destructive">
-                      {metrics.overallBias > 0 ? '+' : ''}{metrics.overallBias.toFixed(1)} bias
-                    </span>
+                    <p className={`text-2xl font-bold ${isNegative ? 'text-destructive' : 'text-chart-2'}`}>
+                      {percentDiff > 0 ? '+' : ''}{percentDiff.toFixed(1)}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {metrics.totalActualPoints} pts vs {metrics.totalPredictedPoints} predicted
+                    </p>
                   </>
-                )}
-                {metrics.overallBias !== null && metrics.overallBias < 0 && (
-                  <>
-                    <TrendingDown className="h-3 w-3 text-chart-2" />
-                    <span className="text-chart-2">
-                      {metrics.overallBias.toFixed(1)} bias
-                    </span>
-                  </>
-                )}
-                {metrics.overallBias === 0 && 'no bias'}
-              </p>
+                );
+              })()}
             </div>
           </div>
         )}

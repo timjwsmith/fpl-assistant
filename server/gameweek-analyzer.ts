@@ -1333,6 +1333,20 @@ export class GameweekAnalyzerService {
         if ((aiResponse as any).lineupOptimizations && (aiResponse as any).lineupOptimizations.length > 0) {
           await storage.updateGameweekPlanLineupOptimizations(plan.id, (aiResponse as any).lineupOptimizations);
           console.log(`[GameweekAnalyzer] Lineup optimizations saved to database for plan ${plan.id}`);
+          
+          // CRITICAL: Update aiReasoning to include lineup optimization summaries in the overall explanation
+          // This ensures the user sees all changes (transfers + lineup changes) in one unified narrative
+          const lineupOptSummaries = (aiResponse as any).lineupOptimizations.map((opt: any) => {
+            const pointsDiff = (opt.starting_player_predicted_points - opt.benched_player_predicted_points).toFixed(1);
+            return `I recommend starting ${opt.starting_player_name} (${opt.starting_player_predicted_points.toFixed(1)} pts) instead of ${opt.benched_player_name} (${opt.benched_player_predicted_points.toFixed(1)} pts) for a ${pointsDiff} point advantage.`;
+          }).join(' ');
+          
+          if (lineupOptSummaries) {
+            // Append lineup optimization summary to the existing reasoning
+            const updatedReasoning = correctedReasoning + `\n\n**Lineup Optimizations:** ${lineupOptSummaries}`;
+            await storage.updateGameweekPlanReasoning(plan.id, updatedReasoning);
+            console.log(`[GameweekAnalyzer] Updated aiReasoning with ${(aiResponse as any).lineupOptimizations.length} lineup optimization summary(ies)`);
+          }
         }
       }
 

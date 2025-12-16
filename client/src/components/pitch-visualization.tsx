@@ -31,6 +31,7 @@ interface PitchVisualizationProps {
 interface DraggablePlayerSlotProps {
   slot: PitchSlot;
   onRemove?: (position: number) => void;
+  onClick?: (position: number) => void;
 }
 
 interface DroppableSlotProps {
@@ -42,7 +43,7 @@ interface DroppableSlotProps {
   isSelected?: boolean;
 }
 
-function DraggablePlayerSlot({ slot, onRemove }: DraggablePlayerSlotProps) {
+function DraggablePlayerSlot({ slot, onRemove, onClick }: DraggablePlayerSlotProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `player-${slot.position}`,
     data: {
@@ -59,12 +60,18 @@ function DraggablePlayerSlot({ slot, onRemove }: DraggablePlayerSlotProps) {
 
   if (!slot.player) return null;
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onClick?.(slot.position);
+  };
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...listeners}
       {...attributes}
+      onClick={handleClick}
       className={cn(
         "relative group cursor-grab active:cursor-grabbing",
         isDragging && "opacity-50"
@@ -150,13 +157,12 @@ function DroppableSlot({ slot, isValidDrop, isDragActive, onClick, onRemove, isS
     >
       {hasPlayer ? (
         <div 
-          onClick={() => onClick?.(slot.position)}
           className={cn(
             "cursor-pointer",
             isSelected && "animate-pulse"
           )}
         >
-          <DraggablePlayerSlot slot={slot} onRemove={onRemove} />
+          <DraggablePlayerSlot slot={slot} onRemove={onRemove} onClick={onClick} />
         </div>
       ) : (
         <button

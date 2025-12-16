@@ -316,7 +316,7 @@ export function PredictionAccuracy({ userId, startGameweek = 8 }: PredictionAccu
                           >
                             {record.error === 0 
                               ? 'Perfect' 
-                              : `${record.predictedPoints > record.actualPoints ? '+' : ''}${record.predictedPoints - record.actualPoints} pts`}
+                              : `${record.predictedPoints > record.actualPoints ? '-' : '+'}${Math.abs(record.predictedPoints - record.actualPoints)}%`}
                           </Badge>
                         )}
                         {getAccuracyBadge(record.error)}

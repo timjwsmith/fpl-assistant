@@ -521,16 +521,123 @@ export default function TeamModeller() {
   const handleSlotClick = (position: number) => {
     const slot = slots.find(s => s.position === position);
     
+    // If there's already a selected empty slot and we click on a slot with a player,
+    // move that player to the selected empty slot (tap-to-move flow)
+    if (selectedSlot !== null && slot?.player) {
+      const targetSlot = slots.find(s => s.position === selectedSlot);
+      
+      // Only allow if target is empty
+      if (targetSlot && !targetSlot.player) {
+        // Validate GK constraints
+        if (selectedSlot === 1 && slot.player.element_type !== 1) {
+          toast({
+            title: "Invalid move",
+            description: "Only goalkeepers can be placed in position 1",
+            variant: "destructive",
+          });
+          setSelectedSlot(null);
+          return;
+        }
+        if (slot.player.element_type === 1 && selectedSlot !== 1) {
+          toast({
+            title: "Invalid move",
+            description: "Goalkeepers can only be placed in position 1",
+            variant: "destructive",
+          });
+          setSelectedSlot(null);
+          return;
+        }
+        
+        // Move the player to the selected slot
+        setSlots(prev => prev.map(s => {
+          if (s.position === selectedSlot) {
+            // Target slot gets the player
+            return { ...s, player: slot.player, teamCode: slot.player?.team_code };
+          }
+          if (s.position === position) {
+            // Source slot becomes empty
+            return { ...s, player: null, isCaptain: false, isViceCaptain: false, teamCode: undefined };
+          }
+          return s;
+        }));
+        
+        toast({
+          title: "Player moved",
+          description: `${slot.player.web_name} moved to position ${selectedSlot <= 11 ? 'starting XI' : 'bench'}`,
+        });
+        setSelectedSlot(null);
+        return;
+      }
+    }
+    
     if (slot?.player) {
-      setSlots(prev => prev.map(s => 
-        s.position === position ? { ...s, player: null, isCaptain: false, isViceCaptain: false, teamCode: undefined } : s
-      ));
-      toast({
-        title: "Player removed",
-        description: `${slot.player.web_name} removed from your team`,
-      });
+      // Clicking on a player without a selected slot - just select this slot for potential swap
+      // Or if we want to remove, user can use X button
+      // For now, let's select this slot as source for moving
+      if (selectedSlot === null) {
+        // No slot selected - select this player's slot as source
+        setSelectedSlot(position);
+        toast({
+          title: "Player selected",
+          description: `Tap an empty slot to move ${slot.player.web_name} there, or tap another player to swap`,
+        });
+      } else {
+        // A slot was already selected - swap the players
+        const sourceSlot = slots.find(s => s.position === selectedSlot);
+        if (sourceSlot?.player) {
+          handlePlayerSwap(selectedSlot, position);
+        }
+        setSelectedSlot(null);
+      }
     } else {
-      setSelectedSlot(position);
+      // Clicking on empty slot
+      if (selectedSlot !== null) {
+        // If there was a selected slot with a player, move that player here
+        const sourceSlot = slots.find(s => s.position === selectedSlot);
+        if (sourceSlot?.player) {
+          // Validate GK constraints
+          if (position === 1 && sourceSlot.player.element_type !== 1) {
+            toast({
+              title: "Invalid move",
+              description: "Only goalkeepers can be placed in position 1",
+              variant: "destructive",
+            });
+            setSelectedSlot(null);
+            return;
+          }
+          if (sourceSlot.player.element_type === 1 && position !== 1) {
+            toast({
+              title: "Invalid move",
+              description: "Goalkeepers can only be placed in position 1",
+              variant: "destructive",
+            });
+            setSelectedSlot(null);
+            return;
+          }
+          
+          setSlots(prev => prev.map(s => {
+            if (s.position === position) {
+              return { ...s, player: sourceSlot.player, teamCode: sourceSlot.player?.team_code };
+            }
+            if (s.position === selectedSlot) {
+              return { ...s, player: null, isCaptain: false, isViceCaptain: false, teamCode: undefined };
+            }
+            return s;
+          }));
+          
+          toast({
+            title: "Player moved",
+            description: `${sourceSlot.player.web_name} moved to position ${position <= 11 ? 'starting XI' : 'bench'}`,
+          });
+          setSelectedSlot(null);
+        } else {
+          // Source was empty too, just select this new empty slot
+          setSelectedSlot(position);
+        }
+      } else {
+        // No slot was selected, select this empty slot
+        setSelectedSlot(position);
+      }
     }
   };
 
@@ -687,6 +794,7 @@ export default function TeamModeller() {
                 variant: "destructive",
               });
             }}
+            selectedPosition={selectedSlot}
           />
 
           <div className="grid grid-cols-3 gap-4">

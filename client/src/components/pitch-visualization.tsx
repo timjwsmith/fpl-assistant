@@ -25,6 +25,7 @@ interface PitchVisualizationProps {
   onPlayerRemove?: (position: number) => void;
   onError?: (title: string, description: string) => void;
   className?: string;
+  selectedPosition?: number | null;
 }
 
 interface DraggablePlayerSlotProps {
@@ -38,6 +39,7 @@ interface DroppableSlotProps {
   isDragActive: boolean;
   onClick?: (position: number) => void;
   onRemove?: (position: number) => void;
+  isSelected?: boolean;
 }
 
 function DraggablePlayerSlot({ slot, onRemove }: DraggablePlayerSlotProps) {
@@ -123,7 +125,7 @@ function DraggablePlayerSlot({ slot, onRemove }: DraggablePlayerSlotProps) {
   );
 }
 
-function DroppableSlot({ slot, isValidDrop, isDragActive, onClick, onRemove }: DroppableSlotProps) {
+function DroppableSlot({ slot, isValidDrop, isDragActive, onClick, onRemove, isSelected }: DroppableSlotProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `slot-${slot.position}`,
     data: {
@@ -141,12 +143,21 @@ function DroppableSlot({ slot, isValidDrop, isDragActive, onClick, onRemove }: D
       ref={setNodeRef}
       className={cn(
         "relative",
-        isDragActive && !hasPlayer && "transition-all duration-200"
+        isDragActive && !hasPlayer && "transition-all duration-200",
+        isSelected && hasPlayer && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-lg"
       )}
       data-testid={`slot-position-${slot.position}`}
     >
       {hasPlayer ? (
-        <DraggablePlayerSlot slot={slot} onRemove={onRemove} />
+        <div 
+          onClick={() => onClick?.(slot.position)}
+          className={cn(
+            "cursor-pointer",
+            isSelected && "animate-pulse"
+          )}
+        >
+          <DraggablePlayerSlot slot={slot} onRemove={onRemove} />
+        </div>
       ) : (
         <button
           onClick={() => onClick?.(slot.position)}
@@ -155,7 +166,8 @@ function DroppableSlot({ slot, isValidDrop, isDragActive, onClick, onRemove }: D
             isDragActive && isValidDrop && isOver && "border-primary bg-primary/20 scale-110",
             isDragActive && isValidDrop && !isOver && "border-primary/50 bg-primary/5",
             isDragActive && !isValidDrop && "border-muted-foreground/10 bg-muted/5",
-            !isDragActive && "border-muted-foreground/30 hover:border-primary hover:bg-primary/5"
+            isSelected && "border-primary bg-primary/20 scale-110 border-solid",
+            !isDragActive && !isSelected && "border-muted-foreground/30 hover:border-primary hover:bg-primary/5"
           )}
           data-testid={`button-add-${slot.position}`}
         >
@@ -164,7 +176,8 @@ function DroppableSlot({ slot, isValidDrop, isDragActive, onClick, onRemove }: D
             isDragActive && isValidDrop && isOver && "text-primary",
             isDragActive && isValidDrop && !isOver && "text-primary/70",
             isDragActive && !isValidDrop && "text-muted-foreground/30",
-            !isDragActive && "text-muted-foreground group-hover:text-primary"
+            isSelected && "text-primary",
+            !isDragActive && !isSelected && "text-muted-foreground group-hover:text-primary"
           )} />
         </button>
       )}
@@ -235,6 +248,7 @@ export function PitchVisualization({
   onPlayerRemove,
   onError,
   className,
+  selectedPosition,
 }: PitchVisualizationProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draggedPlayer, setDraggedPlayer] = useState<FPLPlayer | null>(null);
@@ -373,6 +387,7 @@ export function PitchVisualization({
                   isDragActive={isDragActive}
                   onClick={onPlayerClick}
                   onRemove={onPlayerRemove}
+                  isSelected={selectedPosition === gk.position}
                 />
               )}
             </div>
@@ -386,6 +401,7 @@ export function PitchVisualization({
                   isDragActive={isDragActive}
                   onClick={onPlayerClick}
                   onRemove={onPlayerRemove}
+                  isSelected={selectedPosition === slot.position}
                 />
               ))}
             </div>
@@ -399,6 +415,7 @@ export function PitchVisualization({
                   isDragActive={isDragActive}
                   onClick={onPlayerClick}
                   onRemove={onPlayerRemove}
+                  isSelected={selectedPosition === slot.position}
                 />
               ))}
             </div>
@@ -412,6 +429,7 @@ export function PitchVisualization({
                   isDragActive={isDragActive}
                   onClick={onPlayerClick}
                   onRemove={onPlayerRemove}
+                  isSelected={selectedPosition === slot.position}
                 />
               ))}
             </div>
@@ -429,6 +447,7 @@ export function PitchVisualization({
                 isDragActive={isDragActive}
                 onClick={onPlayerClick}
                 onRemove={onPlayerRemove}
+                isSelected={selectedPosition === slot.position}
               />
             ))}
           </div>

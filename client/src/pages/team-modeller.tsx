@@ -4,7 +4,7 @@ import { PitchVisualization } from "@/components/pitch-visualization";
 import { PlayerSearchPanel } from "@/components/player-search-panel";
 import { PredictionPanel } from "@/components/prediction-panel";
 import { Badge } from "@/components/ui/badge";
-import { Save, Undo, Shield, ArrowRightLeft, RefreshCw } from "lucide-react";
+import { Save, Undo, Shield, ArrowRightLeft, RefreshCw, FlaskConical, Loader2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -26,7 +26,9 @@ import { useFPLPlayers, useFPLTeams, useFPLPositions, useFPLGameweeks } from "@/
 import { useAnalyzeTeam } from "@/hooks/use-ai-predictions";
 import { LoadingScreen } from "@/components/loading-screen";
 import { ErrorState } from "@/components/error-state";
-import type { FPLPlayer, UserSettings, UserTeam, Transfer } from "@shared/schema";
+import type { FPLPlayer, UserSettings, UserTeam, Transfer, GameweekPlan } from "@shared/schema";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -56,6 +58,7 @@ export default function TeamModeller() {
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const [savedTeam, setSavedTeam] = useState<UserTeam | null>(null);
   const [aiPrediction, setAiPrediction] = useState<{ insights: string[]; predicted_points: number; confidence: number } | null>(null);
+  const [whatIfResult, setWhatIfResult] = useState<GameweekPlan | null>(null);
 
   const { data: players, isLoading: loadingPlayers, error: playersError, refetch: refetchPlayers } = useFPLPlayers();
   const { data: teams, isLoading: loadingTeams, error: teamsError, refetch: refetchTeams } = useFPLTeams();
@@ -277,6 +280,39 @@ export default function TeamModeller() {
   };
 
   const transferInfo = calculateTransferInfo();
+
+  const whatIfAnalysisMutation = useMutation({
+    mutationFn: async () => {
+      const customLineup = slots
+        .filter(s => s.player !== null)
+        .map(s => ({
+          player_id: s.player!.id,
+          position: s.position,
+          is_captain: s.isCaptain,
+          is_vice_captain: s.isViceCaptain,
+        }));
+
+      return apiRequest<GameweekPlan>(
+        "POST",
+        `/api/automation/analyze/${userId}?gameweek=${planningGameweekId}`,
+        { customLineup }
+      );
+    },
+    onSuccess: (data) => {
+      setWhatIfResult(data);
+      toast({
+        title: "What-If Analysis Complete",
+        description: `Predicted ${data.predictedPoints} points for this lineup`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Analysis failed",
+        description: error.message || "Could not complete the what-if analysis",
+        variant: "destructive",
+      });
+    },
+  });
 
   useEffect(() => {
     if (timeoutRef.current) {
@@ -597,6 +633,20 @@ export default function TeamModeller() {
             <Undo className="h-4 w-4 mr-2" />
             Reset
           </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => whatIfAnalysisMutation.mutate()} 
+            disabled={playingCount < 11 || whatIfAnalysisMutation.isPending}
+            data-testid="button-what-if-analysis"
+          >
+            {whatIfAnalysisMutation.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <FlaskConical className="h-4 w-4 mr-2" />
+            )}
+            {whatIfAnalysisMutation.isPending ? "Analyzing..." : "Re-analyze with this lineup"}
+          </Button>
           {savedTeamData && transferInfo.transferCount > 0 && (
             <Button 
               variant="outline" 
@@ -685,6 +735,88 @@ export default function TeamModeller() {
                 )}
               </div>
             </div>
+          )}
+
+          {whatIfAnalysisMutation.isPending && (
+            <Card className="border-2 border-dashed border-primary/50 bg-primary/5">
+              <CardContent className="py-8 text-center">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+                <p className="text-lg font-medium">Running What-If Analysis...</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  This may take 30-60 seconds. Analyzing your custom lineup with AI.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {whatIfResult && !whatIfAnalysisMutation.isPending && (
+            <Card className="border-2 border-purple-500/50 bg-purple-500/5" data-testid="what-if-results">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <FlaskConical className="h-5 w-5 text-purple-500" />
+                    <CardTitle className="text-lg">What-If Analysis Results</CardTitle>
+                  </div>
+                  <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30">
+                    Hypothetical Scenario
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 rounded-lg border bg-card">
+                    <p className="text-sm text-muted-foreground">Predicted Points</p>
+                    <p className="text-3xl font-bold text-purple-600" data-testid="what-if-points">
+                      {whatIfResult.predictedPoints}
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-lg border bg-card">
+                    <p className="text-sm text-muted-foreground">Confidence</p>
+                    <p className="text-3xl font-bold" data-testid="what-if-confidence">
+                      {whatIfResult.confidence}%
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-lg border bg-card">
+                  <h4 className="font-semibold mb-2">AI Reasoning</h4>
+                  <ScrollArea className="h-[200px]">
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                      {whatIfResult.aiReasoning}
+                    </p>
+                  </ScrollArea>
+                </div>
+
+                {whatIfResult.transfers && whatIfResult.transfers.length > 0 && (
+                  <div className="p-4 rounded-lg border bg-card">
+                    <h4 className="font-semibold mb-3">Transfer Recommendations</h4>
+                    <div className="space-y-3">
+                      {whatIfResult.transfers.map((transfer, idx) => {
+                        const playerOut = players?.find((p: FPLPlayer) => p.id === transfer.player_out_id);
+                        const playerIn = players?.find((p: FPLPlayer) => p.id === transfer.player_in_id);
+                        return (
+                          <div key={idx} className="flex items-center gap-2 text-sm p-2 rounded bg-muted/50">
+                            <Badge variant={transfer.priority === 'high' ? 'destructive' : transfer.priority === 'medium' ? 'default' : 'secondary'}>
+                              {transfer.priority}
+                            </Badge>
+                            <span className="text-red-600">{playerOut?.web_name || `ID:${transfer.player_out_id}`}</span>
+                            <ArrowRightLeft className="h-3 w-3" />
+                            <span className="text-green-600">{playerIn?.web_name || `ID:${transfer.player_in_id}`}</span>
+                            <span className="text-muted-foreground ml-auto">
+                              +{transfer.expected_points_gain.toFixed(1)} pts
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-xs text-muted-foreground text-center">
+                  This is a hypothetical analysis of your custom lineup and is not saved as a plan.
+                </p>
+              </CardContent>
+            </Card>
           )}
         </div>
 

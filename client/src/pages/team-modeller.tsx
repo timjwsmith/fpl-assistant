@@ -299,8 +299,33 @@ export default function TeamModeller() {
         { customLineup }
       );
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setWhatIfResult(data);
+      
+      // Auto-save the current lineup so it persists when navigating away
+      // This ensures the what-if lineup becomes the active team
+      try {
+        const teamData = {
+          userId,
+          gameweek: planningGameweekId,
+          players: slots.map(s => ({
+            player_id: s.player?.id || null,
+            position: s.position,
+            is_captain: s.isCaptain,
+            is_vice_captain: s.isViceCaptain,
+          })),
+          formation,
+          teamValue: Math.round(teamValue * 10),
+          bank: Math.round(budgetRemaining * 10),
+          transfersMade: 0,
+        };
+        const savedData = await apiRequest<UserTeam>("POST", "/api/teams", teamData);
+        setSavedTeam(savedData);
+        console.log('[Team Modeller] Auto-saved lineup after what-if analysis');
+      } catch (err) {
+        console.error('[Team Modeller] Failed to auto-save lineup:', err);
+      }
+      
       toast({
         title: "What-If Analysis Complete",
         description: `Predicted ${data.predictedPoints} points for this lineup`,
@@ -952,16 +977,19 @@ export default function TeamModeller() {
         </div>
 
         <div className="space-y-6">
-          <PredictionPanel
-            predictedPoints={aiPrediction?.predicted_points || 0}
-            confidence={aiPrediction?.confidence || 0}
-            insights={aiPrediction?.insights || []}
-            isLoading={analyzeMutation.isPending}
-            hasData={!!aiPrediction}
-            isStreaming={analyzeMutation.isPending}
-            streamingContent=""
-            label="Current Team"
-          />
+          {/* Hide standard AI Prediction when what-if result is active to avoid confusion */}
+          {!whatIfResult && (
+            <PredictionPanel
+              predictedPoints={aiPrediction?.predicted_points || 0}
+              confidence={aiPrediction?.confidence || 0}
+              insights={aiPrediction?.insights || []}
+              isLoading={analyzeMutation.isPending}
+              hasData={!!aiPrediction}
+              isStreaming={analyzeMutation.isPending}
+              streamingContent=""
+              label="Current Team"
+            />
+          )}
         </div>
       </div>
 

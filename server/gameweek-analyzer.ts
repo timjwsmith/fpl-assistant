@@ -214,10 +214,18 @@ interface AIGameweekResponse {
   change_reasoning: string;
 }
 
+export type CustomLineupPlayer = {
+  player_id: number;
+  position: number;
+  is_captain: boolean;
+  is_vice_captain: boolean;
+};
+
 export class GameweekAnalyzerService {
-  async analyzeGameweek(userId: number, gameweek: number, targetPlayerId?: number): Promise<GameweekPlan> {
+  async analyzeGameweek(userId: number, gameweek: number, targetPlayerId?: number, customLineup?: CustomLineupPlayer[]): Promise<GameweekPlan> {
     try {
-      console.log(`[GameweekAnalyzer] Starting analysis for user ${userId}, gameweek ${gameweek}${targetPlayerId ? `, target player: ${targetPlayerId}` : ''}`);
+      const isWhatIfAnalysis = !!customLineup;
+      console.log(`[GameweekAnalyzer] Starting analysis for user ${userId}, gameweek ${gameweek}${targetPlayerId ? `, target player: ${targetPlayerId}` : ''}${isWhatIfAnalysis ? ` (what-if analysis with ${customLineup!.length} custom lineup players)` : ''}`);
 
       // 1. Collect all input data
       const inputData = await this.collectInputData(userId, gameweek);
@@ -249,7 +257,13 @@ export class GameweekAnalyzerService {
 
         try {
           // 2. Generate AI recommendations
-          aiResponse = await this.generateAIRecommendations(userId, inputData, gameweek, targetPlayerId, previousPlan);
+          aiResponse = await this.generateAIRecommendations(userId, inputData, gameweek, targetPlayerId, previousPlan, customLineup);
+          
+          // For what-if analysis, skip lineup optimizations (user already specified their lineup)
+          if (isWhatIfAnalysis) {
+            console.log(`[GameweekAnalyzer] What-if analysis: Skipping lineup optimizations (user provided custom lineup)`);
+            aiResponse.lineup_optimizations = [];
+          }
 
           // 3. Validate FPL rules
           validation = await this.validateFPLRules(
@@ -644,6 +658,7 @@ export class GameweekAnalyzerService {
         snapshotTimestamp: new Date(inputData.context.timestamp),
         snapshotEnriched: inputData.context.enriched,
         dataSource: usingFallbackData ? 'fallback' : 'live',
+        isWhatIf: isWhatIfAnalysis,
       });
 
       // Validate that the saved plan has the correct snapshot_id
@@ -1771,7 +1786,7 @@ export class GameweekAnalyzerService {
     return (bank + totalCurrentValue) / 10;
   }
 
-  private async generateAIRecommendations(userId: number, inputData: any, gameweek: number, targetPlayerId?: number, previousPlan?: GameweekPlan | null): Promise<AIGameweekResponse> {
+  private async generateAIRecommendations(userId: number, inputData: any, gameweek: number, targetPlayerId?: number, previousPlan?: GameweekPlan | null, customLineup?: CustomLineupPlayer[]): Promise<AIGameweekResponse> {
     const { currentTeam, allPlayers, teams, upcomingFixtures, userSettings, chipsUsed, freeTransfers, budget, setPieceTakers, dreamTeam, leagueInsights, leagueProjectionData } = inputData;
     
     // Get target player details if specified
@@ -1795,6 +1810,49 @@ Form: ${targetPlayer.form} | PPG: ${targetPlayer.points_per_game} | Total: ${tar
 - Show the TOTAL cost in points hits
 - Explain WHY this is the most efficient path to get ${targetPlayer.web_name}\n`;
       }
+    }
+
+    // Build custom lineup context for what-if analysis
+    let customLineupContext = '';
+    if (customLineup && customLineup.length > 0) {
+      console.log(`[GameweekAnalyzer] Building custom lineup context for what-if analysis`);
+      
+      const customCaptain = customLineup.find(p => p.is_captain);
+      const customViceCaptain = customLineup.find(p => p.is_vice_captain);
+      const customStartingXI = customLineup.filter(p => p.position <= 11);
+      const customBench = customLineup.filter(p => p.position > 11);
+      
+      const formatLineupPlayer = (pick: CustomLineupPlayer) => {
+        const player = allPlayers.find((p: FPLPlayer) => p.id === pick.player_id);
+        const role = pick.is_captain ? ' (C)' : pick.is_vice_captain ? ' (VC)' : '';
+        return `${player?.web_name || `Unknown (ID:${pick.player_id})`}${role}`;
+      };
+      
+      customLineupContext = `\n\n═══════════════════════════════════════════════════════════════════════
+🧪 WHAT-IF ANALYSIS MODE - USER SPECIFIED LINEUP 🧪
+═══════════════════════════════════════════════════════════════════════
+
+**IMPORTANT**: The user has provided a CUSTOM LINEUP for this what-if analysis. 
+DO NOT suggest any lineup optimizations - the user wants to analyze THIS SPECIFIC lineup.
+
+USER'S CUSTOM LINEUP:
+Captain: ${customCaptain ? formatLineupPlayer(customCaptain) : 'Not specified'}
+Vice Captain: ${customViceCaptain ? formatLineupPlayer(customViceCaptain) : 'Not specified'}
+
+Starting XI (Positions 1-11):
+${customStartingXI.map(p => `  - Position ${p.position}: ${formatLineupPlayer(p)}`).join('\n')}
+
+Bench (Positions 12-15):
+${customBench.map(p => `  - Position ${p.position}: ${formatLineupPlayer(p)}`).join('\n')}
+
+**YOUR TASK**: 
+1. Use the captain/vice-captain IDs specified above in your response
+2. Set "lineup_optimizations" to an EMPTY ARRAY (no lineup changes needed)
+3. Calculate predicted points based on this specific lineup configuration
+4. Focus your analysis on transfer recommendations only
+5. Base captain_id and vice_captain_id on the user's selections above
+
+═══════════════════════════════════════════════════════════════════════\n`;
     }
 
     // Build previous plan context for continuity awareness
@@ -2076,6 +2134,7 @@ ${squadDetails.sort((a: any, b: any) => b.selling_price - a.selling_price).slice
 If you want to buy a £14m player like Salah, you need to sell players worth £${(14 - inputData.currentTeam.bank / 10).toFixed(1)}m+
 ONLY recommend transfers where: Bank + Selling Price(s) >= Purchase Price(s)
 ${targetPlayerInfo}
+${customLineupContext}
 ${previousPlanContext}
 
 ═══════════════════════════════════════════════════════════════════════

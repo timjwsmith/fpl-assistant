@@ -745,11 +745,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? parseInt(req.query.targetPlayerId as string) 
         : undefined;
 
-      console.log(`[Automation Analyze Route] Starting analysis for user ${userId}, gameweek ${gameweek}${targetPlayerId ? `, target player: ${targetPlayerId}` : ''}`);
+      const customLineup = req.body?.customLineup as Array<{
+        player_id: number;
+        position: number;
+        is_captain: boolean;
+        is_vice_captain: boolean;
+      }> | undefined;
 
-      const plan = await gameweekAnalyzer.analyzeGameweek(userId, gameweek, targetPlayerId);
+      console.log(`[Automation Analyze Route] Starting analysis for user ${userId}, gameweek ${gameweek}${targetPlayerId ? `, target player: ${targetPlayerId}` : ''}${customLineup ? `, with custom lineup (${customLineup.length} players)` : ''}`);
+
+      const plan = await gameweekAnalyzer.analyzeGameweek(userId, gameweek, targetPlayerId, customLineup);
       
-      console.log(`[Automation Analyze Route] Analysis complete for user ${userId}, plan ID: ${plan.id}`);
+      console.log(`[Automation Analyze Route] Analysis complete for user ${userId}, plan ID: ${plan.id}${customLineup ? ' (what-if analysis)' : ''}`);
       res.json(plan);
     } catch (error) {
       console.error("[Automation Analyze Route] Error analyzing gameweek:", error);

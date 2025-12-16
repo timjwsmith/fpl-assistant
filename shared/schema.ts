@@ -505,6 +505,7 @@ export const gameweekPlans = pgTable('gameweek_plans', {
   submitted: boolean('submitted').default(false),
   submittedAt: timestamp('submitted_at'),
   dataSource: text('data_source', { enum: ['live', 'fallback'] }),
+  isWhatIf: boolean('is_what_if').default(false),
 }, (table) => ({
   userIdIdx: index('gameweek_plans_user_id_idx').on(table.userId),
   gameweekIdx: index('gameweek_plans_gameweek_idx').on(table.gameweek),

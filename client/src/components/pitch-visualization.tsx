@@ -101,14 +101,21 @@ function DraggablePlayerSlot({ slot, onRemove }: DraggablePlayerSlotProps) {
         </div>
         {onRemove && (
           <button
+            onPointerDown={(e) => {
+              e.stopPropagation();
+            }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+            }}
             onClick={(e) => {
               e.stopPropagation();
+              e.preventDefault();
               onRemove(slot.position);
             }}
-            className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+            className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center z-20 shadow-md"
             data-testid={`button-remove-${slot.position}`}
           >
-            <X className="h-4 w-4" />
+            <X className="h-3 w-3" />
           </button>
         )}
       </div>

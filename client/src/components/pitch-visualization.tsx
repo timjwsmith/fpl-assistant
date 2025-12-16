@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Plus, X } from "lucide-react";
 import { cn, getPlayerShirtUrl } from "@/lib/utils";
 import { type FPLPlayer } from "@shared/schema";
-import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent, closestCenter } from "@dnd-kit/core";
+import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useState } from "react";
 
 export interface PitchSlot {
@@ -259,6 +259,21 @@ export function PitchVisualization({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draggedPlayer, setDraggedPlayer] = useState<FPLPlayer | null>(null);
 
+  const pointerSensor = useSensor(PointerSensor, {
+    activationConstraint: {
+      distance: 10,
+    },
+  });
+  
+  const touchSensor = useSensor(TouchSensor, {
+    activationConstraint: {
+      delay: 250,
+      tolerance: 5,
+    },
+  });
+  
+  const sensors = useSensors(pointerSensor, touchSensor);
+
   const [def, mid, fwd] = formation.split('-').map(Number);
   
   const gk = slots.find(s => s.position === 1);
@@ -355,6 +370,7 @@ export function PitchVisualization({
 
   return (
     <DndContext
+      sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}

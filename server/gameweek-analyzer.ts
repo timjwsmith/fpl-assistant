@@ -798,6 +798,10 @@ export class GameweekAnalyzerService {
       
       // ALWAYS run this block when there are transfers (to create enrichedTransfers)
       // But conditionally skip substitution analysis when using fallback data
+      // Track all transferred-out player IDs to exclude from substitution detection
+      // Defined outside the usingFallbackData check so it's available for auto-pick optimization
+      const transferredOutPlayerIds = new Set(uniqueTransfers.map(t => t.player_out_id));
+      
       if (uniqueTransfers.length > 0) {
         console.log(`\n[GameweekAnalyzer] 🔄 Processing ${uniqueTransfers.length} transfers...`);
         
@@ -831,9 +835,6 @@ export class GameweekAnalyzerService {
         // Track cumulative transfers to avoid showing the same player benched multiple times
         // Each transfer is analyzed against the state AFTER all previous transfers
         const cumulativeTransfers: typeof uniqueTransfers = [];
-        
-        // Track all transferred-out player IDs to exclude from substitution detection
-        const transferredOutPlayerIds = new Set(uniqueTransfers.map(t => t.player_out_id));
         console.log(`[GameweekAnalyzer] Transferred-out players (${transferredOutPlayerIds.size}): ${Array.from(transferredOutPlayerIds).map(id => {
           const player = inputData.context.snapshot.data.players.find((p: FPLPlayer) => p.id === id);
           return player?.web_name || id;
@@ -1073,18 +1074,17 @@ export class GameweekAnalyzerService {
           baselineStartingXI = lineupWithThisTransfer.filter(p => p.position <= 11).map(p => p.player_id);
           console.log(`  📊 Updated baseline for next transfer: ${baselineStartingXI.length} players in starting XI`);
         }
+        } // End of if (!usingFallbackData) block for transfer-induced substitution analysis
         
         // ADDITIONAL CHECK: Detect lineup changes from auto-pick optimization (not caused by transfers)
         // Example: Leno chosen to start over Dúbravka (both in squad, no transfer)
+        // This runs ALWAYS (even with fallback data) so users see lineup optimization advice
         console.log(`\n[GameweekAnalyzer] 🔍 Checking for lineup changes from auto-pick optimization...`);
         
-        // IMPORTANT: Skip auto-pick optimizations when using fallback/stale lineup data
-        // This prevents confusing suggestions like "bench Keane" when Keane is already benched
-        // in the user's actual FPL team (we just can't see it because GW hasn't started)
-        const lineupFromFallback = (inputData.currentTeam as any)._lineupFromFallback;
-        if (lineupFromFallback) {
-          console.log(`  ⚠️ SKIPPING auto-pick optimization: Using fallback lineup data (previous GW positions may not reflect current user selections)`);
-          console.log(`  ℹ️  To see accurate lineup optimizations, sync your team after the gameweek deadline`);
+        // Track if using fallback data - optimizations will be flagged as "estimated"
+        // Use the already-computed usingFallbackData flag for consistency
+        if (usingFallbackData) {
+          console.log(`  ℹ️  Using fallback lineup data - optimizations will be marked as based on estimated positions`);
         }
         
         const originalStartingXI = inputData.currentTeam.players
@@ -1119,10 +1119,8 @@ export class GameweekAnalyzerService {
         }).join(', ') || 'NONE'}`);
         
         // Create substitution cards for auto-pick lineup changes
-        // SKIP if using fallback data (positions may not reflect user's actual current lineup)
-        if (lineupFromFallback) {
-          console.log(`  ⏭️  Skipping auto-pick optimization card creation due to stale lineup data`);
-        } else if (benchedByAutoPick.length > 0 && startingByAutoPick.length > 0) {
+        // Even with fallback data, we still generate cards but mark them as tentative
+        if (benchedByAutoPick.length > 0 && startingByAutoPick.length > 0) {
           console.log(`  ✅ Found ${benchedByAutoPick.length} benched, ${startingByAutoPick.length} starting by auto-pick!`);
           
           // Create mutable copy for one-to-one pairing
@@ -1200,6 +1198,7 @@ export class GameweekAnalyzerService {
             }
             
             // Add to lineup optimizations (separate from market transfers)
+            // Include flag for fallback data to show appropriate UI disclaimer
             (aiResponse as any).lineupOptimizations.push({
               benched_player_id: benchedPlayerId,
               benched_player_name: benchedPlayer.web_name,
@@ -1211,6 +1210,7 @@ export class GameweekAnalyzerService {
               starting_player_predicted_points: startingPrediction,
               reasoning: benchReason,
               accepted: true, // Default accepted for new recommendations
+              using_estimated_positions: usingFallbackData, // Flag for UI to show disclaimer (always set, true or false)
             });
             
             console.log(`  ✅ Created lineup optimization: ${benchedPlayer.web_name} (${benchedPrediction.toFixed(1)} pts) benched for ${startingPlayer.web_name} (${startingPrediction.toFixed(1)} pts)`);
@@ -1226,7 +1226,6 @@ export class GameweekAnalyzerService {
           
           console.log(`  ✅ Created ${pairingCount} lineup optimization card(s)`);
         }
-        } // End of if (!usingFallbackData) block for substitution/auto-pick analysis
         
         // CRITICAL: Create enrichedTransfers NOW - this runs ALWAYS (even with fallback data)
         // When using fallback: transfers have predictions but NO substitution_details

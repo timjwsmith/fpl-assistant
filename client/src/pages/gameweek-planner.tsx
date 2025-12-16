@@ -1052,6 +1052,13 @@ export default function GameweekPlanner() {
                       <p className="text-xs text-muted-foreground mt-3 italic">
                         {optimization.reasoning}
                       </p>
+                      
+                      {/* Show notice if optimization is based on estimated positions */}
+                      {(optimization as any).using_estimated_positions && (
+                        <div className="mt-3 p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded text-xs text-amber-700 dark:text-amber-300">
+                          <span className="font-medium">Note:</span> This is based on your last known lineup positions. If you've already made changes on the FPL website, this may not reflect your current team.
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 )})}

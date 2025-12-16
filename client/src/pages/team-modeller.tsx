@@ -903,19 +903,33 @@ export default function TeamModeller() {
                         const playerOut = players?.find((p: FPLPlayer) => p.id === transfer.player_out_id);
                         const playerIn = players?.find((p: FPLPlayer) => p.id === transfer.player_in_id);
                         return (
-                          <div key={idx} className="flex items-center gap-2 text-sm p-2 rounded bg-muted/50">
-                            <Badge variant={transfer.priority === 'high' ? 'destructive' : transfer.priority === 'medium' ? 'default' : 'secondary'}>
-                              {transfer.priority}
-                            </Badge>
-                            <span className="text-red-600">{playerOut?.web_name || `ID:${transfer.player_out_id}`}</span>
-                            <ArrowRightLeft className="h-3 w-3" />
-                            <span className="text-green-600">{playerIn?.web_name || `ID:${transfer.player_in_id}`}</span>
-                            <span className="text-muted-foreground ml-auto">
-                              +{transfer.expected_points_gain.toFixed(1)} pts
-                            </span>
+                          <div key={idx} className="flex flex-col gap-1 text-sm p-3 rounded bg-muted/50">
+                            <div className="flex items-center gap-2">
+                              <Badge variant={transfer.priority === 'high' ? 'destructive' : transfer.priority === 'medium' ? 'default' : 'secondary'}>
+                                {transfer.priority}
+                              </Badge>
+                              <span className="text-red-600">{playerOut?.web_name || `ID:${transfer.player_out_id}`}</span>
+                              <ArrowRightLeft className="h-3 w-3" />
+                              <span className="text-green-600">{playerIn?.web_name || `ID:${transfer.player_in_id}`}</span>
+                            </div>
+                            <div className="flex items-center justify-between mt-1">
+                              <span className="text-xs text-muted-foreground">
+                                {transfer.expected_points_gain_timeframe || '6 gameweeks'} gain
+                              </span>
+                              <span className="text-green-600 font-semibold">
+                                +{transfer.expected_points_gain.toFixed(1)} pts
+                              </span>
+                            </div>
                           </div>
                         );
                       })}
+                    </div>
+                    <div className="mt-3 p-2 rounded bg-blue-500/10 border border-blue-500/20">
+                      <p className="text-xs text-blue-600 dark:text-blue-400">
+                        <strong>Note:</strong> Transfer gains are calculated over 6 gameweeks to account for fixture swings, 
+                        player availability, and form trends. A transfer may not change this week's predicted points 
+                        if both players are benched, but provides value over time.
+                      </p>
                     </div>
                   </div>
                 )}

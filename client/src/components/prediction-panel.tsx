@@ -1,7 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, TrendingUp, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+interface TransferRecommendation {
+  player_out_id: number;
+  player_out_name?: string;
+  player_in_id: number;
+  player_in_name?: string;
+  expected_points_gain: number;
+  expected_points_gain_timeframe?: string;
+  priority: 'high' | 'medium' | 'low';
+}
 
 interface PredictionPanelProps {
   predictedPoints: number;
@@ -13,6 +23,7 @@ interface PredictionPanelProps {
   isLoading?: boolean;
   hasData?: boolean;
   label?: string;
+  transfers?: TransferRecommendation[];
 }
 
 export function PredictionPanel({
@@ -25,6 +36,7 @@ export function PredictionPanel({
   isLoading = false,
   hasData = false,
   label,
+  transfers = [],
 }: PredictionPanelProps) {
   const showLoadingState = isLoading || (predictedPoints === 0 && confidence === 0 && !hasData);
   
@@ -96,6 +108,39 @@ export function PredictionPanel({
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {transfers.length > 0 && (
+          <div className="space-y-2 border-t pt-3">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-green-500" />
+              <p className="text-sm font-medium">Suggested Transfers</p>
+            </div>
+            <div className="space-y-2">
+              {transfers.map((transfer, index) => {
+                const totalGain = transfers.reduce((sum, t) => sum + t.expected_points_gain, 0);
+                return (
+                  <div key={index} className="p-2 rounded bg-muted/50 text-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-red-500">{transfer.player_out_name || `#${transfer.player_out_id}`}</span>
+                        <span className="text-muted-foreground">→</span>
+                        <span className="text-green-500">{transfer.player_in_name || `#${transfer.player_in_id}`}</span>
+                      </div>
+                      <span className="text-green-600 font-semibold">+{transfer.expected_points_gain.toFixed(1)}</span>
+                    </div>
+                    <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                      <Calendar className="h-3 w-3" />
+                      <span>over {transfer.expected_points_gain_timeframe || '6 gameweeks'}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-xs text-blue-500 dark:text-blue-400">
+              Transfer gains are calculated over multiple gameweeks. This week's prediction may be unchanged if both players are benched.
+            </p>
           </div>
         )}
 

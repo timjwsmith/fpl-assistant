@@ -59,6 +59,7 @@ export default function TeamModeller() {
   const [savedTeam, setSavedTeam] = useState<UserTeam | null>(null);
   const [aiPrediction, setAiPrediction] = useState<{ insights: string[]; predicted_points: number; confidence: number } | null>(null);
   const [whatIfResult, setWhatIfResult] = useState<GameweekPlan | null>(null);
+  const hasAttemptedAutoSync = useRef(false);
 
   const { data: players, isLoading: loadingPlayers, error: playersError, refetch: refetchPlayers } = useFPLPlayers();
   const { data: teams, isLoading: loadingTeams, error: teamsError, refetch: refetchTeams } = useFPLTeams();
@@ -90,7 +91,7 @@ export default function TeamModeller() {
     || gameweeks?.find((gw: any) => gw.is_current);
   const planningGameweekId = planningGameweek?.id || 1;
   
-  const { data: savedTeamData } = useQuery<UserTeam>({
+  const { data: savedTeamData, isLoading: loadingSavedTeam, isFetched: savedTeamFetched } = useQuery<UserTeam>({
     queryKey: [`/api/teams/${userId}?gameweek=${planningGameweekId}`],
     enabled: !!planningGameweekId,
   });
@@ -334,18 +335,26 @@ export default function TeamModeller() {
     };
   }, [slots, formation]);
 
-  // Auto-sync team from FPL Manager ID when manager is set but no team data exists
+  // Auto-sync team from FPL Manager ID ONLY on first visit when no saved team exists
+  // This prevents overwriting user's saved changes when returning to the page
+  // IMPORTANT: Wait for savedTeamData query to complete before deciding to sync
   useEffect(() => {
     if (
       settings?.manager_id &&
-      !savedTeamData &&
+      savedTeamFetched &&           // Wait for query to complete
+      !savedTeamData &&             // Only sync if no team exists in database
       planningGameweekId &&
       !syncManagerTeamMutation.isPending &&
-      !managerStatus
+      !hasAttemptedAutoSync.current
     ) {
+      console.log('[Team Modeller] No saved team found, auto-syncing from FPL...');
+      hasAttemptedAutoSync.current = true;
       syncManagerTeamMutation.mutate(settings.manager_id);
+    } else if (savedTeamData) {
+      console.log('[Team Modeller] Saved team found, skipping auto-sync');
+      hasAttemptedAutoSync.current = true; // Mark as attempted so we don't sync later
     }
-  }, [settings?.manager_id, savedTeamData, planningGameweekId, managerStatus]);
+  }, [settings?.manager_id, savedTeamData, savedTeamFetched, planningGameweekId]);
 
   // Load saved team when data is available
   useEffect(() => {

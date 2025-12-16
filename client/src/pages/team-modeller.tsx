@@ -346,10 +346,17 @@ export default function TeamModeller() {
     }
     
     const playingPlayers = slots.slice(0, 11).map(s => s.player).filter(Boolean) as FPLPlayer[];
+    const captainSlot = slots.find(s => s.isCaptain);
+    const viceCaptainSlot = slots.find(s => s.isViceCaptain);
     
     if (playingPlayers.length >= 11 && !analyzeMutation.isPending) {
       timeoutRef.current = setTimeout(() => {
-        analyzeMutation.mutate({ players: playingPlayers, formation });
+        analyzeMutation.mutate({ 
+          players: playingPlayers, 
+          formation,
+          captainId: captainSlot?.player?.id || null,
+          viceCaptainId: viceCaptainSlot?.player?.id || null,
+        });
       }, 400);
     }
 

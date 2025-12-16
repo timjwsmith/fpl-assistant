@@ -442,20 +442,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/ai/analyze-team-async", async (req, res) => {
     console.log('[ROUTE ASYNC] Analyze team async endpoint called');
     try {
-      const { players, formation, userId = 1 } = req.body;
+      const { players, formation, userId = 1, captainId, viceCaptainId } = req.body;
       if (!players || !formation) {
         return res.status(400).json({ error: "Missing required data" });
       }
 
       // Create prediction record with pending status
-      const predictionId = await storage.createTeamPrediction(userId, { players, formation });
-      console.log('[ROUTE ASYNC] Created prediction ID:', predictionId);
+      const predictionId = await storage.createTeamPrediction(userId, { players, formation, captainId, viceCaptainId });
+      console.log('[ROUTE ASYNC] Created prediction ID:', predictionId, 'Captain:', captainId);
 
       // Start async processing (don't await - let it run in background)
       (async () => {
         try {
           await storage.updateTeamPredictionStatus(predictionId, 'processing');
-          const analysis = await aiPredictions.analyzeTeamComposition(players, formation);
+          const analysis = await aiPredictions.analyzeTeamComposition(players, formation, captainId, viceCaptainId);
           await storage.completeTeamPrediction(predictionId, analysis);
           console.log('[ROUTE ASYNC] Background processing complete for ID:', predictionId);
         } catch (error) {

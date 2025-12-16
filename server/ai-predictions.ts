@@ -699,7 +699,9 @@ JSON format (be concise):
 
   async analyzeTeamComposition(
     players: FPLPlayer[],
-    formation: string
+    formation: string,
+    captainId?: number | null,
+    viceCaptainId?: number | null
   ): Promise<{ insights: string[]; predicted_points: number; confidence: number }> {
     // Get upcoming fixtures and team data for comprehensive analysis
     const { fplApi } = await import("./fpl-api");
@@ -752,14 +754,24 @@ JSON format (be concise):
       };
     });
 
+    // Find captain and vice-captain names for the prompt
+    const captainPlayer = captainId ? players.find(p => p.id === captainId) : null;
+    const viceCaptainPlayer = viceCaptainId ? players.find(p => p.id === viceCaptainId) : null;
+    const captainInfo = captainPlayer ? `Captain: ${captainPlayer.web_name} (2x points)` : 'No captain selected';
+    const vcInfo = viceCaptainPlayer ? `Vice-Captain: ${viceCaptainPlayer.web_name}` : '';
+
     const prompt = `You are an expert Fantasy Premier League analyst. Analyze this team and provide concise insights.
 
 TEAM:
 Formation: ${formation} | Value: £${(players.reduce((sum, p) => sum + p.now_cost, 0) / 10).toFixed(1)}m
+${captainInfo}${vcInfo ? ` | ${vcInfo}` : ''}
 
 PLAYERS:
 ${playerDetails.map(p => {
-  const baseInfo = `${p.name} (${p.position}) ${p.team}: Form ${p.form.toFixed(1)} | PPG ${p.ppg} | ICT ${p.ict.toFixed(1)}`;
+  const isCaptain = captainPlayer && p.name === captainPlayer.web_name;
+  const isVC = viceCaptainPlayer && p.name === viceCaptainPlayer.web_name;
+  const roleTag = isCaptain ? ' [C]' : isVC ? ' [V]' : '';
+  const baseInfo = `${p.name}${roleTag} (${p.position}) ${p.team}: Form ${p.form.toFixed(1)} | PPG ${p.ppg} | ICT ${p.ict.toFixed(1)}`;
   const attackInfo = `xG ${p.expectedGoals.toFixed(1)} xA ${p.expectedAssists.toFixed(1)}`;
   const understatInfo = p.npxG !== undefined && p.npxG !== null ? ` npxG ${p.npxG.toFixed(1)} xGChain ${p.xGChain?.toFixed(1)} xGBuild ${p.xGBuildup?.toFixed(1)}` : '';
   const defenseInfo = p.cleanSheets !== undefined ? `CS ${p.cleanSheets} xGC ${p.expectedGoalsConceded?.toFixed(1)}` : '';
@@ -767,20 +779,23 @@ ${playerDetails.map(p => {
   return `${baseInfo} | ${defenseInfo || attackInfo}${understatInfo} | ${fixtureInfo}`;
 }).join('\n')}
 
+IMPORTANT: When calculating predicted_points, remember the captain (marked [C]) gets DOUBLE points. 
+Add up all player predictions and apply 2x multiplier to the captain's expected points.
+
 Provide 3 BRIEF insights (max 2 sentences each):
 1. Team balance, formation fit, and defensive coverage
-2. Best fixtures, attack threat, and top differential picks
+2. Best fixtures, attack threat, and top differential picks (comment on captain choice if relevant)
 3. Transfer priority based on PPG, ICT index, and fixture difficulty
 
 JSON format (be concise):
 {
   "insights": ["insight 1", "insight 2", "insight 3"],
-  "predicted_points": <number>,
+  "predicted_points": <number including captain bonus>,
   "confidence": <0-100>
 }`;
 
     try {
-      console.log('[AI] Analyzing team with', players.length, 'players');
+      console.log('[AI] Analyzing team with', players.length, 'players', 'Captain:', captainPlayer?.web_name);
       console.log('[AI] Prompt:', prompt);
       
       const response = await openai.chat.completions.create({

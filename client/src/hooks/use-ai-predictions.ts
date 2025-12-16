@@ -75,18 +75,22 @@ export function useAnalyzeTeam() {
       players,
       formation,
       userId = 1,
+      captainId,
+      viceCaptainId,
     }: {
       players: FPLPlayer[];
       formation: string;
       userId?: number;
+      captainId?: number | null;
+      viceCaptainId?: number | null;
     }): Promise<{ insights: string[]; predicted_points: number; confidence: number }> => {
-      console.log('[MUTATION] Analyzing team... (async polling)', players.length, 'players');
+      console.log('[MUTATION] Analyzing team... (async polling)', players.length, 'players', 'captain:', captainId);
       
       // Step 1: Create prediction request
       const { predictionId } = await apiRequest<{ predictionId: number }>(
         "POST", 
         "/api/ai/analyze-team-async", 
-        { players, formation, userId }
+        { players, formation, userId, captainId, viceCaptainId }
       );
       console.log('[MUTATION] Created prediction ID:', predictionId);
       

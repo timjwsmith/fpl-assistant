@@ -537,6 +537,34 @@ export const insertChangeHistorySchema = createInsertSchema(changeHistory).omit(
 export type InsertChangeHistory = z.infer<typeof insertChangeHistorySchema>;
 export type ChangeHistory = typeof changeHistory.$inferSelect;
 
+// Applied Lineups Table - stores user's intended lineup for upcoming gameweeks
+export const appliedLineups = pgTable('applied_lineups', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  gameweek: integer('gameweek').notNull(),
+  lineup: jsonb('lineup').notNull().$type<Array<{
+    player_id: number;
+    position: number; // 1-15
+    is_captain: boolean;
+    is_vice_captain: boolean;
+    multiplier: number;
+  }>>(),
+  formation: text('formation').notNull(),
+  captainId: integer('captain_id').notNull(),
+  viceCaptainId: integer('vice_captain_id').notNull(),
+  sourcePlanId: integer('source_plan_id').references(() => gameweekPlans.id),
+  sourceType: text('source_type', { enum: ['plan', 'manual'] }).notNull().default('plan'),
+  appliedAt: timestamp('applied_at').defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index('applied_lineups_user_id_idx').on(table.userId),
+  gameweekIdx: index('applied_lineups_gameweek_idx').on(table.gameweek),
+  userGameweekUnique: uniqueIndex('applied_lineups_user_gameweek_unique').on(table.userId, table.gameweek),
+}));
+
+export const insertAppliedLineupSchema = createInsertSchema(appliedLineups).omit({ id: true, appliedAt: true });
+export type InsertAppliedLineup = z.infer<typeof insertAppliedLineupSchema>;
+export type AppliedLineup = typeof appliedLineups.$inferSelect;
+
 // ==================== DRIZZLE RELATIONS ====================
 
 export const usersRelations = relations(users, ({ many, one }) => ({
@@ -559,6 +587,7 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   gameweekPlans: many(gameweekPlans),
   changeHistory: many(changeHistory),
   multiWeekTransferPredictions: many(multiWeekTransferPredictions),
+  appliedLineups: many(appliedLineups),
 }));
 
 export const userSettingsRelations = relations(userSettingsTable, ({ one }) => ({
@@ -622,6 +651,17 @@ export const changeHistoryRelations = relations(changeHistory, ({ one }) => ({
   user: one(users, {
     fields: [changeHistory.userId],
     references: [users.id],
+  }),
+}));
+
+export const appliedLineupsRelations = relations(appliedLineups, ({ one }) => ({
+  user: one(users, {
+    fields: [appliedLineups.userId],
+    references: [users.id],
+  }),
+  sourcePlan: one(gameweekPlans, {
+    fields: [appliedLineups.sourcePlanId],
+    references: [gameweekPlans.id],
   }),
 }));
 

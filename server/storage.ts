@@ -20,6 +20,7 @@ import {
   predictionBiasMetrics,
   playerMinutesHistory,
   predictionEvaluations,
+  appliedLineups,
   type User,
   type InsertUser,
   type UserTeam,
@@ -57,6 +58,8 @@ import {
   type InsertPlayerMinutesHistory,
   type PredictionEvaluation,
   type InsertPredictionEvaluation,
+  type AppliedLineup,
+  type InsertAppliedLineup,
 } from "@shared/schema";
 
 if (!process.env.DATABASE_URL) {
@@ -1349,6 +1352,48 @@ export class PostgresStorage implements IStorage {
       .orderBy(predictions.gameweek);
     
     return result.map(r => r.gameweek);
+  }
+
+  // Applied Lineups methods
+  async saveAppliedLineup(lineup: InsertAppliedLineup): Promise<AppliedLineup> {
+    const result = await db
+      .insert(appliedLineups)
+      .values(lineup)
+      .onConflictDoUpdate({
+        target: [appliedLineups.userId, appliedLineups.gameweek],
+        set: {
+          lineup: lineup.lineup,
+          formation: lineup.formation,
+          captainId: lineup.captainId,
+          viceCaptainId: lineup.viceCaptainId,
+          sourcePlanId: lineup.sourcePlanId,
+          sourceType: lineup.sourceType,
+          appliedAt: new Date(),
+        },
+      })
+      .returning();
+    return result[0];
+  }
+
+  async getAppliedLineup(userId: number, gameweek: number): Promise<AppliedLineup | undefined> {
+    const result = await db
+      .select()
+      .from(appliedLineups)
+      .where(and(
+        eq(appliedLineups.userId, userId),
+        eq(appliedLineups.gameweek, gameweek)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async deleteAppliedLineup(userId: number, gameweek: number): Promise<void> {
+    await db
+      .delete(appliedLineups)
+      .where(and(
+        eq(appliedLineups.userId, userId),
+        eq(appliedLineups.gameweek, gameweek)
+      ));
   }
 }
 

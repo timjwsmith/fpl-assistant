@@ -1013,6 +1013,14 @@ export default function TeamModeller() {
               label="Current Team"
             />
           )}
+
+          <PlayerSearchPanel
+            players={players || []}
+            teams={teams || []}
+            positions={positions || []}
+            onPlayerSelect={handlePlayerSelect}
+            budgetRemaining={budgetRemaining}
+          />
         </div>
       </div>
 

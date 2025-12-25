@@ -81,6 +81,18 @@ export function PlayerSearchPanel({
           />
         </div>
 
+        <div className="flex items-center justify-between py-2 px-3 border rounded-md bg-amber-500/10 border-amber-500/30">
+          <Label htmlFor="show-all-players" className="text-sm cursor-pointer font-medium">
+            Show all players (ignore budget)
+          </Label>
+          <Switch
+            id="show-all-players"
+            checked={showAllPlayers}
+            onCheckedChange={setShowAllPlayers}
+            data-testid="switch-show-all"
+          />
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <Select value={positionFilter} onValueChange={setPositionFilter}>
             <SelectTrigger data-testid="select-position">
@@ -123,18 +135,6 @@ export function PlayerSearchPanel({
             <SelectItem value="ownership">Ownership</SelectItem>
           </SelectContent>
         </Select>
-
-        <div className="flex items-center justify-between py-2 px-1 border rounded-md bg-muted/30">
-          <Label htmlFor="show-all-players" className="text-sm cursor-pointer">
-            Show all players (ignore budget)
-          </Label>
-          <Switch
-            id="show-all-players"
-            checked={showAllPlayers}
-            onCheckedChange={setShowAllPlayers}
-            data-testid="switch-show-all"
-          />
-        </div>
 
         <ScrollArea className="h-[500px] pr-4">
           <div className="space-y-3">

@@ -1279,10 +1279,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const predictions = await storage.getPredictionsByGameweek(userId, gameweek);
       
+      // Get FPL players for fallback PPG values
+      const fplPlayers = await fplApi.getPlayers();
+      const playerPPGMap = new Map(fplPlayers.map(p => [p.id, parseFloat(p.points_per_game) || 0]));
+      
       // Convert to a simple map for frontend consumption
+      // Use PPG as fallback when stored prediction is 0 or missing
       const predictionsMap: Record<number, number> = {};
       predictions.forEach(p => {
-        predictionsMap[p.playerId] = p.predictedPoints;
+        // If stored prediction is 0, use PPG as fallback
+        if (p.predictedPoints === 0) {
+          const ppg = playerPPGMap.get(p.playerId) || 0;
+          predictionsMap[p.playerId] = Math.round(ppg * 10) / 10; // Round to 1 decimal
+        } else {
+          predictionsMap[p.playerId] = p.predictedPoints;
+        }
       });
       
       res.json(predictionsMap);

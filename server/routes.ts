@@ -1717,6 +1717,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastDeadlineBank: bank,
       });
 
+      // IMPORTANT: Trigger async plan regeneration when team is saved
+      // This ensures Gameweek Planner shows the user's current team, not stale data
+      console.log(`[Teams Route] Team saved for user ${userId}, GW${gameweek}. Triggering async plan regeneration...`);
+      
+      // Fire and forget - don't block the response
+      gameweekAnalyzer.analyzeGameweek(userId, gameweek).then((newPlan) => {
+        console.log(`[Teams Route] ✅ Plan regenerated after team save: Plan ID ${newPlan.id}`);
+      }).catch((err) => {
+        console.warn(`[Teams Route] ⚠️ Failed to regenerate plan after team save:`, err.message);
+      });
+
       res.json(team);
     } catch (error) {
       console.error("Error saving team:", error);

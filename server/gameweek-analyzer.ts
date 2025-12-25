@@ -2007,13 +2007,30 @@ If significant changes occurred → Explain EXACTLY what changed (with specific 
       })
       .filter(Boolean);
 
-    // Build top players list by position for AI to choose from (top 100 by total points)
-    const topPlayersByPosition = {
-      GK: allPlayers.filter((p: FPLPlayer) => p.element_type === 1).sort((a: FPLPlayer, b: FPLPlayer) => b.total_points - a.total_points).slice(0, 20),
-      DEF: allPlayers.filter((p: FPLPlayer) => p.element_type === 2).sort((a: FPLPlayer, b: FPLPlayer) => b.total_points - a.total_points).slice(0, 30),
-      MID: allPlayers.filter((p: FPLPlayer) => p.element_type === 3).sort((a: FPLPlayer, b: FPLPlayer) => b.total_points - a.total_points).slice(0, 30),
-      FWD: allPlayers.filter((p: FPLPlayer) => p.element_type === 4).sort((a: FPLPlayer, b: FPLPlayer) => b.total_points - a.total_points).slice(0, 20),
+    // Helper function to check if a player is available (not injured/suspended/unavailable)
+    const isPlayerAvailable = (p: FPLPlayer): boolean => {
+      // Exclude players with status: 'i' (injured), 'u' (unavailable), 's' (suspended)
+      if (p.status === 'i' || p.status === 'u' || p.status === 's') {
+        return false;
+      }
+      // Exclude players with 0% chance of playing (check both fields, null-safe)
+      const chanceOfPlaying = p.chance_of_playing_this_round ?? p.chance_of_playing_next_round;
+      if (chanceOfPlaying === 0) {
+        return false;
+      }
+      return true;
     };
+
+    // Build top players list by position for AI to choose from (top 100 by total points)
+    // IMPORTANT: Exclude injured/suspended/unavailable players from transfer recommendations
+    const topPlayersByPosition = {
+      GK: allPlayers.filter((p: FPLPlayer) => p.element_type === 1 && isPlayerAvailable(p)).sort((a: FPLPlayer, b: FPLPlayer) => b.total_points - a.total_points).slice(0, 20),
+      DEF: allPlayers.filter((p: FPLPlayer) => p.element_type === 2 && isPlayerAvailable(p)).sort((a: FPLPlayer, b: FPLPlayer) => b.total_points - a.total_points).slice(0, 30),
+      MID: allPlayers.filter((p: FPLPlayer) => p.element_type === 3 && isPlayerAvailable(p)).sort((a: FPLPlayer, b: FPLPlayer) => b.total_points - a.total_points).slice(0, 30),
+      FWD: allPlayers.filter((p: FPLPlayer) => p.element_type === 4 && isPlayerAvailable(p)).sort((a: FPLPlayer, b: FPLPlayer) => b.total_points - a.total_points).slice(0, 20),
+    };
+    
+    console.log(`[GameweekAnalyzer] Filtered out injured/unavailable players from transfer recommendations`);
 
     const topPlayersInfo = Object.entries(topPlayersByPosition).map(([position, players]) => {
       const playerList = players.map((p: FPLPlayer) => {

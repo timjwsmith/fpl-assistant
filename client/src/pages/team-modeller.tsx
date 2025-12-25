@@ -107,7 +107,8 @@ export default function TeamModeller() {
       }>("POST", `/api/manager/sync/${managerId}`, {});
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/teams/${userId}`] });
+      // Must match exact query key format used in useQuery to invalidate cache properly
+      queryClient.invalidateQueries({ queryKey: [`/api/teams/${userId}?gameweek=${planningGameweekId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/manager/${settings?.manager_id}/status`] });
       
       if (data.dataIsStale) {
@@ -179,7 +180,8 @@ export default function TeamModeller() {
     },
     onSuccess: (data) => {
       setSavedTeam(data);
-      queryClient.invalidateQueries({ queryKey: ["/api/teams", userId] });
+      // Must match exact query key format used in useQuery to invalidate cache properly
+      queryClient.invalidateQueries({ queryKey: [`/api/teams/${userId}?gameweek=${planningGameweekId}`] });
       toast({
         title: "Team saved successfully",
         description: "Your team has been saved for gameweek " + planningGameweekId,
@@ -254,7 +256,8 @@ export default function TeamModeller() {
     },
     onSuccess: (data) => {
       setSavedTeam(data);
-      queryClient.invalidateQueries({ queryKey: ["/api/teams", userId] });
+      // Must match exact query key format used in useQuery to invalidate cache properly
+      queryClient.invalidateQueries({ queryKey: [`/api/teams/${userId}?gameweek=${planningGameweekId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/transfers", userId] });
       setShowTransferDialog(false);
       toast({

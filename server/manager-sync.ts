@@ -15,6 +15,9 @@ interface SyncResult {
   lastSyncTime: string;
   error?: string;
   usedAuthenticatedEndpoint?: boolean;
+  dataIsStale?: boolean;
+  staleReason?: string;
+  planningGameweek?: number;
 }
 
 export class ManagerSyncService {
@@ -70,6 +73,8 @@ export class ManagerSyncService {
       // PRIORITY 2: Try next gameweek picks endpoint (if no authenticated data)
       let picks;
       let actualGameweek;
+      let dataIsStale = false;
+      let staleReason = '';
       
       if (myTeamPicks) {
         // Use authenticated my-team data - it has the current draft lineup
@@ -104,6 +109,8 @@ export class ManagerSyncService {
             console.log(`[Manager Sync] GW${nextGameweek.id} picks not available, falling back to GW${currentGameweek.id}`);
             picks = await fplApi.getManagerPicks(managerId, currentGameweek.id);
             actualGameweek = currentGameweek;
+            dataIsStale = true;
+            staleReason = `Cannot see GW${nextGameweek.id} transfers until deadline passes. Showing your GW${currentGameweek.id} locked team. Use "Show all players" toggle to manually add new transfers.`;
           } else {
             throw error;
           }
@@ -195,6 +202,9 @@ export class ManagerSyncService {
         formation,
         lastSyncTime: new Date().toISOString(),
         usedAuthenticatedEndpoint,
+        dataIsStale,
+        staleReason: dataIsStale ? staleReason : undefined,
+        planningGameweek: planningGameweek.id,
       };
     } catch (error) {
       console.error("Error syncing manager team:", error);

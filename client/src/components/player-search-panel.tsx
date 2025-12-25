@@ -7,6 +7,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, Filter } from "lucide-react";
 import { PlayerCard } from "@/components/player-card";
 import { type FPLPlayer } from "@shared/schema";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -36,6 +38,7 @@ export function PlayerSearchPanel({
   const [positionFilter, setPositionFilter] = useState<string>("all");
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("points");
+  const [showAllPlayers, setShowAllPlayers] = useState(false);
 
   const filteredPlayers = players
     .filter(player => {
@@ -44,7 +47,7 @@ export function PlayerSearchPanel({
                           player.second_name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesPosition = positionFilter === "all" || player.element_type.toString() === positionFilter;
       const matchesTeam = teamFilter === "all" || player.team.toString() === teamFilter;
-      const affordable = player.now_cost <= budgetRemaining * 10;
+      const affordable = showAllPlayers || player.now_cost <= budgetRemaining * 10;
       
       return matchesSearch && matchesPosition && matchesTeam && affordable;
     })
@@ -120,6 +123,18 @@ export function PlayerSearchPanel({
             <SelectItem value="ownership">Ownership</SelectItem>
           </SelectContent>
         </Select>
+
+        <div className="flex items-center justify-between py-2 px-1 border rounded-md bg-muted/30">
+          <Label htmlFor="show-all-players" className="text-sm cursor-pointer">
+            Show all players (ignore budget)
+          </Label>
+          <Switch
+            id="show-all-players"
+            checked={showAllPlayers}
+            onCheckedChange={setShowAllPlayers}
+            data-testid="switch-show-all"
+          />
+        </div>
 
         <ScrollArea className="h-[500px] pr-4">
           <div className="space-y-3">

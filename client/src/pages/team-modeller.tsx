@@ -98,15 +98,31 @@ export default function TeamModeller() {
 
   const syncManagerTeamMutation = useMutation({
     mutationFn: async (managerId: number) => {
-      return apiRequest("POST", `/api/manager/sync/${managerId}`, {});
+      return apiRequest<{
+        success: boolean;
+        dataIsStale?: boolean;
+        staleReason?: string;
+        planningGameweek?: number;
+        gameweek: number;
+      }>("POST", `/api/manager/sync/${managerId}`, {});
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [`/api/teams/${userId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/manager/${settings?.manager_id}/status`] });
-      toast({
-        title: "Team synced successfully",
-        description: "Your FPL team has been loaded from your manager account",
-      });
+      
+      if (data.dataIsStale) {
+        toast({
+          title: "Team synced with limitations",
+          description: data.staleReason || "Your latest transfers may not be visible yet. Use 'Show all players' toggle to manually add new players.",
+          variant: "destructive",
+          duration: 10000,
+        });
+      } else {
+        toast({
+          title: "Team synced successfully",
+          description: "Your FPL team has been loaded from your manager account",
+        });
+      }
     },
     onError: (error: any) => {
       toast({

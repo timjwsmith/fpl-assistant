@@ -445,8 +445,17 @@ export default function TeamModeller() {
     console.log(`[SWAP] Starting swap: position ${fromPosition} <-> position ${toPosition}`);
     
     setSlots(prev => {
-      const fromIndex = prev.findIndex(s => s.position === fromPosition);
-      const toIndex = prev.findIndex(s => s.position === toPosition);
+      // Deep clone entire array to ensure complete immutability and avoid stale references
+      const newSlots: TeamSlot[] = prev.map(slot => ({
+        player: slot.player,
+        position: slot.position,
+        isCaptain: slot.isCaptain,
+        isViceCaptain: slot.isViceCaptain,
+        teamCode: slot.teamCode,
+      }));
+      
+      const fromIndex = newSlots.findIndex(s => s.position === fromPosition);
+      const toIndex = newSlots.findIndex(s => s.position === toPosition);
       
       console.log(`[SWAP] fromIndex=${fromIndex}, toIndex=${toIndex}`);
       
@@ -455,8 +464,8 @@ export default function TeamModeller() {
         return prev;
       }
       
-      const fromSlot = prev[fromIndex];
-      const toSlot = prev[toIndex];
+      const fromSlot = newSlots[fromIndex];
+      const toSlot = newSlots[toIndex];
       
       console.log(`[SWAP] fromSlot player:`, fromSlot.player?.web_name || 'null');
       console.log(`[SWAP] toSlot player:`, toSlot.player?.web_name || 'null');
@@ -472,7 +481,7 @@ export default function TeamModeller() {
         // Only block if the incoming player is NOT a goalkeeper
         const incomingIsGK = toPlayer?.element_type === 1;
         if (!incomingIsGK) {
-          const gkCount = prev.filter(s => s.position <= 11 && s.player?.element_type === 1).length;
+          const gkCount = newSlots.filter(s => s.position <= 11 && s.player?.element_type === 1).length;
           if (gkCount === 1) {
             toast({
               title: "Invalid move",
@@ -484,51 +493,42 @@ export default function TeamModeller() {
         }
       }
 
-      // Create new slot objects (immutable update for React)
-      console.log(`[SWAP] Creating new slots...`);
-      const newSlots = prev.map((slot, index) => {
-        if (index === fromIndex) {
-          // fromSlot gets toSlot's player
-          let newCaptain = toSlot.isCaptain;
-          let newVice = toSlot.isViceCaptain;
-          // Clear captain/vice if player coming from bench
-          if (toPosition > 11 && fromPosition <= 11) {
-            newCaptain = false;
-            newVice = false;
-          }
-          const newSlot = {
-            ...slot,
-            player: toSlot.player,
-            isCaptain: newCaptain,
-            isViceCaptain: newVice,
-            teamCode: toSlot.player?.team_code,
-          };
-          console.log(`[SWAP] Updated fromSlot (pos ${slot.position}):`, newSlot.player?.web_name || 'null');
-          return newSlot;
-        }
-        if (index === toIndex) {
-          // toSlot gets fromSlot's player
-          let newCaptain = fromSlot.isCaptain;
-          let newVice = fromSlot.isViceCaptain;
-          // Clear captain/vice if moved to bench
-          if (fromPosition <= 11 && toPosition > 11) {
-            newCaptain = false;
-            newVice = false;
-          }
-          const newSlot = {
-            ...slot,
-            player: fromSlot.player,
-            isCaptain: newCaptain,
-            isViceCaptain: newVice,
-            teamCode: fromSlot.player?.team_code,
-          };
-          console.log(`[SWAP] Updated toSlot (pos ${slot.position}):`, newSlot.player?.web_name || 'null');
-          return newSlot;
-        }
-        return slot;
-      });
+      // Store player data before swapping (capture BEFORE modifying)
+      const fromPlayerData = fromSlot.player;
+      const toPlayerData = toSlot.player;
+      const fromCaptain = fromSlot.isCaptain;
+      const fromVice = fromSlot.isViceCaptain;
+      const toCaptain = toSlot.isCaptain;
+      const toVice = toSlot.isViceCaptain;
+      
+      console.log(`[SWAP] Before swap - fromSlot has: ${fromPlayerData?.web_name}, toSlot has: ${toPlayerData?.web_name}`);
 
-      console.log(`[SWAP] Swap complete, returning new slots`);
+      // Perform the swap atomically by directly modifying the cloned array
+      // fromSlot gets toSlot's player
+      newSlots[fromIndex] = {
+        ...newSlots[fromIndex],
+        player: toPlayerData,
+        isCaptain: (toPosition > 11 && fromPosition <= 11) ? false : toCaptain,
+        isViceCaptain: (toPosition > 11 && fromPosition <= 11) ? false : toVice,
+        teamCode: toPlayerData?.team_code,
+      };
+      
+      // toSlot gets fromSlot's player
+      newSlots[toIndex] = {
+        ...newSlots[toIndex],
+        player: fromPlayerData,
+        isCaptain: (fromPosition <= 11 && toPosition > 11) ? false : fromCaptain,
+        isViceCaptain: (fromPosition <= 11 && toPosition > 11) ? false : fromVice,
+        teamCode: fromPlayerData?.team_code,
+      };
+      
+      console.log(`[SWAP] After swap - pos ${fromPosition} has: ${newSlots[fromIndex].player?.web_name}, pos ${toPosition} has: ${newSlots[toIndex].player?.web_name}`);
+      console.log(`[SWAP] Swap complete, returning new slots array`);
+      
+      // Verify all 15 slots have the expected structure
+      const emptySlots = newSlots.filter(s => s.player === null);
+      console.log(`[SWAP] Verification: ${emptySlots.length} empty slot(s)`);
+      
       return newSlots;
     });
 

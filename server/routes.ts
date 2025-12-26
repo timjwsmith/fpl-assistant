@@ -745,7 +745,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? parseInt(req.query.targetPlayerId as string) 
         : undefined;
 
-      const customLineup = req.body?.customLineup as Array<{
+      const rawCustomLineup = req.body?.customLineup as Array<{
+        player_id: number | null;
+        position: number;
+        is_captain: boolean;
+        is_vice_captain: boolean;
+      }> | undefined;
+
+      // Validate custom lineup for incomplete squads
+      if (rawCustomLineup && rawCustomLineup.length > 0) {
+        const emptySlots = rawCustomLineup.filter(p => !p.player_id);
+        if (emptySlots.length > 0) {
+          const emptyPositions = emptySlots.map(p => p.position).join(', ');
+          console.log(`[Automation Analyze Route] Incomplete squad detected: ${emptySlots.length} empty slot(s) at position(s) ${emptyPositions}`);
+          return res.status(400).json({ 
+            error: "Incomplete squad",
+            details: `Your team has ${emptySlots.length} empty slot(s). Please complete your squad before analyzing. Missing positions: ${emptyPositions}`,
+            missingPositions: emptySlots.map(p => p.position)
+          });
+        }
+      }
+
+      // After validation, we know all player_ids are non-null
+      const customLineup = rawCustomLineup as Array<{
         player_id: number;
         position: number;
         is_captain: boolean;

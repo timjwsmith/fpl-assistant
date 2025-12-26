@@ -1822,11 +1822,61 @@ Form: ${targetPlayer.form} | PPG: ${targetPlayer.points_per_game} | Total: ${tar
       const customStartingXI = customLineup.filter(p => p.position <= 11);
       const customBench = customLineup.filter(p => p.position > 11);
       
+      // Detect missing players (null player_ids) - these are empty slots that need to be filled
+      const missingSlots = customLineup.filter(p => !p.player_id);
+      const hasMissingPlayers = missingSlots.length > 0;
+      
+      // Analyze what positions are missing
+      const filledPlayers = customLineup.filter(p => p.player_id);
+      const positionCounts: { [key: number]: number } = { 1: 0, 2: 0, 3: 0, 4: 0 };
+      for (const pick of filledPlayers) {
+        const player = allPlayers.find((p: FPLPlayer) => p.id === pick.player_id);
+        if (player) {
+          positionCounts[player.element_type] = (positionCounts[player.element_type] || 0) + 1;
+        }
+      }
+      
+      const missingPositions: string[] = [];
+      const positionNames = { 1: 'Goalkeeper', 2: 'Defender', 3: 'Midfielder', 4: 'Forward' };
+      const requiredCounts = { 1: 2, 2: 5, 3: 5, 4: 3 };
+      for (const [pos, required] of Object.entries(requiredCounts)) {
+        const current = positionCounts[parseInt(pos)] || 0;
+        const needed = required - current;
+        if (needed > 0) {
+          missingPositions.push(`${needed} ${positionNames[parseInt(pos) as keyof typeof positionNames]}${needed > 1 ? 's' : ''}`);
+        }
+      }
+      
+      if (hasMissingPlayers) {
+        console.log(`[GameweekAnalyzer] WARNING: Custom lineup has ${missingSlots.length} empty slots. Missing positions: ${missingPositions.join(', ')}`);
+      }
+      
       const formatLineupPlayer = (pick: CustomLineupPlayer) => {
+        if (!pick.player_id) {
+          return `⚠️ EMPTY SLOT - NEEDS PLAYER`;
+        }
         const player = allPlayers.find((p: FPLPlayer) => p.id === pick.player_id);
         const role = pick.is_captain ? ' (C)' : pick.is_vice_captain ? ' (VC)' : '';
         return `${player?.web_name || `Unknown (ID:${pick.player_id})`}${role}`;
       };
+      
+      // Build missing players warning section
+      let missingPlayersWarning = '';
+      if (hasMissingPlayers) {
+        missingPlayersWarning = `
+
+⚠️ **CRITICAL: INCOMPLETE SQUAD DETECTED** ⚠️
+The user's squad is MISSING ${missingSlots.length} player(s). You MUST suggest transfers to FILL these positions:
+Missing: ${missingPositions.join(', ')}
+
+**MANDATORY**: Your first transfer(s) MUST bring in player(s) to fill the missing position(s).
+A valid FPL squad requires: 2 GKs, 5 DEFs, 5 MIDs, 3 FWDs (15 total players).
+Current squad has only ${filledPlayers.length} players.
+
+DO NOT suggest transfers that swap OUT existing players until the squad is complete.
+Focus on recommending the best available players to fill the missing slots within budget.
+`;
+      }
       
       customLineupContext = `\n\n═══════════════════════════════════════════════════════════════════════
 🧪 WHAT-IF ANALYSIS MODE - USER SPECIFIED LINEUP 🧪
@@ -1834,7 +1884,7 @@ Form: ${targetPlayer.form} | PPG: ${targetPlayer.points_per_game} | Total: ${tar
 
 **IMPORTANT**: The user has provided a CUSTOM LINEUP for this what-if analysis. 
 DO NOT suggest any lineup optimizations - the user wants to analyze THIS SPECIFIC lineup.
-
+${missingPlayersWarning}
 USER'S CUSTOM LINEUP:
 Captain: ${customCaptain ? formatLineupPlayer(customCaptain) : 'Not specified'}
 Vice Captain: ${customViceCaptain ? formatLineupPlayer(customViceCaptain) : 'Not specified'}

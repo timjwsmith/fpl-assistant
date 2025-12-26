@@ -303,14 +303,19 @@ export default function TeamModeller() {
 
   const whatIfAnalysisMutation = useMutation({
     mutationFn: async () => {
-      const customLineup = slots
-        .filter(s => s.player !== null)
-        .map(s => ({
-          player_id: s.player!.id,
-          position: s.position,
-          is_captain: s.isCaptain,
-          is_vice_captain: s.isViceCaptain,
-        }));
+      // Check for empty slots first (incomplete squad)
+      const emptySlots = slots.filter(s => s.player === null);
+      if (emptySlots.length > 0) {
+        const emptyPositions = emptySlots.map(s => s.position).join(', ');
+        throw new Error(`Your squad is incomplete. Please fill all 15 positions before analyzing. Empty positions: ${emptyPositions}`);
+      }
+
+      const customLineup = slots.map(s => ({
+        player_id: s.player!.id,
+        position: s.position,
+        is_captain: s.isCaptain,
+        is_vice_captain: s.isViceCaptain,
+      }));
 
       return apiRequest<GameweekPlan>(
         "POST",

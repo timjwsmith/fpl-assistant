@@ -328,26 +328,32 @@ export default function TeamModeller() {
       
       // Auto-save the current lineup so it persists when navigating away
       // This ensures the what-if lineup becomes the active team
-      try {
-        const teamData = {
-          userId,
-          gameweek: planningGameweekId,
-          players: slots.map(s => ({
-            player_id: s.player?.id || null,
-            position: s.position,
-            is_captain: s.isCaptain,
-            is_vice_captain: s.isViceCaptain,
-          })),
-          formation,
-          teamValue: Math.round(teamValue * 10),
-          bank: Math.round(budgetRemaining * 10),
-          transfersMade: 0,
-        };
-        const savedData = await apiRequest<UserTeam>("POST", "/api/teams", teamData);
-        setSavedTeam(savedData);
-        console.log('[Team Modeller] Auto-saved lineup after what-if analysis');
-      } catch (err) {
-        console.error('[Team Modeller] Failed to auto-save lineup:', err);
+      // IMPORTANT: Only save if squad is complete (all 15 slots filled)
+      const hasEmptySlots = slots.some(s => s.player === null);
+      if (hasEmptySlots) {
+        console.log('[Team Modeller] Skipping auto-save - squad has empty slots');
+      } else {
+        try {
+          const teamData = {
+            userId,
+            gameweek: planningGameweekId,
+            players: slots.map(s => ({
+              player_id: s.player!.id,
+              position: s.position,
+              is_captain: s.isCaptain,
+              is_vice_captain: s.isViceCaptain,
+            })),
+            formation,
+            teamValue: Math.round(teamValue * 10),
+            bank: Math.round(budgetRemaining * 10),
+            transfersMade: 0,
+          };
+          const savedData = await apiRequest<UserTeam>("POST", "/api/teams", teamData);
+          setSavedTeam(savedData);
+          console.log('[Team Modeller] Auto-saved lineup after what-if analysis');
+        } catch (err) {
+          console.error('[Team Modeller] Failed to auto-save lineup:', err);
+        }
       }
       
       toast({

@@ -1728,6 +1728,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Missing required fields" });
       }
 
+      // Validate squad is complete (no null player_ids)
+      const playersArray = players as Array<{ player_id: number | null; position: number; is_captain: boolean; is_vice_captain: boolean }>;
+      const emptySlots = playersArray.filter(p => !p.player_id);
+      if (emptySlots.length > 0) {
+        const emptyPositions = emptySlots.map(p => p.position).join(', ');
+        console.log(`[Teams Route] Rejecting incomplete squad: ${emptySlots.length} empty slot(s) at position(s) ${emptyPositions}`);
+        return res.status(400).json({ 
+          error: "Incomplete squad",
+          details: `Cannot save team with ${emptySlots.length} empty slot(s). Missing positions: ${emptyPositions}. Please fill all 15 positions.`,
+          missingPositions: emptySlots.map(p => p.position)
+        });
+      }
+
       const team = await storage.saveTeam({
         userId,
         gameweek,

@@ -339,14 +339,34 @@ export function PitchVisualization({
       // Validate position compatibility
       const draggedElementType = active.data.current.elementType;
       const targetAccepts = over.data.current.accepts;
-
-      // Position 1 must be GK
-      if (toPosition === 1 && draggedElementType !== 1) return;
       
-      // GK can only go to position 1
-      if (draggedElementType === 1 && toPosition !== 1) return;
+      // Get target slot info to check if it's also a GK
+      const allSlots = [...slots, ...benchSlots];
+      const targetSlot = allSlots.find(s => s.position === toPosition);
+      const targetElementType = targetSlot?.player?.element_type;
+      
+      console.log(`[DnD] Swap attempt: pos ${fromPosition} (type ${draggedElementType}) -> pos ${toPosition} (type ${targetElementType})`);
+
+      // Position 1 must have a GK - but allow if swapping with another GK
+      if (toPosition === 1 && draggedElementType !== 1) {
+        console.log(`[DnD] Blocked: non-GK cannot go to position 1`);
+        return;
+      }
+      
+      // GK can only go to position 1 UNLESS swapping with another GK
+      if (draggedElementType === 1 && toPosition !== 1) {
+        // Allow GK-to-GK swaps (e.g., swapping starting GK with bench GK)
+        if (targetElementType === 1) {
+          console.log(`[DnD] Allowing GK-to-GK swap`);
+          // This is valid - both are GKs, so swap is allowed
+        } else {
+          console.log(`[DnD] Blocked: GK cannot go to non-GK position ${toPosition}`);
+          return;
+        }
+      }
 
       // For other positions, allow swaps
+      console.log(`[DnD] Executing swap`);
       onPlayerSwap?.(fromPosition, toPosition);
     }
   };
@@ -359,8 +379,14 @@ export function PitchVisualization({
     // Position 1 must be GK
     if (slotPosition === 1) return draggedElementType === 1;
     
-    // GK can only go to position 1
-    if (draggedElementType === 1) return slotPosition === 1;
+    // GK can only go to position 1 OR swap with another GK
+    if (draggedElementType === 1) {
+      if (slotPosition === 1) return true;
+      // Check if target slot has a GK (allow GK-to-GK swaps)
+      const allSlots = [...slots, ...benchSlots];
+      const targetSlot = allSlots.find(s => s.position === slotPosition);
+      return targetSlot?.player?.element_type === 1;
+    }
     
     // All other positions can swap freely
     return true;

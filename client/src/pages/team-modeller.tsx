@@ -60,6 +60,7 @@ export default function TeamModeller() {
   const [aiPrediction, setAiPrediction] = useState<{ insights: string[]; predicted_points: number; confidence: number } | null>(null);
   const [whatIfResult, setWhatIfResult] = useState<GameweekPlan | null>(null);
   const hasAttemptedAutoSync = useRef(false);
+  const hasHydratedFromSavedTeam = useRef(false);
 
   const { data: players, isLoading: loadingPlayers, error: playersError, refetch: refetchPlayers } = useFPLPlayers();
   const { data: teams, isLoading: loadingTeams, error: teamsError, refetch: refetchTeams } = useFPLTeams();
@@ -418,9 +419,10 @@ export default function TeamModeller() {
     }
   }, [settings?.manager_id, savedTeamData, savedTeamFetched, planningGameweekId]);
 
-  // Load saved team when data is available
+  // Load saved team when data is available - ONLY on initial load
+  // Skip if we've already hydrated to prevent overwrites during swaps
   useEffect(() => {
-    if (savedTeamData && players) {
+    if (savedTeamData && players && !hasHydratedFromSavedTeam.current) {
       const playerMap = new Map((players as FPLPlayer[]).map(p => [p.id, p]));
       
       const loadedSlots = savedTeamData.players.map((slotData: any) => {
@@ -437,6 +439,7 @@ export default function TeamModeller() {
       if (loadedSlots.length === 15) {
         setSlots(loadedSlots);
         setSavedTeam(savedTeamData);
+        hasHydratedFromSavedTeam.current = true;
       }
     }
   }, [savedTeamData, players]);

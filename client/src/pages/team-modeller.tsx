@@ -445,22 +445,41 @@ export default function TeamModeller() {
   }, [savedTeamData, players]);
 
   const handlePlayerSwap = (fromPosition: number, toPosition: number) => {
+    console.log(`[SWAP] handlePlayerSwap called: ${fromPosition} <-> ${toPosition}`);
+    
     setSlots(prev => {
-      const newSlots = [...prev];
-      const fromSlot = newSlots.find(s => s.position === fromPosition);
-      const toSlot = newSlots.find(s => s.position === toPosition);
+      console.log(`[SWAP] prev slots:`, prev.map(s => ({ pos: s.position, player: s.player?.web_name || 'null' })));
       
-      if (!fromSlot || !toSlot) return prev;
+      // Create fully new slot objects to ensure React detects change
+      const fromIndex = prev.findIndex(s => s.position === fromPosition);
+      const toIndex = prev.findIndex(s => s.position === toPosition);
+      
+      console.log(`[SWAP] fromIndex=${fromIndex}, toIndex=${toIndex}`);
+      
+      if (fromIndex === -1 || toIndex === -1) {
+        console.log(`[SWAP] ERROR: Invalid indices`);
+        return prev;
+      }
+
+      const fromSlot = prev[fromIndex];
+      const toSlot = prev[toIndex];
+      
+      console.log(`[SWAP] fromSlot (pos ${fromPosition}):`, fromSlot.player?.web_name || 'null');
+      console.log(`[SWAP] toSlot (pos ${toPosition}):`, toSlot.player?.web_name || 'null');
 
       // Validate GK constraint
       const fromPlayer = fromSlot.player;
       const toPlayer = toSlot.player;
 
-      if (!fromPlayer) return prev;
+      if (!fromPlayer) {
+        console.log(`[SWAP] ERROR: fromPlayer is null`);
+        return prev;
+      }
 
       // Check if we're moving the only GK to bench (but allow GK-to-GK swaps)
       if (fromPlayer.element_type === 1 && toPosition > 11) {
         const incomingIsGK = toPlayer?.element_type === 1;
+        console.log(`[SWAP] GK to bench check: incomingIsGK=${incomingIsGK}`);
         if (!incomingIsGK) {
           const gkCount = prev.filter(s => s.position <= 11 && s.player?.element_type === 1).length;
           if (gkCount === 1) {
@@ -474,32 +493,36 @@ export default function TeamModeller() {
         }
       }
 
-      // Swap players using temp variables
-      const tempPlayer = fromSlot.player;
-      const tempCaptain = fromSlot.isCaptain;
-      const tempVice = fromSlot.isViceCaptain;
-      const tempTeamCode = fromSlot.teamCode;
+      // Create new array with swapped slots (immutable update)
+      const newSlots = prev.map((slot, index) => {
+        if (index === fromIndex) {
+          // This slot gets toSlot's player
+          const newSlot = {
+            ...slot,
+            player: toPlayer,
+            isCaptain: toPosition <= 11 ? toSlot.isCaptain : false,
+            isViceCaptain: toPosition <= 11 ? toSlot.isViceCaptain : false,
+            teamCode: toPlayer?.team_code,
+          };
+          console.log(`[SWAP] New fromSlot (pos ${slot.position}):`, newSlot.player?.web_name || 'null');
+          return newSlot;
+        }
+        if (index === toIndex) {
+          // This slot gets fromSlot's player
+          const newSlot = {
+            ...slot,
+            player: fromPlayer,
+            isCaptain: fromPosition <= 11 ? fromSlot.isCaptain : false,
+            isViceCaptain: fromPosition <= 11 ? fromSlot.isViceCaptain : false,
+            teamCode: fromPlayer?.team_code,
+          };
+          console.log(`[SWAP] New toSlot (pos ${slot.position}):`, newSlot.player?.web_name || 'null');
+          return newSlot;
+        }
+        return slot;
+      });
 
-      fromSlot.player = toSlot.player;
-      fromSlot.isCaptain = toSlot.isCaptain;
-      fromSlot.isViceCaptain = toSlot.isViceCaptain;
-      fromSlot.teamCode = toSlot.teamCode;
-
-      toSlot.player = tempPlayer;
-      toSlot.isCaptain = tempCaptain;
-      toSlot.isViceCaptain = tempVice;
-      toSlot.teamCode = tempTeamCode;
-
-      // Clear captain/vice-captain if moved to bench
-      if (fromPosition <= 11 && toPosition > 11) {
-        toSlot.isCaptain = false;
-        toSlot.isViceCaptain = false;
-      }
-      if (toPosition <= 11 && fromPosition > 11) {
-        fromSlot.isCaptain = false;
-        fromSlot.isViceCaptain = false;
-      }
-
+      console.log(`[SWAP] newSlots:`, newSlots.map(s => ({ pos: s.position, player: s.player?.web_name || 'null' })));
       return newSlots;
     });
 

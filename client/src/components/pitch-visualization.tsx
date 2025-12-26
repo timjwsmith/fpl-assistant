@@ -288,7 +288,10 @@ export function PitchVisualization({
     setActiveId(event.active.id as string);
     
     if (event.active.data.current?.type === 'player') {
-      setDraggedPlayer(event.active.data.current.player);
+      const player = event.active.data.current.player;
+      const position = event.active.data.current.position;
+      console.log(`[DnD] Drag START: ${player?.web_name || 'unknown'} from position ${position}`);
+      setDraggedPlayer(player);
     }
   };
 

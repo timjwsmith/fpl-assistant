@@ -177,6 +177,9 @@ export default function TeamModeller() {
         transfersMade: 0,
       };
       
+      console.log('[SAVE] Saving team, all 15 slots:', slots.map(s => ({ pos: s.position, player: s.player?.web_name || 'NULL', id: s.player?.id || null })));
+      console.log('[SAVE] Position 12 specifically:', slots.find(s => s.position === 12));
+      
       return apiRequest<UserTeam>("POST", "/api/teams", teamData);
     },
     onSuccess: (data) => {
@@ -836,7 +839,11 @@ export default function TeamModeller() {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => syncManagerTeamMutation.mutate(settings.manager_id!)} 
+              onClick={() => {
+                // Reset hydration guard so synced team data will be loaded into slots
+                hasHydratedFromSavedTeam.current = false;
+                syncManagerTeamMutation.mutate(settings.manager_id!);
+              }} 
               disabled={syncManagerTeamMutation.isPending}
               data-testid="button-sync-fpl"
             >

@@ -442,14 +442,24 @@ export default function TeamModeller() {
   }, [savedTeamData, players]);
 
   const handlePlayerSwap = (fromPosition: number, toPosition: number) => {
+    console.log(`[SWAP] Starting swap: position ${fromPosition} <-> position ${toPosition}`);
+    
     setSlots(prev => {
       const fromIndex = prev.findIndex(s => s.position === fromPosition);
       const toIndex = prev.findIndex(s => s.position === toPosition);
       
-      if (fromIndex === -1 || toIndex === -1) return prev;
+      console.log(`[SWAP] fromIndex=${fromIndex}, toIndex=${toIndex}`);
+      
+      if (fromIndex === -1 || toIndex === -1) {
+        console.log(`[SWAP] ERROR: Invalid indices, returning prev`);
+        return prev;
+      }
       
       const fromSlot = prev[fromIndex];
       const toSlot = prev[toIndex];
+      
+      console.log(`[SWAP] fromSlot player:`, fromSlot.player?.web_name || 'null');
+      console.log(`[SWAP] toSlot player:`, toSlot.player?.web_name || 'null');
 
       // Validate GK constraint
       const fromPlayer = fromSlot.player;
@@ -475,6 +485,7 @@ export default function TeamModeller() {
       }
 
       // Create new slot objects (immutable update for React)
+      console.log(`[SWAP] Creating new slots...`);
       const newSlots = prev.map((slot, index) => {
         if (index === fromIndex) {
           // fromSlot gets toSlot's player
@@ -485,13 +496,15 @@ export default function TeamModeller() {
             newCaptain = false;
             newVice = false;
           }
-          return {
+          const newSlot = {
             ...slot,
             player: toSlot.player,
             isCaptain: newCaptain,
             isViceCaptain: newVice,
             teamCode: toSlot.player?.team_code,
           };
+          console.log(`[SWAP] Updated fromSlot (pos ${slot.position}):`, newSlot.player?.web_name || 'null');
+          return newSlot;
         }
         if (index === toIndex) {
           // toSlot gets fromSlot's player
@@ -502,17 +515,20 @@ export default function TeamModeller() {
             newCaptain = false;
             newVice = false;
           }
-          return {
+          const newSlot = {
             ...slot,
             player: fromSlot.player,
             isCaptain: newCaptain,
             isViceCaptain: newVice,
             teamCode: fromSlot.player?.team_code,
           };
+          console.log(`[SWAP] Updated toSlot (pos ${slot.position}):`, newSlot.player?.web_name || 'null');
+          return newSlot;
         }
         return slot;
       });
 
+      console.log(`[SWAP] Swap complete, returning new slots`);
       return newSlots;
     });
 
@@ -677,8 +693,13 @@ export default function TeamModeller() {
       } else {
         // A slot was already selected - swap the players
         const sourceSlot = slots.find(s => s.position === selectedSlot);
+        console.log(`[CLICK] Swap requested: selectedSlot=${selectedSlot}, targetPosition=${position}`);
+        console.log(`[CLICK] Source player:`, sourceSlot?.player?.web_name || 'null');
+        console.log(`[CLICK] Target player:`, slot?.player?.web_name || 'null');
         if (sourceSlot?.player) {
           handlePlayerSwap(selectedSlot, position);
+        } else {
+          console.log(`[CLICK] No source player found, skipping swap`);
         }
         setSelectedSlot(null);
       }

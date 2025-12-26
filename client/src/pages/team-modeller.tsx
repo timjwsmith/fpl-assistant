@@ -443,11 +443,13 @@ export default function TeamModeller() {
 
   const handlePlayerSwap = (fromPosition: number, toPosition: number) => {
     setSlots(prev => {
-      const newSlots = [...prev];
-      const fromSlot = newSlots.find(s => s.position === fromPosition);
-      const toSlot = newSlots.find(s => s.position === toPosition);
+      const fromIndex = prev.findIndex(s => s.position === fromPosition);
+      const toIndex = prev.findIndex(s => s.position === toPosition);
       
-      if (!fromSlot || !toSlot) return prev;
+      if (fromIndex === -1 || toIndex === -1) return prev;
+      
+      const fromSlot = prev[fromIndex];
+      const toSlot = prev[toIndex];
 
       // Validate GK constraint
       const fromPlayer = fromSlot.player;
@@ -455,41 +457,61 @@ export default function TeamModeller() {
 
       if (!fromPlayer) return prev;
 
-      // Check if we're moving the only GK to bench
+      // Check if we're moving the only GK to bench (but allow GK-to-GK swaps)
       if (fromPlayer.element_type === 1 && toPosition > 11) {
-        const gkCount = slots.slice(0, 11).filter(s => s.player?.element_type === 1).length;
-        if (gkCount === 1) {
-          toast({
-            title: "Invalid move",
-            description: "You must have at least 1 goalkeeper in your starting XI",
-            variant: "destructive",
-          });
-          return prev;
+        // Only block if the incoming player is NOT a goalkeeper
+        const incomingIsGK = toPlayer?.element_type === 1;
+        if (!incomingIsGK) {
+          const gkCount = prev.filter(s => s.position <= 11 && s.player?.element_type === 1).length;
+          if (gkCount === 1) {
+            toast({
+              title: "Invalid move",
+              description: "You must have at least 1 goalkeeper in your starting XI",
+              variant: "destructive",
+            });
+            return prev;
+          }
         }
       }
 
-      // Swap players
-      const tempPlayer = fromSlot.player;
-      const tempCaptain = fromSlot.isCaptain;
-      const tempVice = fromSlot.isViceCaptain;
-
-      fromSlot.player = toSlot.player;
-      fromSlot.isCaptain = toSlot.isCaptain;
-      fromSlot.isViceCaptain = toSlot.isViceCaptain;
-
-      toSlot.player = tempPlayer;
-      toSlot.isCaptain = tempCaptain;
-      toSlot.isViceCaptain = tempVice;
-
-      // Clear captain/vice-captain if moved to bench
-      if (fromPosition <= 11 && toPosition > 11) {
-        toSlot.isCaptain = false;
-        toSlot.isViceCaptain = false;
-      }
-      if (toPosition <= 11 && fromPosition > 11) {
-        fromSlot.isCaptain = false;
-        fromSlot.isViceCaptain = false;
-      }
+      // Create new slot objects (immutable update for React)
+      const newSlots = prev.map((slot, index) => {
+        if (index === fromIndex) {
+          // fromSlot gets toSlot's player
+          let newCaptain = toSlot.isCaptain;
+          let newVice = toSlot.isViceCaptain;
+          // Clear captain/vice if player coming from bench
+          if (toPosition > 11 && fromPosition <= 11) {
+            newCaptain = false;
+            newVice = false;
+          }
+          return {
+            ...slot,
+            player: toSlot.player,
+            isCaptain: newCaptain,
+            isViceCaptain: newVice,
+            teamCode: toSlot.player?.team_code,
+          };
+        }
+        if (index === toIndex) {
+          // toSlot gets fromSlot's player
+          let newCaptain = fromSlot.isCaptain;
+          let newVice = fromSlot.isViceCaptain;
+          // Clear captain/vice if moved to bench
+          if (fromPosition <= 11 && toPosition > 11) {
+            newCaptain = false;
+            newVice = false;
+          }
+          return {
+            ...slot,
+            player: fromSlot.player,
+            isCaptain: newCaptain,
+            isViceCaptain: newVice,
+            teamCode: fromSlot.player?.team_code,
+          };
+        }
+        return slot;
+      });
 
       return newSlots;
     });

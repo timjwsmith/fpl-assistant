@@ -442,24 +442,12 @@ export default function TeamModeller() {
   }, [savedTeamData, players]);
 
   const handlePlayerSwap = (fromPosition: number, toPosition: number) => {
-    console.log(`[SWAP] Starting swap: position ${fromPosition} <-> position ${toPosition}`);
-    
     setSlots(prev => {
-      const fromIndex = prev.findIndex(s => s.position === fromPosition);
-      const toIndex = prev.findIndex(s => s.position === toPosition);
+      const newSlots = [...prev];
+      const fromSlot = newSlots.find(s => s.position === fromPosition);
+      const toSlot = newSlots.find(s => s.position === toPosition);
       
-      console.log(`[SWAP] fromIndex=${fromIndex}, toIndex=${toIndex}`);
-      
-      if (fromIndex === -1 || toIndex === -1) {
-        console.log(`[SWAP] ERROR: Invalid indices, returning prev`);
-        return prev;
-      }
-      
-      const fromSlot = prev[fromIndex];
-      const toSlot = prev[toIndex];
-      
-      console.log(`[SWAP] fromSlot player:`, fromSlot.player?.web_name || 'null');
-      console.log(`[SWAP] toSlot player:`, toSlot.player?.web_name || 'null');
+      if (!fromSlot || !toSlot) return prev;
 
       // Validate GK constraint
       const fromPlayer = fromSlot.player;
@@ -469,7 +457,6 @@ export default function TeamModeller() {
 
       // Check if we're moving the only GK to bench (but allow GK-to-GK swaps)
       if (fromPlayer.element_type === 1 && toPosition > 11) {
-        // Only block if the incoming player is NOT a goalkeeper
         const incomingIsGK = toPlayer?.element_type === 1;
         if (!incomingIsGK) {
           const gkCount = prev.filter(s => s.position <= 11 && s.player?.element_type === 1).length;
@@ -484,53 +471,32 @@ export default function TeamModeller() {
         }
       }
 
-      // Create new slot objects (immutable update for React)
-      // IMPORTANT: Reference fromSlot and toSlot from the ORIGINAL prev array,
-      // not from any cloned/mutated array, to ensure correct player capture
-      console.log(`[SWAP] Creating new slots...`);
-      const newSlots = prev.map((slot, index) => {
-        if (index === fromIndex) {
-          // fromSlot gets toSlot's player
-          let newCaptain = toSlot.isCaptain;
-          let newVice = toSlot.isViceCaptain;
-          // Clear captain/vice if player coming from bench
-          if (toPosition > 11 && fromPosition <= 11) {
-            newCaptain = false;
-            newVice = false;
-          }
-          const newSlot = {
-            ...slot,
-            player: toSlot.player,
-            isCaptain: newCaptain,
-            isViceCaptain: newVice,
-            teamCode: toSlot.player?.team_code,
-          };
-          console.log(`[SWAP] Updated fromSlot (pos ${slot.position}):`, newSlot.player?.web_name || 'null');
-          return newSlot;
-        }
-        if (index === toIndex) {
-          // toSlot gets fromSlot's player
-          let newCaptain = fromSlot.isCaptain;
-          let newVice = fromSlot.isViceCaptain;
-          // Clear captain/vice if moved to bench
-          if (fromPosition <= 11 && toPosition > 11) {
-            newCaptain = false;
-            newVice = false;
-          }
-          const newSlot = {
-            ...slot,
-            player: fromSlot.player,
-            isCaptain: newCaptain,
-            isViceCaptain: newVice,
-            teamCode: fromSlot.player?.team_code,
-          };
-          console.log(`[SWAP] Updated toSlot (pos ${slot.position}):`, newSlot.player?.web_name || 'null');
-          return newSlot;
-        }
-        return slot;
-      });
+      // Swap players using temp variables
+      const tempPlayer = fromSlot.player;
+      const tempCaptain = fromSlot.isCaptain;
+      const tempVice = fromSlot.isViceCaptain;
+      const tempTeamCode = fromSlot.teamCode;
 
-      console.log(`[SWAP] Swap complete, returning new slots`);
+      fromSlot.player = toSlot.player;
+      fromSlot.isCaptain = toSlot.isCaptain;
+      fromSlot.isViceCaptain = toSlot.isViceCaptain;
+      fromSlot.teamCode = toSlot.teamCode;
+
+      toSlot.player = tempPlayer;
+      toSlot.isCaptain = tempCaptain;
+      toSlot.isViceCaptain = tempVice;
+      toSlot.teamCode = tempTeamCode;
+
+      // Clear captain/vice-captain if moved to bench
+      if (fromPosition <= 11 && toPosition > 11) {
+        toSlot.isCaptain = false;
+        toSlot.isViceCaptain = false;
+      }
+      if (toPosition <= 11 && fromPosition > 11) {
+        fromSlot.isCaptain = false;
+        fromSlot.isViceCaptain = false;
+      }
+
       return newSlots;
     });
 

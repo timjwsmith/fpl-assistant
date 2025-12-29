@@ -426,10 +426,16 @@ export default function TeamModeller() {
   // Skip if we've already hydrated to prevent overwrites during swaps
   useEffect(() => {
     if (savedTeamData && players && !hasHydratedFromSavedTeam.current) {
+      console.log('[HYDRATE] Starting hydration from savedTeamData');
+      console.log('[HYDRATE] savedTeamData.players:', savedTeamData.players?.length, 'players');
+      
       const playerMap = new Map((players as FPLPlayer[]).map(p => [p.id, p]));
       
       const loadedSlots = savedTeamData.players.map((slotData: any) => {
         const player = slotData.player_id ? playerMap.get(slotData.player_id) || null : null;
+        if (!player && slotData.player_id) {
+          console.log(`[HYDRATE] WARNING: Player ${slotData.player_id} at position ${slotData.position} not found in playerMap!`);
+        }
         return {
           player,
           position: slotData.position,
@@ -439,10 +445,15 @@ export default function TeamModeller() {
         };
       });
 
+      console.log('[HYDRATE] loadedSlots:', loadedSlots.map(s => ({ pos: s.position, player: s.player?.web_name || 'NULL', id: s.player?.id || null })));
+      
       if (loadedSlots.length === 15) {
         setSlots(loadedSlots);
         setSavedTeam(savedTeamData);
         hasHydratedFromSavedTeam.current = true;
+        console.log('[HYDRATE] Hydration complete - 15 slots set');
+      } else {
+        console.log('[HYDRATE] ERROR: loadedSlots has', loadedSlots.length, 'slots (expected 15)');
       }
     }
   }, [savedTeamData, players]);

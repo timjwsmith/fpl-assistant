@@ -544,6 +544,17 @@ export default function TeamModeller() {
       });
 
       console.log(`[SWAP] newSlots:`, newSlots.map(s => ({ pos: s.position, player: s.player?.web_name || 'null' })));
+      
+      // Verify the swap result
+      const newFrom = newSlots.find(s => s.position === fromPosition);
+      const newTo = newSlots.find(s => s.position === toPosition);
+      console.log(`[SWAP] VERIFY - Position ${fromPosition} now has: ${newFrom?.player?.web_name || 'NULL'}`);
+      console.log(`[SWAP] VERIFY - Position ${toPosition} now has: ${newTo?.player?.web_name || 'NULL'}`);
+      
+      if (!newFrom?.player || !newTo?.player) {
+        console.error(`[SWAP] ERROR: Swap resulted in missing player! fromPos=${fromPosition} has ${newFrom?.player?.web_name || 'NULL'}, toPos=${toPosition} has ${newTo?.player?.web_name || 'NULL'}`);
+      }
+      
       return newSlots;
     });
 
@@ -644,14 +655,20 @@ export default function TeamModeller() {
 
   const handleSlotClick = (position: number) => {
     const slot = slots.find(s => s.position === position);
+    console.log(`[CLICK] handleSlotClick called for position ${position}`);
+    console.log(`[CLICK] Current selectedSlot: ${selectedSlot}`);
+    console.log(`[CLICK] Clicked slot player: ${slot?.player?.web_name || 'null'}`);
+    console.log(`[CLICK] All slots:`, slots.map(s => ({ pos: s.position, player: s.player?.web_name || 'null' })));
     
     // If there's already a selected empty slot and we click on a slot with a player,
     // move that player to the selected empty slot (tap-to-move flow)
     if (selectedSlot !== null && slot?.player) {
       const targetSlot = slots.find(s => s.position === selectedSlot);
+      console.log(`[CLICK] Target slot (selectedSlot ${selectedSlot}) player: ${targetSlot?.player?.web_name || 'null'}`);
       
       // Only allow if target is empty
       if (targetSlot && !targetSlot.player) {
+        console.log(`[CLICK] Entering MOVE-TO-EMPTY flow (source player moves to empty target)`);
         // Validate GK constraints
         if (selectedSlot === 1 && slot.player.element_type !== 1) {
           toast({
@@ -700,6 +717,7 @@ export default function TeamModeller() {
       // For now, let's select this slot as source for moving
       if (selectedSlot === null) {
         // No slot selected - select this player's slot as source
+        console.log(`[CLICK] No slot selected - selecting position ${position} for swap`);
         setSelectedSlot(position);
         toast({
           title: "Player selected",
@@ -707,14 +725,14 @@ export default function TeamModeller() {
         });
       } else {
         // A slot was already selected - swap the players
+        console.log(`[CLICK] Entering SWAP flow - swapping selectedSlot=${selectedSlot} with position=${position}`);
         const sourceSlot = slots.find(s => s.position === selectedSlot);
-        console.log(`[CLICK] Swap requested: selectedSlot=${selectedSlot}, targetPosition=${position}`);
-        console.log(`[CLICK] Source player:`, sourceSlot?.player?.web_name || 'null');
-        console.log(`[CLICK] Target player:`, slot?.player?.web_name || 'null');
+        console.log(`[CLICK] Swap details - Source (pos ${selectedSlot}): ${sourceSlot?.player?.web_name || 'null'}, Target (pos ${position}): ${slot?.player?.web_name || 'null'}`);
         if (sourceSlot?.player) {
+          console.log(`[CLICK] Calling handlePlayerSwap(${selectedSlot}, ${position})`);
           handlePlayerSwap(selectedSlot, position);
         } else {
-          console.log(`[CLICK] No source player found, skipping swap`);
+          console.log(`[CLICK] ERROR: No source player found at position ${selectedSlot}, skipping swap`);
         }
         setSelectedSlot(null);
       }

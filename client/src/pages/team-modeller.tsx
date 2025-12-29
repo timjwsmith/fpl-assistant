@@ -162,6 +162,16 @@ export default function TeamModeller() {
 
   const saveTeamMutation = useMutation({
     mutationFn: async () => {
+      // Check for empty slots before sending
+      const emptySlots = slots.filter(s => s.player === null);
+      console.log('[SAVE] Saving team, all 15 slots:', slots.map(s => ({ pos: s.position, player: s.player?.web_name || 'NULL', id: s.player?.id || null })));
+      console.log('[SAVE] Empty slots:', emptySlots.map(s => s.position));
+      
+      if (emptySlots.length > 0) {
+        const emptyPositions = emptySlots.map(s => s.position).join(', ');
+        throw new Error(`Please fill all 15 positions before saving. Empty positions: ${emptyPositions}`);
+      }
+      
       const teamData = {
         userId,
         gameweek: planningGameweekId,
@@ -176,9 +186,6 @@ export default function TeamModeller() {
         bank: Math.round(budgetRemaining * 10),
         transfersMade: 0,
       };
-      
-      console.log('[SAVE] Saving team, all 15 slots:', slots.map(s => ({ pos: s.position, player: s.player?.web_name || 'NULL', id: s.player?.id || null })));
-      console.log('[SAVE] Position 12 specifically:', slots.find(s => s.position === 12));
       
       return apiRequest<UserTeam>("POST", "/api/teams", teamData);
     },

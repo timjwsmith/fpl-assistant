@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Plus, X } from "lucide-react";
 import { cn, getPlayerShirtUrl } from "@/lib/utils";
 import { type FPLPlayer } from "@shared/schema";
-import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent, DragCancelEvent, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useState } from "react";
 
 export interface PitchSlot {
@@ -298,10 +298,15 @@ export function PitchVisualization({
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     
+    console.log(`[DnD] Drag END: active=${active?.id}, over=${over?.id || 'null'}`);
+    
     setActiveId(null);
     setDraggedPlayer(null);
 
-    if (!over) return;
+    if (!over) {
+      console.log(`[DnD] No drop target - drag cancelled or dropped outside valid area`);
+      return;
+    }
 
     // Handle badge drops (captain/vice-captain assignment)
     if (active.data.current?.type === 'badge') {
@@ -374,6 +379,12 @@ export function PitchVisualization({
     }
   };
 
+  const handleDragCancel = (event: DragCancelEvent) => {
+    console.log(`[DnD] Drag CANCELLED: ${event.active?.id}`);
+    setActiveId(null);
+    setDraggedPlayer(null);
+  };
+
   const isValidDrop = (slotPosition: number): boolean => {
     if (!draggedPlayer) return true;
     
@@ -403,6 +414,7 @@ export function PitchVisualization({
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
     >
       <div className="space-y-6">
         <div className="flex items-center justify-center gap-4">

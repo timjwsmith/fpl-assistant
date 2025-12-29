@@ -2808,27 +2808,40 @@ CRITICAL REQUIREMENTS:
         console.log(`[GameweekAnalyzer]   Total cost: £${(totalPurchaseCost/10).toFixed(1)}m`);
         console.log(`[GameweekAnalyzer]   Collectively affordable: ${collectivelyAffordable}`);
         
-        if (collectivelyAffordable) {
-          // All transfers together are affordable - approve all
-          console.log(`[GameweekAnalyzer] ✅ All ${result.transfers.length} transfer(s) collectively affordable`);
-        } else {
-          // Transfers collectively exceed budget - find best affordable subset
-          const shortfall = totalPurchaseCost - collectiveBudget;
-          console.warn(`[GameweekAnalyzer] ❌ Transfers collectively £${(shortfall/10).toFixed(1)}m over budget`);
+        // ALWAYS check individual affordability first - users can choose to accept only some transfers,
+        // so each transfer must be independently affordable (bank + its selling price >= its purchase price)
+        console.log(`[GameweekAnalyzer] INDIVIDUAL AFFORDABILITY CHECK (each transfer must be doable on its own):`);
+        const individuallyAffordable = transferDetails.filter(detail => {
+          const isAffordable = bankBalance + detail.sellingPrice >= detail.purchasePrice;
+          if (!isAffordable) {
+            console.log(`[GameweekAnalyzer]   ❌ INDIVIDUALLY UNAFFORDABLE: ${detail.outPlayer?.web_name} → ${detail.inPlayer?.web_name} (bank £${(bankBalance/10).toFixed(1)}m + sell £${(detail.sellingPrice/10).toFixed(1)}m = £${((bankBalance + detail.sellingPrice)/10).toFixed(1)}m < buy £${(detail.purchasePrice/10).toFixed(1)}m)`);
+          } else {
+            console.log(`[GameweekAnalyzer]   ✅ Individually affordable: ${detail.outPlayer?.web_name} → ${detail.inPlayer?.web_name} (bank £${(bankBalance/10).toFixed(1)}m + sell £${(detail.sellingPrice/10).toFixed(1)}m = £${((bankBalance + detail.sellingPrice)/10).toFixed(1)}m >= buy £${(detail.purchasePrice/10).toFixed(1)}m)`);
+          }
+          return isAffordable;
+        });
+        
+        const individuallyRemoved = transferDetails.filter(d => !individuallyAffordable.includes(d));
+        console.log(`[GameweekAnalyzer] After individual affordability check: ${individuallyAffordable.length}/${transferDetails.length} transfers remain`);
+        
+        // Recalculate collective affordability with only individually affordable transfers
+        const filteredTotalSelling = individuallyAffordable.reduce((sum, d) => sum + d.sellingPrice, 0);
+        const filteredTotalPurchase = individuallyAffordable.reduce((sum, d) => sum + d.purchasePrice, 0);
+        const filteredCollectivelyAffordable = bankBalance + filteredTotalSelling >= filteredTotalPurchase;
+        
+        if (filteredCollectivelyAffordable && individuallyAffordable.length > 0) {
+          // All remaining transfers together are affordable - approve all
+          console.log(`[GameweekAnalyzer] ✅ All ${individuallyAffordable.length} individually-affordable transfer(s) are collectively affordable`);
+          result.transfers = individuallyAffordable.map(d => d.transfer);
           
-          // STEP 1: Filter out transfers that are INDIVIDUALLY unaffordable
-          // A transfer is individually affordable if: bank + its selling price >= its purchase price
-          const individuallyAffordable = transferDetails.filter(detail => {
-            const isAffordable = bankBalance + detail.sellingPrice >= detail.purchasePrice;
-            if (!isAffordable) {
-              console.log(`[GameweekAnalyzer]   ❌ INDIVIDUALLY UNAFFORDABLE: ${detail.outPlayer?.web_name} → ${detail.inPlayer?.web_name} (bank £${(bankBalance/10).toFixed(1)}m + sell £${(detail.sellingPrice/10).toFixed(1)}m = £${((bankBalance + detail.sellingPrice)/10).toFixed(1)}m < buy £${(detail.purchasePrice/10).toFixed(1)}m)`);
-            }
-            return isAffordable;
-          });
+          if (individuallyRemoved.length > 0) {
+            console.log(`[GameweekAnalyzer] ℹ️ ${individuallyRemoved.length} unaffordable transfer(s) silently removed`);
+          }
+        } else if (individuallyAffordable.length > 0) {
+          // Need to find best subset
+          const shortfall = filteredTotalPurchase - (bankBalance + filteredTotalSelling);
+          console.warn(`[GameweekAnalyzer] ❌ Remaining transfers collectively £${(shortfall/10).toFixed(1)}m over budget - finding best subset`);
           
-          console.log(`[GameweekAnalyzer] After individual affordability check: ${individuallyAffordable.length}/${transferDetails.length} transfers remain`);
-          
-          // STEP 2: Use incremental approach - keep running totals of accepted selling & purchase
           // Sort by net cost ascending (cheapest net cost first = most likely to fit)
           const sortedByNetCost = [...individuallyAffordable].sort((a, b) => a.netCost - b.netCost);
           
@@ -2838,8 +2851,6 @@ CRITICAL REQUIREMENTS:
           let acceptedPurchase = 0;
           
           for (const detail of sortedByNetCost) {
-            // Check if adding this transfer is still affordable:
-            // bank + (accepted selling so far + this selling) >= (accepted purchase so far + this purchase)
             const newTotalSelling = acceptedSelling + detail.sellingPrice;
             const newTotalPurchase = acceptedPurchase + detail.purchasePrice;
             
@@ -2854,21 +2865,20 @@ CRITICAL REQUIREMENTS:
             }
           }
           
-          // Add individually unaffordable transfers to removed list for logging
-          const individuallyRemoved = transferDetails.filter(d => !individuallyAffordable.includes(d));
           removedTransfers.push(...individuallyRemoved);
-          
           result.transfers = validTransfers;
           
-          // Silently remove unaffordable transfers - no warning shown
-          // If ALL transfers were removed due to budget, mark result as budget-constrained
-          // so frontend can hide the What-If section entirely
           if (validTransfers.length === 0) {
             console.log(`[GameweekAnalyzer] ⚠️ All transfers removed due to budget - marking as budget-constrained`);
             (result as any)._budgetConstrained = true;
           } else if (removedTransfers.length > 0) {
             console.log(`[GameweekAnalyzer] ℹ️ ${removedTransfers.length} unaffordable transfer(s) silently removed`);
           }
+        } else {
+          // No transfers passed individual affordability check
+          console.log(`[GameweekAnalyzer] ⚠️ All transfers removed due to budget - marking as budget-constrained`);
+          result.transfers = [];
+          (result as any)._budgetConstrained = true;
         }
 
         // POST-PROCESSING: Enhance reasoning text with transfer cost explanation

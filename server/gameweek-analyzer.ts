@@ -2850,13 +2850,14 @@ CRITICAL REQUIREMENTS:
           
           result.transfers = validTransfers;
           
-          // Add warning to reasoning
-          if (removedTransfers.length > 0) {
-            const warningText = `\n\n⚠️ BUDGET WARNING: ${removedTransfers.length} transfer(s) removed due to insufficient funds (£${(shortfall/10).toFixed(1)}m over budget):\n${removedTransfers.map(r => `• ${r.outPlayer?.web_name} → ${r.inPlayer?.web_name}: Cannot afford £${(r.purchasePrice/10).toFixed(1)}m`).join('\n')}\n\n${validTransfers.length > 0 ? `The remaining ${validTransfers.length} transfer(s) are within your budget.` : 'No affordable transfers could be found. Consider cheaper alternatives.'}`;
-            
-            if (result.reasoning) {
-              result.reasoning += warningText;
-            }
+          // Silently remove unaffordable transfers - no warning shown
+          // If ALL transfers were removed due to budget, mark result as budget-constrained
+          // so frontend can hide the What-If section entirely
+          if (validTransfers.length === 0) {
+            console.log(`[GameweekAnalyzer] ⚠️ All transfers removed due to budget - marking as budget-constrained`);
+            (result as any)._budgetConstrained = true;
+          } else if (removedTransfers.length > 0) {
+            console.log(`[GameweekAnalyzer] ℹ️ ${removedTransfers.length} unaffordable transfer(s) silently removed`);
           }
         }
 

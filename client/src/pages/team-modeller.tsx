@@ -1008,7 +1008,7 @@ export default function TeamModeller() {
             </Card>
           )}
 
-          {whatIfResult && !whatIfAnalysisMutation.isPending && (
+          {whatIfResult && !whatIfAnalysisMutation.isPending && whatIfResult.transfers && whatIfResult.transfers.length > 0 && (
             <Card className="border-2 border-purple-500/50 bg-purple-500/5" data-testid="what-if-results">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">

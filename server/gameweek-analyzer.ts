@@ -2288,6 +2288,12 @@ Each transfer MUST be motivated by ONE OR MORE of these factors FOR THAT SPECIFI
 
 ⛔ YOUR RESPONSE WILL BE REJECTED IF YOU VIOLATE ANY OF THESE RULES ⛔
 
+0. 🚫 NEVER TRANSFER IN A PLAYER ALREADY IN YOUR SQUAD 🚫
+   - Check the CURRENT SQUAD list above before recommending any transfer IN
+   - If a player is already in the squad (starting XI or bench), you CANNOT transfer them in
+   - You already own these 15 players - you cannot buy a player you already own!
+   - Example: If Van de Ven is on your bench, you CANNOT recommend "transfer in Van de Ven"
+   
 1. ✅ SQUAD COMPOSITION (EXACT NUMBERS REQUIRED):
    - Must have EXACTLY 15 players total
    - Must have EXACTLY 2 Goalkeepers (GK)
@@ -3151,6 +3157,15 @@ CRITICAL REQUIREMENTS:
       const playerIn = allPlayers.find(p => p.id === transfer.player_in_id);
       if (!playerIn) {
         errors.push(`Player ${transfer.player_in_id} does not exist in FPL database`);
+        continue;
+      }
+
+      // CRITICAL: Check if player_in is ALREADY in the squad (before this transfer)
+      // A player cannot be transferred in if they're already owned
+      const playerAlreadyInSquad = updatedSquad.find(p => p.player_id === transfer.player_in_id);
+      if (playerAlreadyInSquad) {
+        errors.push(`Cannot transfer in ${playerIn.web_name} (ID: ${transfer.player_in_id}) - already in your squad! You cannot own the same player twice.`);
+        console.error(`[Validation] ❌ INVALID TRANSFER: ${playerIn.web_name} is already in the squad - cannot transfer in a player you already own`);
         continue;
       }
 

@@ -119,12 +119,11 @@ function DraggablePlayerSlot({ slot, onRemove, onClick }: DraggablePlayerSlotPro
             onClick={(e) => {
               e.stopPropagation();
               e.preventDefault();
-              // Require confirmation before removing on mobile to prevent accidental taps
               if (window.confirm(`Remove ${slot.player?.web_name} from your team?`)) {
                 onRemove(slot.position);
               }
             }}
-            className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center z-20 shadow-md opacity-70 hover:opacity-100"
+            className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-destructive text-destructive-foreground items-center justify-center z-20 shadow-md opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex"
             data-testid={`button-remove-${slot.position}`}
           >
             <X className="h-3 w-3" />

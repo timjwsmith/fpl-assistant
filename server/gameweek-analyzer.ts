@@ -2082,6 +2082,35 @@ If significant changes occurred → Explain EXACTLY what changed (with specific 
     
     console.log(`[GameweekAnalyzer] Filtered out injured/unavailable players from transfer recommendations`);
 
+    // Identify injured/unavailable bench players as priority transfer-out candidates
+    // Bench positions in FPL are 12-15 (positions 1-11 are starting XI)
+    const benchPlayers = currentTeam.players
+      .filter((pick: any) => pick.position >= 12)
+      .map((pick: any) => {
+        const player = allPlayers.find((p: FPLPlayer) => p.id === pick.player_id);
+        if (!player) return null;
+        const team = teams.find((t: FPLTeam) => t.id === player.team);
+        const sellingPrice = pick.selling_price ? pick.selling_price / 10 : player.now_cost / 10;
+        const isInjuredOrUnavailable = player.status === 'i' || player.status === 'u' || player.status === 's' || 
+          player.chance_of_playing_this_round === 0;
+        return {
+          id: player.id,
+          name: player.web_name,
+          team: team?.short_name || 'Unknown',
+          position: player.element_type === 1 ? 'GK' : player.element_type === 2 ? 'DEF' : player.element_type === 3 ? 'MID' : 'FWD',
+          selling_price: sellingPrice,
+          status: player.status,
+          chance_of_playing: player.chance_of_playing_this_round,
+          news: player.news || 'None',
+          isInjuredOrUnavailable,
+          benchPosition: pick.position
+        };
+      })
+      .filter(Boolean);
+    
+    const injuredBenchPlayers = benchPlayers.filter((p: any) => p.isInjuredOrUnavailable);
+    console.log(`[GameweekAnalyzer] Found ${injuredBenchPlayers.length} injured/unavailable bench players`);
+
     const topPlayersInfo = Object.entries(topPlayersByPosition).map(([position, players]) => {
       const playerList = players.map((p: FPLPlayer) => {
         const team = teams.find((t: FPLTeam) => t.id === p.team);
@@ -2200,12 +2229,61 @@ ${squadDetails.sort((a: any, b: any) => b.selling_price - a.selling_price).slice
 
 If you want to buy a £14m player like Salah, you need to sell players worth £${(14 - inputData.currentTeam.bank / 10).toFixed(1)}m+
 ONLY recommend transfers where: Bank + Selling Price(s) >= Purchase Price(s)
+${injuredBenchPlayers.length > 0 ? `
+
+🏥 INJURED/UNAVAILABLE BENCH PLAYERS - PRIORITY TRANSFER-OUT CANDIDATES 🏥
+These players are on your bench but CANNOT play. Consider transferring them out FIRST:
+${injuredBenchPlayers.map((p: any) => `⚠️ ID:${p.id} ${p.name} (${p.position}) - ${p.team}
+   Status: ${p.status === 'i' ? 'INJURED' : p.status === 'u' ? 'UNAVAILABLE' : p.status === 's' ? 'SUSPENDED' : 'DOUBTFUL'} (${p.chance_of_playing !== null ? `${p.chance_of_playing}% chance` : 'Unknown'})
+   News: ${p.news}
+   Selling Price: £${p.selling_price.toFixed(1)}m
+   ❌ This player provides ZERO VALUE while injured on your bench!`).join('\n')}
+
+**ACTION REQUIRED**: These injured bench players should be strong candidates for transfer-out. 
+They cannot contribute points even if an auto-sub is triggered. Consider upgrading to healthy alternatives.
+` : ''}
 ${targetPlayerInfo}
 ${customLineupContext}
 ${previousPlanContext}
 
 ═══════════════════════════════════════════════════════════════════════
 🚨🚨🚨 CRITICAL - THESE ARE HARD CONSTRAINTS THAT MUST BE FOLLOWED 🚨🚨🚨
+═══════════════════════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════════════════════
+⚠️ TRANSFER RECOMMENDATION INTEGRITY - EACH TRANSFER MUST STAND ALONE ⚠️
+═══════════════════════════════════════════════════════════════════════
+
+**CRITICAL RULE**: Every transfer you recommend MUST have its own independent strategic justification.
+
+❌ **FORBIDDEN - "Budget Enabler" Transfers**:
+- DO NOT recommend a transfer primarily to free up budget for another transfer
+- DO NOT suggest selling a performing player just to afford an expensive target
+- DO NOT recommend a downgrade unless that specific downgrade has strategic merit
+
+✅ **REQUIRED - Independent Strategic Justification**:
+Each transfer MUST be motivated by ONE OR MORE of these factors FOR THAT SPECIFIC PLAYER:
+1. **Poor Form**: Player has declining form (form < 3.0) or consistently underperforming
+2. **Injury/Availability**: Player is injured, suspended, or has low chance of playing
+3. **Difficult Fixtures**: Player's upcoming 6 fixtures are difficult (avg difficulty > 3.5)
+4. **Better Value Available**: A significantly better player is available at similar price (not just to enable another transfer)
+5. **Suspension Risk**: Player is 1-2 yellow cards from suspension
+6. **Minutes Risk**: Player is rotation risk or losing their starting spot
+7. **Price Drop**: Player is about to drop in price significantly
+
+**EXAMPLE OF VIOLATION** (DO NOT DO THIS):
+"Transfer out Virgil (£5.9m, form 4.2, good fixtures) to Van de Ven (£4.5m) to free up £1.4m for the Watkins transfer"
+→ This is WRONG because Virgil's transfer has no strategic merit - it's only to fund Watkins
+
+**EXAMPLE OF CORRECT APPROACH**:
+"Transfer out Virgil (£5.9m) because Liverpool have difficult fixtures (avg difficulty 4.2) over the next 6 gameweeks including Arsenal, City, and Chelsea. Van de Ven (£4.5m) has better fixtures with Tottenham facing easier opponents and offers similar defensive returns at lower cost."
+→ This is CORRECT because the transfer has its own strategic justification
+
+**IF A TRANSFER CANNOT BE AFFORDED** with available budget:
+- DO NOT suggest "budget enabler" transfers to make it affordable
+- Instead, recommend an alternative player at a price you CAN afford
+- Or explain that the ideal transfer is not affordable and suggest the best available option
+
 ═══════════════════════════════════════════════════════════════════════
 
 ⛔ YOUR RESPONSE WILL BE REJECTED IF YOU VIOLATE ANY OF THESE RULES ⛔

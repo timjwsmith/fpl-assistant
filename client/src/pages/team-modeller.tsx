@@ -609,10 +609,15 @@ export default function TeamModeller() {
       return;
     }
 
-    if (player.now_cost / 10 > budgetRemaining) {
+    // Calculate effective budget: current budget + selling price of player being replaced
+    const currentSlot = slots.find(s => s.position === selectedSlot);
+    const sellingPrice = currentSlot?.player ? (currentSlot.player.now_cost / 10) : 0;
+    const effectiveBudget = budgetRemaining + sellingPrice;
+
+    if (player.now_cost / 10 > effectiveBudget) {
       toast({
         title: "Insufficient budget",
-        description: `${player.web_name} costs £${(player.now_cost / 10).toFixed(1)}m but you only have £${budgetRemaining.toFixed(1)}m`,
+        description: `${player.web_name} costs £${(player.now_cost / 10).toFixed(1)}m but you only have £${effectiveBudget.toFixed(1)}m${sellingPrice > 0 ? ` (including £${sellingPrice.toFixed(1)}m from selling ${currentSlot?.player?.web_name})` : ''}`,
         variant: "destructive",
       });
       return;

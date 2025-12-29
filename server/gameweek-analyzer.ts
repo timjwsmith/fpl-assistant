@@ -2816,37 +2816,47 @@ CRITICAL REQUIREMENTS:
           const shortfall = totalPurchaseCost - collectiveBudget;
           console.warn(`[GameweekAnalyzer] ❌ Transfers collectively £${(shortfall/10).toFixed(1)}m over budget`);
           
-          // Sort by net cost (most expensive first) to remove those first
-          const sortedDetails = [...transferDetails].sort((a, b) => b.netCost - a.netCost);
+          // STEP 1: Filter out transfers that are INDIVIDUALLY unaffordable
+          // A transfer is individually affordable if: bank + its selling price >= its purchase price
+          const individuallyAffordable = transferDetails.filter(detail => {
+            const isAffordable = bankBalance + detail.sellingPrice >= detail.purchasePrice;
+            if (!isAffordable) {
+              console.log(`[GameweekAnalyzer]   ❌ INDIVIDUALLY UNAFFORDABLE: ${detail.outPlayer?.web_name} → ${detail.inPlayer?.web_name} (bank £${(bankBalance/10).toFixed(1)}m + sell £${(detail.sellingPrice/10).toFixed(1)}m = £${((bankBalance + detail.sellingPrice)/10).toFixed(1)}m < buy £${(detail.purchasePrice/10).toFixed(1)}m)`);
+            }
+            return isAffordable;
+          });
           
-          // Try to find an affordable subset by removing most expensive transfers
-          let remainingBudget = bankBalance;
+          console.log(`[GameweekAnalyzer] After individual affordability check: ${individuallyAffordable.length}/${transferDetails.length} transfers remain`);
+          
+          // STEP 2: Use incremental approach - keep running totals of accepted selling & purchase
+          // Sort by net cost ascending (cheapest net cost first = most likely to fit)
+          const sortedByNetCost = [...individuallyAffordable].sort((a, b) => a.netCost - b.netCost);
+          
           const validTransfers: typeof result.transfers = [];
           const removedTransfers: typeof transferDetails = [];
+          let acceptedSelling = 0;
+          let acceptedPurchase = 0;
           
-          // First pass: add all selling prices
-          let availableBudget = bankBalance;
-          for (const detail of transferDetails) {
-            availableBudget += detail.sellingPrice;
-          }
-          
-          // Second pass: try to include each transfer, removing most expensive if needed
-          // Sort by net cost ascending (cheapest net cost first = most likely to fit)
-          const sortedByNetCost = [...transferDetails].sort((a, b) => a.netCost - b.netCost);
-          
-          let budgetRemaining = availableBudget;
           for (const detail of sortedByNetCost) {
-            if (budgetRemaining >= detail.purchasePrice) {
-              budgetRemaining -= detail.purchasePrice;
+            // Check if adding this transfer is still affordable:
+            // bank + (accepted selling so far + this selling) >= (accepted purchase so far + this purchase)
+            const newTotalSelling = acceptedSelling + detail.sellingPrice;
+            const newTotalPurchase = acceptedPurchase + detail.purchasePrice;
+            
+            if (bankBalance + newTotalSelling >= newTotalPurchase) {
+              acceptedSelling = newTotalSelling;
+              acceptedPurchase = newTotalPurchase;
               validTransfers.push(detail.transfer);
-              console.log(`[GameweekAnalyzer]   ✅ Keeping: ${detail.outPlayer?.web_name} → ${detail.inPlayer?.web_name} (net £${(detail.netCost/10).toFixed(1)}m)`);
+              console.log(`[GameweekAnalyzer]   ✅ Keeping: ${detail.outPlayer?.web_name} → ${detail.inPlayer?.web_name} (net £${(detail.netCost/10).toFixed(1)}m, running budget: £${((bankBalance + acceptedSelling - acceptedPurchase)/10).toFixed(1)}m)`);
             } else {
               removedTransfers.push(detail);
-              // Add back the selling price since we're not doing this transfer
-              budgetRemaining += detail.sellingPrice;
-              console.log(`[GameweekAnalyzer]   ❌ Removing: ${detail.outPlayer?.web_name} → ${detail.inPlayer?.web_name} (need £${(detail.purchasePrice/10).toFixed(1)}m, only £${(budgetRemaining/10).toFixed(1)}m left)`);
+              console.log(`[GameweekAnalyzer]   ❌ Removing: ${detail.outPlayer?.web_name} → ${detail.inPlayer?.web_name} (would need £${(newTotalPurchase/10).toFixed(1)}m but only £${((bankBalance + newTotalSelling)/10).toFixed(1)}m available)`);
             }
           }
+          
+          // Add individually unaffordable transfers to removed list for logging
+          const individuallyRemoved = transferDetails.filter(d => !individuallyAffordable.includes(d));
+          removedTransfers.push(...individuallyRemoved);
           
           result.transfers = validTransfers;
           

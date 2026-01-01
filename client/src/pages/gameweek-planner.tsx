@@ -144,6 +144,7 @@ export default function GameweekPlanner() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/automation/plan", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/predictions", userId] });
       queryClient.invalidateQueries({ queryKey: ["/api/fpl/players"] });
       queryClient.invalidateQueries({ queryKey: ["/api/fpl/teams"] });
       queryClient.invalidateQueries({ queryKey: ["/api/fpl/fixtures"] });
@@ -173,6 +174,7 @@ export default function GameweekPlanner() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/automation/plan", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/predictions", userId] });
       queryClient.invalidateQueries({ queryKey: ["/api/fpl/players"] });
       queryClient.invalidateQueries({ queryKey: ["/api/fpl/teams"] });
       queryClient.invalidateQueries({ queryKey: ["/api/fpl/fixtures"] });

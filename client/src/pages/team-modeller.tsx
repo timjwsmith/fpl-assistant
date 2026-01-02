@@ -457,6 +457,10 @@ export default function TeamModeller() {
       if (loadedSlots.length === 15) {
         setSlots(loadedSlots);
         setSavedTeam(savedTeamData);
+        if (savedTeamData.formation) {
+          setFormation(savedTeamData.formation);
+          console.log('[HYDRATE] Formation restored:', savedTeamData.formation);
+        }
         hasHydratedFromSavedTeam.current = true;
         console.log('[HYDRATE] Hydration complete - 15 slots set');
       } else {

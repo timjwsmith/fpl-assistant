@@ -1983,7 +1983,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         entries,
         predictions,
         userSettings.manager_id,
-        userPredictedPoints
+        userPredictedPoints,
+        gwToUse
       );
 
       res.json({

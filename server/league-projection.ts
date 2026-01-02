@@ -45,7 +45,8 @@ class LeagueProjectionService {
     currentStandings: LeagueEntry[],
     competitorPredictions: CompetitorPrediction[],
     userManagerId: number,
-    userAIPlanPoints?: number
+    userAIPlanPoints?: number,
+    currentGameweek?: number
   ): LeagueProjectionResult {
     const predictionMap: CompetitorMap = {};
     
@@ -57,9 +58,16 @@ class LeagueProjectionService {
       };
     });
 
+    const completedGameweeks = currentGameweek ? currentGameweek - 1 : 19;
+
     const projectedStandings = currentStandings.map(entry => {
       const prediction = predictionMap[entry.entry];
-      let predictedGWPoints = prediction?.predictedPoints || 0;
+      let predictedGWPoints = prediction?.predictedPoints;
+      
+      if (predictedGWPoints === undefined || predictedGWPoints === 0) {
+        const historicalPPG = completedGameweeks > 0 ? Math.round(entry.total / completedGameweeks) : 50;
+        predictedGWPoints = historicalPPG;
+      }
       
       if (entry.entry === userManagerId && userAIPlanPoints !== undefined) {
         predictedGWPoints = userAIPlanPoints;

@@ -1081,47 +1081,89 @@ export default function GameweekPlanner() {
                     Lineup Optimizations
                   </h2>
                   {removedOptimizations.length > 0 ? (
-                    <Alert className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
-                      <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                      <AlertDescription className="text-amber-900 dark:text-amber-100">
-                        <p className="font-semibold mb-2">⚠️ Previous recommendation is no longer beneficial</p>
-                        <div className="space-y-3">
-                          {removedOptimizations.map((opt, i) => {
-                            // Get current predictions for both players to show why it changed
-                            const benchedPlayer = getPlayerById(opt.benched_player_id);
-                            const startingPlayer = getPlayerById(opt.starting_player_id);
-                            const currentBenchedPrediction = predictions?.[opt.benched_player_id];
-                            const currentStartingPrediction = predictions?.[opt.starting_player_id];
-                            
-                            return (
-                              <div key={i} className="text-sm space-y-2">
-                                <p className="font-medium">
-                                  Previously recommended: Bench <span className="font-bold">{opt.benched_player_name}</span> ({opt.benched_player_predicted_points?.toFixed(1)} pts), 
-                                  Start <span className="font-bold">{opt.starting_player_name}</span> ({opt.starting_player_predicted_points?.toFixed(1)} pts)
-                                </p>
-                                {(currentBenchedPrediction !== undefined || currentStartingPrediction !== undefined) && (
-                                  <p className="text-xs text-amber-700 dark:text-amber-300">
-                                    <strong>Updated predictions:</strong> {opt.benched_player_name} now {currentBenchedPrediction?.toFixed(1)} pts, 
-                                    {' '}{opt.starting_player_name} now {currentStartingPrediction?.toFixed(1)} pts
-                                    {currentBenchedPrediction && currentStartingPrediction && currentBenchedPrediction > currentStartingPrediction && 
-                                      ` (${opt.benched_player_name} is now better)`
-                                    }
-                                  </p>
-                                )}
-                                <p className="text-amber-800 dark:text-amber-200">
-                                  <strong>With updated predictions, this swap is no longer beneficial.</strong>
-                                  {opt.accepted && (
-                                    <span className="block mt-1">
-                                      If you applied this change in your FPL team, please <strong>REVERSE IT</strong> - your original lineup is now better.
-                                    </span>
-                                  )}
-                                </p>
-                              </div>
-                            );
-                          })}
+                    (() => {
+                      // Check which optimizations are actually no longer beneficial vs still valid
+                      const analysedOptimizations = removedOptimizations.map(opt => {
+                        const currentBenchedPrediction = predictions?.[opt.benched_player_id];
+                        const currentStartingPrediction = predictions?.[opt.starting_player_id];
+                        const stillBeneficial = currentStartingPrediction !== undefined && 
+                          currentBenchedPrediction !== undefined && 
+                          currentStartingPrediction > currentBenchedPrediction;
+                        return { opt, currentBenchedPrediction, currentStartingPrediction, stillBeneficial };
+                      });
+                      
+                      const trulyNoLongerBeneficial = analysedOptimizations.filter(a => !a.stillBeneficial);
+                      const stillBeneficialOpts = analysedOptimizations.filter(a => a.stillBeneficial);
+                      
+                      return (
+                        <div className="space-y-4">
+                          {trulyNoLongerBeneficial.length > 0 && (
+                            <Alert className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+                              <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                              <AlertDescription className="text-amber-900 dark:text-amber-100">
+                                <p className="font-semibold mb-2">⚠️ Previous recommendation is no longer beneficial</p>
+                                <div className="space-y-3">
+                                  {trulyNoLongerBeneficial.map(({ opt, currentBenchedPrediction, currentStartingPrediction }, i) => (
+                                    <div key={i} className="text-sm space-y-2">
+                                      <p className="font-medium">
+                                        Previously recommended: Bench <span className="font-bold">{opt.benched_player_name}</span> ({opt.benched_player_predicted_points?.toFixed(1)} pts), 
+                                        Start <span className="font-bold">{opt.starting_player_name}</span> ({opt.starting_player_predicted_points?.toFixed(1)} pts)
+                                      </p>
+                                      {(currentBenchedPrediction !== undefined || currentStartingPrediction !== undefined) && (
+                                        <p className="text-xs text-amber-700 dark:text-amber-300">
+                                          <strong>Updated predictions:</strong> {opt.benched_player_name} now {currentBenchedPrediction?.toFixed(1)} pts, 
+                                          {' '}{opt.starting_player_name} now {currentStartingPrediction?.toFixed(1)} pts
+                                          {currentBenchedPrediction !== undefined && currentStartingPrediction !== undefined && currentBenchedPrediction > currentStartingPrediction && 
+                                            ` (${opt.benched_player_name} is now better)`
+                                          }
+                                        </p>
+                                      )}
+                                      <p className="text-amber-800 dark:text-amber-200">
+                                        <strong>With updated predictions, this swap is no longer beneficial.</strong>
+                                        {opt.accepted && (
+                                          <span className="block mt-1">
+                                            If you applied this change in your FPL team, please <strong>REVERSE IT</strong> - your original lineup is now better.
+                                          </span>
+                                        )}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </AlertDescription>
+                            </Alert>
+                          )}
+                          {stillBeneficialOpts.length > 0 && (
+                            <Alert className="border-chart-2/50 bg-chart-2/10">
+                              <CheckCircle className="h-5 w-5 text-chart-2" />
+                              <AlertDescription className="text-foreground">
+                                <p className="font-semibold mb-2">✓ Previous recommendation still valid</p>
+                                <div className="space-y-3">
+                                  {stillBeneficialOpts.map(({ opt, currentBenchedPrediction, currentStartingPrediction }, i) => (
+                                    <div key={i} className="text-sm space-y-2">
+                                      <p className="font-medium">
+                                        Bench <span className="font-bold">{opt.benched_player_name}</span> ({currentBenchedPrediction?.toFixed(1)} pts), 
+                                        Start <span className="font-bold">{opt.starting_player_name}</span> ({currentStartingPrediction?.toFixed(1)} pts)
+                                      </p>
+                                      <p className="text-muted-foreground text-xs">
+                                        This swap is still beneficial. {opt.starting_player_name} is still predicted to score more.
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </AlertDescription>
+                            </Alert>
+                          )}
+                          {trulyNoLongerBeneficial.length === 0 && stillBeneficialOpts.length === 0 && (
+                            <Card>
+                              <CardContent className="p-8 text-center">
+                                <CheckCircle className="h-12 w-12 mx-auto text-chart-2 mb-3" />
+                                <p className="text-muted-foreground font-medium">No lineup optimizations needed</p>
+                              </CardContent>
+                            </Card>
+                          )}
                         </div>
-                      </AlertDescription>
-                    </Alert>
+                      );
+                    })()
                   ) : (
                     <Card>
                       <CardContent className="p-8 text-center">

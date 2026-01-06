@@ -2965,6 +2965,13 @@ CRITICAL REQUIREMENTS:
           (result as any)._budgetConstrained = true;
         }
 
+        // POST-PROCESSING: Update reasoning if all transfers were removed due to budget
+        if ((result as any)._budgetConstrained && result.reasoning) {
+          console.log('[GameweekAnalyzer] Updating reasoning to reflect budget-constrained transfers...');
+          const budgetNote = `\n\n⚠️ Budget Constraint: The AI recommended transfers to address squad issues, but they were not affordable with the current budget (£${(bankBalance/10).toFixed(1)}m in bank). Consider saving transfers or selling higher-value players to fund these moves in future gameweeks.`;
+          result.reasoning = result.reasoning + budgetNote;
+        }
+
         // POST-PROCESSING: Enhance reasoning text with transfer cost explanation
         // NOTE: predicted_points field is now calculated from lineup data (lines 1069-1095)
         // so we don't need to detect/fix it here. We only enhance the reasoning text.

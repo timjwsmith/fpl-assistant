@@ -1637,36 +1637,42 @@ export class GameweekAnalyzerService {
   private async getCurrentTeam(userId: number, gameweek: number): Promise<UserTeam & { _lineupFromFallback?: boolean }> {
     // APPROACH: First ensure we have a base team with accurate bank/value,
     // THEN overlay applied lineup positions if available
-    
-    let team = await storage.getTeam(userId, gameweek);
+
+    // PERFORMANCE OPTIMIZATION: Fetch all potentially needed data in parallel
+    // This reduces total latency from sum(latencies) to max(latencies)
+    const [team, gameweeks, userSettings] = await Promise.all([
+      storage.getTeam(userId, gameweek),
+      fplApi.getGameweeks(),
+      storage.getUserSettings(userId)
+    ]);
+
+    let currentTeam = team;
     let lineupFromFallback = false;
 
     // CRITICAL: Check if gameweek deadline has passed
     // Even if we have a team record for the current GW, the POSITIONS in it
     // are from the previous GW until the deadline passes and picks are locked in
     // The FPL API only returns confirmed picks, not pending lineup changes
-    const gameweeks = await fplApi.getGameweeks();
     const currentGW = gameweeks.find((gw: any) => gw.id === gameweek);
     const deadlinePassed = currentGW ? new Date(currentGW.deadline_time) < new Date() : false;
-    
-    if (!deadlinePassed && !team) {
+
+    if (!deadlinePassed && !currentTeam) {
       console.log(`[GameweekAnalyzer] ⚠️ GW${gameweek} deadline not yet passed - will need fallback data`);
       lineupFromFallback = true;
     }
 
     // Step 1: Ensure we have a base team with accurate bank/value
-    if (!team) {
+    if (!currentTeam) {
       // Try previous gameweek from DB (FALLBACK - lineup may be stale)
-      team = await storage.getTeam(userId, gameweek - 1);
-      if (team) {
+      currentTeam = await storage.getTeam(userId, gameweek - 1);
+      if (currentTeam) {
         console.log(`[GameweekAnalyzer] ⚠️ Using GW${gameweek - 1} team data as fallback for GW${gameweek}`);
         lineupFromFallback = true;
       }
     }
 
-    if (!team) {
-      // Fetch from FPL API using manager ID
-      const userSettings = await storage.getUserSettings(userId);
+    if (!currentTeam) {
+      // Fetch from FPL API using manager ID (userSettings already fetched in parallel)
       if (userSettings?.manager_id) {
         try {
           const picks = await fplApi.getManagerPicks(userSettings.manager_id, gameweek);
@@ -1678,7 +1684,7 @@ export class GameweekAnalyzerService {
           }));
 
           // Save to DB for future use
-          team = await storage.saveTeam({
+          currentTeam = await storage.saveTeam({
             userId,
             gameweek,
             players,
@@ -1699,7 +1705,7 @@ export class GameweekAnalyzerService {
             is_vice_captain: p.is_vice_captain,
           }));
 
-          team = await storage.saveTeam({
+          currentTeam = await storage.saveTeam({
             userId,
             gameweek: gameweek - 1, // Save as previous GW since that's what we fetched
             players,
@@ -1724,8 +1730,8 @@ export class GameweekAnalyzerService {
       if (appliedLineup) {
         console.log(`[GameweekAnalyzer] ✓ Found applied lineup for GW${gameweek} from plan #${appliedLineup.sourcePlanId} - overlaying on base team`);
         // Overlay applied lineup positions onto the base team (preserving bank/value)
-        team = {
-          ...team,
+        currentTeam = {
+          ...currentTeam,
           players: appliedLineup.lineup.map(p => ({
             player_id: p.player_id,
             position: p.position,
@@ -1740,9 +1746,9 @@ export class GameweekAnalyzerService {
     }
 
     // Attach metadata about data source
-    (team as any)._lineupFromFallback = lineupFromFallback;
+    (currentTeam as any)._lineupFromFallback = lineupFromFallback;
 
-    return team as UserTeam & { _lineupFromFallback?: boolean };
+    return currentTeam as UserTeam & { _lineupFromFallback?: boolean };
   }
 
   private async getManagerData(userId: number): Promise<FPLManager | null> {

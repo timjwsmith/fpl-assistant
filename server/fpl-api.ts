@@ -28,10 +28,17 @@ class FPLApiService {
   private cacheTimestamp: number = 0;
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
+  // Dedicated cache for planning gameweek to avoid repeated array searches
+  private planningGameweekCache: FPLGameweek | undefined = undefined;
+  private planningGameweekCacheTimestamp: number = 0;
+  private readonly PLANNING_GW_CACHE_DURATION = 30 * 1000; // 30 seconds
+
   clearCache(): void {
     console.log('[FPL API] Clearing bootstrap cache');
     this.bootstrapCache = null;
     this.cacheTimestamp = 0;
+    this.planningGameweekCache = undefined;
+    this.planningGameweekCacheTimestamp = 0;
   }
 
   async getBootstrapData(forceRefresh: boolean = false): Promise<BootstrapData> {
@@ -78,11 +85,22 @@ class FPLApiService {
   }
 
   async getPlanningGameweek(): Promise<FPLGameweek | undefined> {
+    // Check dedicated cache first (30s TTL) to avoid repeated array searches
+    // This method is called 12+ times per request batch, so caching provides significant performance gain
+    const now = Date.now();
+    if (this.planningGameweekCache && now - this.planningGameweekCacheTimestamp < this.PLANNING_GW_CACHE_DURATION) {
+      return this.planningGameweekCache;
+    }
+
     const gameweeks = await this.getGameweeks();
     const next = gameweeks.find((gw) => gw.is_next);
     const current = gameweeks.find((gw) => gw.is_current);
-    
-    return next || current;
+
+    const result = next || current;
+    this.planningGameweekCache = result;
+    this.planningGameweekCacheTimestamp = now;
+
+    return result;
   }
 
   async getPositionTypes() {

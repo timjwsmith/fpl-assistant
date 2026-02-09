@@ -4,7 +4,6 @@ import { understatService } from "./understat-api";
 import { snapshotContext, type SnapshotContext } from "./snapshot-context";
 import { decisionLogger } from "./decision-logger";
 import { calibrationService } from "./calibration-service";
-import { minutesEstimator } from "./minutes-estimator";
 import type {
   FPLPlayer,
   FPLFixture,
@@ -149,40 +148,6 @@ Based on AVAILABILITY FIRST, then form, the NEXT fixture difficulty, underlying 
         }
       } catch (calibrationError) {
         console.warn(`[Calibration] Failed to calibrate prediction for ${context.player.web_name}:`, calibrationError);
-      }
-
-      // REALITY ADJUSTMENT #1: Apply "60-Minute" Minutes Factor
-      // Multiply prediction by (expectedMinutes / 90) to account for rotation risk
-      try {
-        const minutesData = await minutesEstimator.estimateMinutes(context.player);
-        const minutesFactor = minutesData.expectedMinutes / 90;
-        const beforeMinutesAdjustment = predictedPoints;
-
-        predictedPoints = predictedPoints * minutesFactor;
-
-        console.log(`[Minutes Factor] ${context.player.web_name}: Expected ${minutesData.expectedMinutes} mins (${minutesFactor.toFixed(2)}x) → ${beforeMinutesAdjustment.toFixed(2)} → ${predictedPoints.toFixed(2)} pts`);
-      } catch (minutesError) {
-        console.warn(`[Minutes Factor] Failed to apply minutes adjustment for ${context.player.web_name}:`, minutesError);
-      }
-
-      // REALITY ADJUSTMENT #2: Apply "Away Game Penalty" (15% reduction)
-      // Reduce predicted points by 15% if the player is playing away from home
-      const nextFixture = context.upcomingFixtures[0];
-      if (nextFixture) {
-        const isAway = nextFixture.team_a === context.player.team;
-        if (isAway) {
-          const beforeAwayPenalty = predictedPoints;
-          predictedPoints = predictedPoints * 0.85;
-          console.log(`[Away Penalty] ${context.player.web_name}: Playing away → ${beforeAwayPenalty.toFixed(2)} → ${predictedPoints.toFixed(2)} pts (15% reduction)`);
-        }
-      }
-
-      // REALITY ADJUSTMENT #3: Apply "Poisson Distribution" Reality Cap
-      // No single player (except captain, handled elsewhere) should exceed 9 points
-      if (predictedPoints > 9) {
-        const beforeCap = predictedPoints;
-        predictedPoints = 9;
-        console.log(`[Reality Cap] ${context.player.web_name}: Capped at 9 pts → ${beforeCap.toFixed(2)} → ${predictedPoints} pts`);
       }
     }
 

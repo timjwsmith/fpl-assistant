@@ -1282,16 +1282,10 @@ export class PostgresStorage implements IStorage {
 
   async bulkSavePlayerMinutesHistory(records: InsertPlayerMinutesHistory[]): Promise<void> {
     if (records.length === 0) return;
-
-    // Batch insert with conflict handling - 100x faster than sequential loop
-    // Uses onConflictDoNothing for bulk operations to avoid complexity
-    // Individual updates can use savePlayerMinutesHistory if needed
-    await db
-      .insert(playerMinutesHistory)
-      .values(records)
-      .onConflictDoNothing({
-        target: [playerMinutesHistory.playerId, playerMinutesHistory.gameweek, playerMinutesHistory.season]
-      });
+    
+    for (const record of records) {
+      await this.savePlayerMinutesHistory(record);
+    }
   }
 
   // Prediction Evaluations methods

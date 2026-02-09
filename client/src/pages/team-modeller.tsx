@@ -4,7 +4,7 @@ import { PitchVisualization } from "@/components/pitch-visualization";
 import { PlayerSearchPanel } from "@/components/player-search-panel";
 import { PredictionPanel } from "@/components/prediction-panel";
 import { Badge } from "@/components/ui/badge";
-import { Save, Undo, Shield, ArrowRightLeft, RefreshCw, FlaskConical, Loader2 } from "lucide-react";
+import { Save, Undo, Shield, ArrowRightLeft, RefreshCw, FlaskConical, Loader2, AlertTriangle } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -59,6 +59,7 @@ export default function TeamModeller() {
   const [savedTeam, setSavedTeam] = useState<UserTeam | null>(null);
   const [aiPrediction, setAiPrediction] = useState<{ insights: string[]; predicted_points: number; confidence: number } | null>(null);
   const [whatIfResult, setWhatIfResult] = useState<GameweekPlan | null>(null);
+  const [staleDataInfo, setStaleDataInfo] = useState<{ isStale: boolean; reason: string } | null>(null);
   const hasAttemptedAutoSync = useRef(false);
   const hasHydratedFromSavedTeam = useRef(false);
 
@@ -75,6 +76,7 @@ export default function TeamModeller() {
   const { data: managerStatus } = useQuery<{
     success: boolean;
     teamValue: number;
+    bank: number;
     freeTransfers: number;
     playerCount: number;
     captainId: number | null;
@@ -113,6 +115,10 @@ export default function TeamModeller() {
       queryClient.invalidateQueries({ queryKey: [`/api/manager/${settings?.manager_id}/status`] });
       
       if (data.dataIsStale) {
+        setStaleDataInfo({
+          isStale: true,
+          reason: data.staleReason || "Your latest transfers may not be visible yet. Use 'Show all players' toggle to manually add new players.",
+        });
         toast({
           title: "Team synced with limitations",
           description: data.staleReason || "Your latest transfers may not be visible yet. Use 'Show all players' toggle to manually add new players.",
@@ -120,6 +126,7 @@ export default function TeamModeller() {
           duration: 10000,
         });
       } else {
+        setStaleDataInfo(null);
         toast({
           title: "Team synced successfully",
           description: "Your FPL team has been loaded from your manager account",
@@ -156,8 +163,9 @@ export default function TeamModeller() {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const selectedPlayers = slots.filter(s => s.player !== null).map(s => s.player!);
-  const teamValue = selectedPlayers.reduce((sum, p) => sum + p.now_cost / 10, 0);
-  const budgetRemaining = 100.0 - teamValue;
+  const computedTeamValue = selectedPlayers.reduce((sum, p) => sum + p.now_cost / 10, 0);
+  const teamValue = managerStatus?.teamValue ? managerStatus.teamValue / 10 : computedTeamValue;
+  const budgetRemaining = managerStatus?.bank !== undefined ? managerStatus.bank / 10 : (100.0 - computedTeamValue);
   const playingCount = slots.slice(0, 11).filter(s => s.player !== null).length;
 
   const saveTeamMutation = useMutation({
@@ -846,6 +854,18 @@ export default function TeamModeller() {
 
   return (
     <div className="space-y-6" data-testid="page-team-modeller">
+      {staleDataInfo?.isStale && (
+        <div className="rounded-lg border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 p-4 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+          <div>
+            <h4 className="font-semibold text-amber-800 dark:text-amber-300">Team Data May Be Outdated</h4>
+            <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+              {staleDataInfo.reason}
+            </p>
+          </div>
+        </div>
+      )}
+
       <div>
         <h1 className="text-4xl font-bold tracking-tight">Team Modeller</h1>
         <p className="text-muted-foreground mt-2">

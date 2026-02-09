@@ -6,6 +6,7 @@ import type { InsertUserTeam, FPLPick, FPLPlayer } from "@shared/schema";
 interface SyncResult {
   success: boolean;
   teamValue: number;
+  bank: number;
   freeTransfers: number;
   playerCount: number;
   captainId: number | null;
@@ -181,11 +182,25 @@ export class ManagerSyncService {
       // ALSO save to planning gameweek (is_next) so Team Modeller can display it
       // Team Modeller queries for planning GW, not current GW
       if (nextGameweek && nextGameweek.id !== actualGameweek.id) {
-        const planningTeamData: InsertUserTeam = {
-          ...teamData,
-          gameweek: nextGameweek.id,
-        };
-        await storage.saveTeam(planningTeamData);
+        if (dataIsStale) {
+          const existingPlanningTeam = await storage.getTeam(userId, nextGameweek.id);
+          if (existingPlanningTeam) {
+            console.log(`[Manager Sync] ⚠️ Data is stale (GW${actualGameweek.id}) and planning GW${nextGameweek.id} team already exists - skipping overwrite to preserve user adjustments`);
+          } else {
+            console.log(`[Manager Sync] Data is stale but no existing team for GW${nextGameweek.id} - saving as initial planning team`);
+            const planningTeamData: InsertUserTeam = {
+              ...teamData,
+              gameweek: nextGameweek.id,
+            };
+            await storage.saveTeam(planningTeamData);
+          }
+        } else {
+          const planningTeamData: InsertUserTeam = {
+            ...teamData,
+            gameweek: nextGameweek.id,
+          };
+          await storage.saveTeam(planningTeamData);
+        }
       }
 
       const captainPick = picks.picks.find(p => p.is_captain);
@@ -194,6 +209,7 @@ export class ManagerSyncService {
       return {
         success: true,
         teamValue,
+        bank,
         freeTransfers,
         playerCount: players.length,
         captainId: captainPick?.element || null,
@@ -211,6 +227,7 @@ export class ManagerSyncService {
       return {
         success: false,
         teamValue: 0,
+        bank: 0,
         freeTransfers: 0,
         playerCount: 0,
         captainId: null,
@@ -261,6 +278,7 @@ export class ManagerSyncService {
       return {
         success: true,
         teamValue: team.teamValue,
+        bank: team.bank,
         freeTransfers,
         playerCount: team.players.length,
         captainId: captainPlayer?.player_id || null,

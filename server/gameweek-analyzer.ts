@@ -1542,6 +1542,11 @@ export class GameweekAnalyzerService {
     const fixtures = context.snapshot.data.fixtures;
     const gameweeks = context.snapshot.data.gameweeks;
 
+    // Use FPL API authoritative bank value (not computed from current prices)
+    // FPL's bank is based on purchase prices, not current market value
+    // The database stores the value from FPL API sync
+    console.log(`[GameweekAnalyzer] Using FPL authoritative bank: £${((currentTeam.bank || 0) / 10).toFixed(1)}m, team value: £${((currentTeam.teamValue || 0) / 10).toFixed(1)}m`);
+
     // Filter fixtures for next 4-6 gameweeks
     const upcomingFixtures = fixtures.filter(
       (f: FPLFixture) => f.event && f.event >= gameweek && f.event <= gameweek + 5
@@ -1637,42 +1642,36 @@ export class GameweekAnalyzerService {
   private async getCurrentTeam(userId: number, gameweek: number): Promise<UserTeam & { _lineupFromFallback?: boolean }> {
     // APPROACH: First ensure we have a base team with accurate bank/value,
     // THEN overlay applied lineup positions if available
-
-    // PERFORMANCE OPTIMIZATION: Fetch all potentially needed data in parallel
-    // This reduces total latency from sum(latencies) to max(latencies)
-    const [team, gameweeks, userSettings] = await Promise.all([
-      storage.getTeam(userId, gameweek),
-      fplApi.getGameweeks(),
-      storage.getUserSettings(userId)
-    ]);
-
-    let currentTeam = team;
+    
+    let team = await storage.getTeam(userId, gameweek);
     let lineupFromFallback = false;
 
     // CRITICAL: Check if gameweek deadline has passed
     // Even if we have a team record for the current GW, the POSITIONS in it
     // are from the previous GW until the deadline passes and picks are locked in
     // The FPL API only returns confirmed picks, not pending lineup changes
+    const gameweeks = await fplApi.getGameweeks();
     const currentGW = gameweeks.find((gw: any) => gw.id === gameweek);
     const deadlinePassed = currentGW ? new Date(currentGW.deadline_time) < new Date() : false;
-
-    if (!deadlinePassed && !currentTeam) {
+    
+    if (!deadlinePassed && !team) {
       console.log(`[GameweekAnalyzer] ⚠️ GW${gameweek} deadline not yet passed - will need fallback data`);
       lineupFromFallback = true;
     }
 
     // Step 1: Ensure we have a base team with accurate bank/value
-    if (!currentTeam) {
+    if (!team) {
       // Try previous gameweek from DB (FALLBACK - lineup may be stale)
-      currentTeam = await storage.getTeam(userId, gameweek - 1);
-      if (currentTeam) {
+      team = await storage.getTeam(userId, gameweek - 1);
+      if (team) {
         console.log(`[GameweekAnalyzer] ⚠️ Using GW${gameweek - 1} team data as fallback for GW${gameweek}`);
         lineupFromFallback = true;
       }
     }
 
-    if (!currentTeam) {
-      // Fetch from FPL API using manager ID (userSettings already fetched in parallel)
+    if (!team) {
+      // Fetch from FPL API using manager ID
+      const userSettings = await storage.getUserSettings(userId);
       if (userSettings?.manager_id) {
         try {
           const picks = await fplApi.getManagerPicks(userSettings.manager_id, gameweek);
@@ -1684,7 +1683,7 @@ export class GameweekAnalyzerService {
           }));
 
           // Save to DB for future use
-          currentTeam = await storage.saveTeam({
+          team = await storage.saveTeam({
             userId,
             gameweek,
             players,
@@ -1705,7 +1704,7 @@ export class GameweekAnalyzerService {
             is_vice_captain: p.is_vice_captain,
           }));
 
-          currentTeam = await storage.saveTeam({
+          team = await storage.saveTeam({
             userId,
             gameweek: gameweek - 1, // Save as previous GW since that's what we fetched
             players,
@@ -1730,8 +1729,8 @@ export class GameweekAnalyzerService {
       if (appliedLineup) {
         console.log(`[GameweekAnalyzer] ✓ Found applied lineup for GW${gameweek} from plan #${appliedLineup.sourcePlanId} - overlaying on base team`);
         // Overlay applied lineup positions onto the base team (preserving bank/value)
-        currentTeam = {
-          ...currentTeam,
+        team = {
+          ...team,
           players: appliedLineup.lineup.map(p => ({
             player_id: p.player_id,
             position: p.position,
@@ -1746,9 +1745,9 @@ export class GameweekAnalyzerService {
     }
 
     // Attach metadata about data source
-    (currentTeam as any)._lineupFromFallback = lineupFromFallback;
+    (team as any)._lineupFromFallback = lineupFromFallback;
 
-    return currentTeam as UserTeam & { _lineupFromFallback?: boolean };
+    return team as UserTeam & { _lineupFromFallback?: boolean };
   }
 
   private async getManagerData(userId: number): Promise<FPLManager | null> {
@@ -2063,6 +2062,85 @@ If significant changes occurred → Explain EXACTLY what changed (with specific 
       })
       .filter(Boolean);
 
+    // Calculate team counts to identify blocked teams (already have 3 players)
+    const teamCounts: { [teamId: number]: { count: number; teamName: string; players: string[] } } = {};
+    squadDetails.forEach((p: any) => {
+      const player = allPlayers.find((pl: FPLPlayer) => pl.id === p.id);
+      if (player) {
+        const teamId = player.team;
+        if (!teamCounts[teamId]) {
+          teamCounts[teamId] = { count: 0, teamName: p.team, players: [] };
+        }
+        teamCounts[teamId].count++;
+        teamCounts[teamId].players.push(p.name);
+      }
+    });
+    
+    // Detect teams OVER the limit (>3 players) - these require MANDATORY transfers out
+    // Also calculate affordable price for each player from over-limit teams
+    const overLimitTeams = Object.entries(teamCounts)
+      .filter(([_, info]) => info.count > 3)
+      .map(([teamId, info]) => {
+        // Find the actual players from this team with their selling prices
+        const playersWithPrices = squadDetails
+          .filter((p: any) => {
+            const player = allPlayers.find((pl: FPLPlayer) => pl.id === p.id);
+            return player && player.team === parseInt(teamId);
+          })
+          .map((p: any) => ({
+            name: p.name,
+            id: p.id,
+            position: p.position,
+            sellingPrice: p.selling_price,
+            maxBuyPrice: (p.selling_price + inputData.currentTeam.bank / 10).toFixed(1)
+          }));
+        
+        return {
+          teamId: parseInt(teamId),
+          teamName: info.teamName,
+          count: info.count,
+          players: info.players,
+          playersWithPrices,
+          excessCount: info.count - 3  // How many players need to be transferred out
+        };
+      });
+    
+    // Detect teams AT the limit (exactly 3 players) - cannot add more
+    const blockedTeams = Object.entries(teamCounts)
+      .filter(([_, info]) => info.count === 3)
+      .map(([teamId, info]) => ({
+        teamId: parseInt(teamId),
+        teamName: info.teamName,
+        count: info.count,
+        players: info.players
+      }));
+    
+    // Build warning messages for over-limit teams (MANDATORY transfers required)
+    // Include price ceilings for each player to ensure AI picks affordable replacements
+    const overLimitTeamsInfo = overLimitTeams.length > 0
+      ? `\n\n🚨🚨🚨 CRITICAL: SQUAD RULE VIOLATION - MANDATORY TRANSFERS REQUIRED 🚨🚨🚨
+${overLimitTeams.map(t => `🔴 ${t.teamName}: ${t.count} players (${t.players.join(', ')}) - EXCEEDS MAXIMUM OF 3!
+   ➡️ You MUST transfer OUT at least ${t.excessCount} player(s) from ${t.teamName} in your recommendations.
+   ➡️ This is likely due to a January transfer - one of your players moved to this club.
+   
+   💰 AFFORDABLE REPLACEMENTS - PRICE LIMITS:
+${t.playersWithPrices.map((p: any) => `   • If you sell ${p.name} (ID:${p.id}, ${p.position}, SP:£${p.sellingPrice.toFixed(1)}m) → MAX buy price: £${p.maxBuyPrice}m
+      ⚠️ Do NOT recommend a player costing more than £${p.maxBuyPrice}m as the replacement!`).join('\n')}`).join('\n')}
+
+**ABSOLUTE REQUIREMENT**: Your transfer recommendations MUST include at least one transfer OUT from the over-limit team(s) above.
+**BUDGET CONSTRAINT**: The replacement player MUST cost ≤ the MAX buy price shown above. DO NOT recommend expensive players like Gabriel if they exceed the limit.
+If you do not fix this violation OR exceed the budget, the plan WILL FAIL. This is non-negotiable.
+`
+      : '';
+    
+    const blockedTeamsInfo = blockedTeams.length > 0 
+      ? `\n\n🚫 TEAMS AT MAXIMUM CAPACITY (3 PLAYERS) - DO NOT TRANSFER IN FROM THESE TEAMS 🚫
+${blockedTeams.map(t => `⛔ ${t.teamName}: ${t.count} players (${t.players.join(', ')}) - CANNOT add more players from this team!`).join('\n')}
+
+**CRITICAL**: If you recommend a transfer IN from any of these teams, the plan WILL FAIL validation.
+`
+      : '';
+
     // Helper function to check if a player is available (not injured/suspended/unavailable)
     const isPlayerAvailable = (p: FPLPlayer): boolean => {
       // Exclude players with status: 'i' (injured), 'u' (unavailable), 's' (suspended)
@@ -2228,7 +2306,7 @@ BUDGET & TRANSFERS:
 - Team Value: £${(inputData.currentTeam.teamValue / 10).toFixed(1)}m (total squad value)
 
 🚨 BUDGET REALITY CHECK - READ THIS BEFORE RECOMMENDING TRANSFERS 🚨
-Your bank is £${(inputData.currentTeam.bank / 10).toFixed(1)}m. Here's what you can ACTUALLY afford:
+Your bank is £${(inputData.currentTeam.bank / 10).toFixed(1)}m. Here's what you can ACTUALLY afford:${blockedTeamsInfo}
 ${squadDetails.sort((a: any, b: any) => b.selling_price - a.selling_price).slice(0, 5).map((p: any) => 
   `• Sell ${p.name} (SP: £${p.selling_price.toFixed(1)}m) → Max buy: £${(p.selling_price + inputData.currentTeam.bank / 10).toFixed(1)}m`
 ).join('\n')}
@@ -2255,6 +2333,7 @@ ${previousPlanContext}
 ═══════════════════════════════════════════════════════════════════════
 🚨🚨🚨 CRITICAL - THESE ARE HARD CONSTRAINTS THAT MUST BE FOLLOWED 🚨🚨🚨
 ═══════════════════════════════════════════════════════════════════════
+${overLimitTeamsInfo}
 
 ═══════════════════════════════════════════════════════════════════════
 ⚠️ TRANSFER RECOMMENDATION INTEGRITY - EACH TRANSFER MUST STAND ALONE ⚠️
@@ -2842,6 +2921,28 @@ CRITICAL REQUIREMENTS:
           if (!transfer.expected_points_gain_timeframe) {
             console.warn(`[GameweekAnalyzer] Missing expected_points_gain_timeframe for transfer, defaulting to "6 gameweeks"`);
             transfer.expected_points_gain_timeframe = "6 gameweeks";
+          }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // CRITICAL: Filter out transfers where player_in is already in squad
+        // ═══════════════════════════════════════════════════════════════════════
+        const currentSquadPlayerIds = new Set(currentTeam.players.map((p: any) => p.player_id));
+        const preFilterCount = result.transfers.length;
+        result.transfers = result.transfers.filter((transfer: any) => {
+          if (currentSquadPlayerIds.has(transfer.player_in_id)) {
+            const playerIn = allPlayers.find((p: FPLPlayer) => p.id === transfer.player_in_id);
+            const playerInName = playerIn?.web_name || `ID ${transfer.player_in_id}`;
+            console.log(`[GameweekAnalyzer] ⚠️ Filtered out transfer: ${playerInName} already in squad`);
+            return false;
+          }
+          return true;
+        });
+        if (result.transfers.length < preFilterCount) {
+          console.log(`[GameweekAnalyzer] Filtered ${preFilterCount - result.transfers.length} transfers for players already in squad`);
+          if (result.transfers.length === 0 && preFilterCount > 0) {
+            console.log(`[GameweekAnalyzer] ⚠️ All transfers filtered (players already in squad) - team data may be stale. Returning plan with no transfers.`);
+            result.ai_reasoning = (result.ai_reasoning || '') + '\n\nNote: All recommended transfers were filtered because the suggested players are already in your squad. This may indicate your team data is outdated - try syncing your team again.';
           }
         }
 

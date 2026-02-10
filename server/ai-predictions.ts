@@ -14,11 +14,33 @@ import type {
   ChipStrategy,
 } from "@shared/schema";
 
-// Using Replit AI Integrations blueprint with GPT-4o for deterministic predictions (temperature: 0)
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
+// AI Configuration - supports multiple providers
+// 1. Replit AI Integrations (automatic if on Replit)
+// 2. Anthropic Claude API (set ANTHROPIC_API_KEY)
+// 3. OpenAI API (set OPENAI_API_KEY)
+const getAIClient = () => {
+  if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+    return new OpenAI({
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    });
+  } else if (process.env.OPENAI_API_KEY) {
+    return new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  } else if (process.env.ANTHROPIC_API_KEY) {
+    return new OpenAI({
+      baseURL: "https://api.anthropic.com/v1",
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      defaultHeaders: {
+        "anthropic-version": "2023-06-01",
+      },
+    });
+  }
+  throw new Error("No AI API key configured. Set AI_INTEGRATIONS_OPENAI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY");
+};
+
+const openai = getAIClient();
 
 interface PredictionContext {
   player: FPLPlayer;

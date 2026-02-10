@@ -14,21 +14,23 @@ import type {
   ChipStrategy,
 } from "@shared/schema";
 
-// AI Configuration - supports multiple providers
-// 1. Replit AI Integrations (automatic if on Replit)
-// 2. Anthropic Claude API (set ANTHROPIC_API_KEY)
-// 3. OpenAI API (set OPENAI_API_KEY)
+// AI Configuration - Priority order:
+// 1. Replit AI Integrations (automatic on Replit - uses OpenAI)
+// 2. Anthropic Claude (for local/bolt.new development)
+// 3. OpenAI (fallback)
 const getAIClient = () => {
+  // Replit AI Integrations (uses OpenAI)
   if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+    console.log("Using Replit AI Integrations (OpenAI)");
     return new OpenAI({
       baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
       apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
     });
-  } else if (process.env.OPENAI_API_KEY) {
-    return new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-  } else if (process.env.ANTHROPIC_API_KEY) {
+  }
+
+  // Anthropic Claude (preferred for local development)
+  if (process.env.ANTHROPIC_API_KEY) {
+    console.log("Using Anthropic Claude");
     return new OpenAI({
       baseURL: "https://api.anthropic.com/v1",
       apiKey: process.env.ANTHROPIC_API_KEY,
@@ -37,7 +39,16 @@ const getAIClient = () => {
       },
     });
   }
-  throw new Error("No AI API key configured. Set AI_INTEGRATIONS_OPENAI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY");
+
+  // OpenAI fallback
+  if (process.env.OPENAI_API_KEY) {
+    console.log("Using OpenAI");
+    return new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
+
+  throw new Error("No AI API key configured. Set ANTHROPIC_API_KEY for local development, or AI_INTEGRATIONS_OPENAI_API_KEY on Replit");
 };
 
 const openai = getAIClient();

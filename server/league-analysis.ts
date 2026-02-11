@@ -82,7 +82,7 @@ class LeagueAnalysisService {
             captain,
             viceCaptain,
             picks: playerIds,
-            chipUsed: picks.active_chip || null,
+            chipUsed: picks.chips || null,
           });
         } catch (error) {
           console.error(`[LEAGUE ANALYSIS] Error fetching picks for ${entry.entry}:`, error);

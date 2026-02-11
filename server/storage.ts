@@ -1022,9 +1022,10 @@ export class PostgresStorage implements IStorage {
   async cleanupExpiredPrecomputations(): Promise<number> {
     const result = await db
       .delete(aiPrecomputations)
-      .where(lte(aiPrecomputations.expiresAt, new Date()));
-    
-    return result.rowCount || 0;
+      .where(lte(aiPrecomputations.expiresAt, new Date()))
+      .returning();
+
+    return result.length;
   }
 
   // AI Decision Ledger methods

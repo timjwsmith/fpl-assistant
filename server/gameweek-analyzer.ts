@@ -21,10 +21,17 @@ import type {
   AutomationSettings,
 } from "@shared/schema";
 
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
+let openai: OpenAI | null = null;
+
+function getOpenAI(): OpenAI {
+  if (!openai) {
+    openai = new OpenAI({
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || "sk-placeholder",
+    });
+  }
+  return openai;
+}
 
 const aiPredictionService = new AIPredictionService();
 
@@ -2820,7 +2827,7 @@ CRITICAL REQUIREMENTS:
           : finalPromptWithLearning;
         
         console.log(`[GameweekAnalyzer] Calling OpenAI API (attempt ${attempt + 1}/${maxRetries + 1})`);
-        const response = await openai.chat.completions.create({
+        const response = await getOpenAI().chat.completions.create({
           model: "gpt-4o",
           messages: [{ role: "user", content: finalPrompt }],
           response_format: { type: "json_object" },

@@ -70,6 +70,7 @@ export default function TeamModeller() {
   
   const { data: settings } = useQuery<UserSettings>({
     queryKey: ["/api/settings", userId],
+    queryFn: () => apiRequest("GET", `/api/settings/${userId}`),
     staleTime: 60 * 1000,
   });
 
@@ -86,6 +87,7 @@ export default function TeamModeller() {
     lastSyncTime: string;
   }>({
     queryKey: ["/api/manager", settings?.manager_id, "status"],
+    queryFn: () => apiRequest("GET", `/api/manager/${settings?.manager_id}/status`),
     enabled: !!settings?.manager_id,
     retry: false,
   });
@@ -96,6 +98,7 @@ export default function TeamModeller() {
   
   const { data: savedTeamData, isLoading: loadingSavedTeam, isFetched: savedTeamFetched } = useQuery<UserTeam>({
     queryKey: [`/api/teams/${userId}?gameweek=${planningGameweekId}`],
+    queryFn: () => apiRequest("GET", `/api/teams/${userId}?gameweek=${planningGameweekId}`),
     enabled: !!planningGameweekId,
   });
 
@@ -144,6 +147,7 @@ export default function TeamModeller() {
 
   const { data: transfers } = useQuery<Transfer[]>({
     queryKey: [`/api/transfers/${userId}?gameweek=${planningGameweekId}`],
+    queryFn: () => apiRequest("GET", `/api/transfers/${userId}?gameweek=${planningGameweekId}`),
     enabled: !!planningGameweekId,
   });
   

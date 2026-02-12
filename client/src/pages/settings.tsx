@@ -34,6 +34,7 @@ export default function Settings() {
 
   const { data: settings, isLoading, error, refetch } = useQuery<UserSettings>({
     queryKey: [`/api/settings/${userId}`],
+    queryFn: () => apiRequest("GET", `/api/settings/${userId}`),
     staleTime: 60 * 1000,
   });
 

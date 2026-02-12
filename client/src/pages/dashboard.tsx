@@ -24,6 +24,7 @@ export default function Dashboard() {
 
   const { data: settings } = useQuery<UserSettings>({
     queryKey: ["/api/settings", userId],
+    queryFn: () => apiRequest("GET", `/api/settings/${userId}`),
     staleTime: 60 * 1000,
   });
 
@@ -39,6 +40,7 @@ export default function Dashboard() {
     lastSyncTime: string;
   }>({
     queryKey: ["/api/manager", settings?.manager_id, "status"],
+    queryFn: () => apiRequest("GET", `/api/manager/${settings?.manager_id}/status`),
     enabled: !!settings?.manager_id,
     retry: false,
   });

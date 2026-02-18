@@ -8,7 +8,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { TrendingUp, TrendingDown, Target, RefreshCw, BarChart3, Activity } from "lucide-react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { usePerformanceData, useUpdateActualPoints } from "@/hooks/use-performance-data";
 import { useFPLGameweeks, useFPLPlayers } from "@/hooks/use-fpl-data";
 import { ErrorState } from "@/components/error-state";
@@ -23,7 +22,6 @@ export default function Performance() {
 
   const { data: settings, isLoading: loadingSettings } = useQuery<UserSettings>({
     queryKey: ["/api/settings", userId],
-    queryFn: () => apiRequest("GET", `/api/settings/${userId}`),
     staleTime: 60 * 1000,
   });
 

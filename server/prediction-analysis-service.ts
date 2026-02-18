@@ -3,17 +3,11 @@ import { fplApi } from './fpl-api';
 import type { GameweekPlan } from '../shared/schema';
 import OpenAI from 'openai';
 
-let openai: OpenAI | null = null;
-
-function getOpenAI(): OpenAI {
-  if (!openai) {
-    openai = new OpenAI({
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || "sk-placeholder",
-    });
-  }
-  return openai;
-}
+// Using Replit AI Integrations - provides OpenAI-compatible API access without requiring your own API key
+const openai = new OpenAI({
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
+});
 
 interface PredictionFailureAnalysis {
   gameweek: number;
@@ -518,7 +512,7 @@ CORRECT EXAMPLES (copy these patterns):
 Format as bullet points starting with "• ". Max 4 bullets.`;
 
     try {
-      const response = await getOpenAI().chat.completions.create({
+      const response = await openai.chat.completions.create({
         model: 'gpt-4o',
         messages: [
           {

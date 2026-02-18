@@ -144,34 +144,34 @@ export async function pushToGitHub(repoName: string, createIfNotExists: boolean 
     }
   }
 
-  const createBlobWithRetry = async (file: { path: string; content: string }, retries = 3): Promise<{ path: string; sha: string; mode: '100644'; type: 'blob' }> => {
-    for (let attempt = 0; attempt < retries; attempt++) {
-      try {
-        const { data: blob } = await octokit.git.createBlob({
-          owner,
-          repo: repoName,
-          content: file.content,
-          encoding: 'base64',
-        });
-        return { path: file.path, sha: blob.sha, mode: '100644' as const, type: 'blob' as const };
-      } catch (err: any) {
-        if (err.status === 403 && attempt < retries - 1) {
-          const wait = (attempt + 1) * 30000;
-          console.log(`[GitHub Sync] Rate limited, waiting ${wait / 1000}s before retry...`);
-          await new Promise(r => setTimeout(r, wait));
-        } else {
-          throw err;
-        }
-      }
-    }
-    throw new Error('Exhausted retries');
-  };
-
   try {
     console.log(`[GitHub Sync] Collecting files...`);
     const projectDir = process.cwd();
     const files = getAllFiles(projectDir);
     console.log(`[GitHub Sync] Found ${files.length} files to push`);
+
+    async function createBlobWithRetry(file: { path: string; content: string }, retries = 3): Promise<{ path: string; sha: string; mode: '100644'; type: 'blob' }> {
+      for (let attempt = 0; attempt < retries; attempt++) {
+        try {
+          const { data: blob } = await octokit.git.createBlob({
+            owner,
+            repo: repoName,
+            content: file.content,
+            encoding: 'base64',
+          });
+          return { path: file.path, sha: blob.sha, mode: '100644' as const, type: 'blob' as const };
+        } catch (err: any) {
+          if (err.status === 403 && attempt < retries - 1) {
+            const wait = (attempt + 1) * 30000;
+            console.log(`[GitHub Sync] Rate limited, waiting ${wait / 1000}s before retry...`);
+            await new Promise(r => setTimeout(r, wait));
+          } else {
+            throw err;
+          }
+        }
+      }
+      throw new Error('Exhausted retries');
+    }
 
     const batchSize = 5;
     const blobs: Array<{ path: string; sha: string; mode: '100644'; type: 'blob' }> = [];

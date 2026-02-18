@@ -67,13 +67,11 @@ export default function GameweekPlanner() {
 
   const { data: settings } = useQuery<UserSettings>({
     queryKey: ["/api/settings", userId],
-    queryFn: () => apiRequest("GET", `/api/settings/${userId}`),
     staleTime: 60 * 1000,
   });
 
   const { data: fplAuthStatus } = useQuery<{ authenticated: boolean }>({
     queryKey: ["/api/fpl-auth/status", userId],
-    queryFn: () => apiRequest("GET", `/api/fpl-auth/status/${userId}`),
   });
 
   const planningGameweek = (gameweeks as FPLGameweek[] | undefined)?.find((gw: FPLGameweek) => gw.is_next) 

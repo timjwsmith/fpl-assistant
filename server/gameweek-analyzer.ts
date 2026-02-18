@@ -21,17 +21,10 @@ import type {
   AutomationSettings,
 } from "@shared/schema";
 
-let openai: OpenAI | null = null;
-
-function getOpenAI(): OpenAI {
-  if (!openai) {
-    openai = new OpenAI({
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || "sk-placeholder",
-    });
-  }
-  return openai;
-}
+const openai = new OpenAI({
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+});
 
 const aiPredictionService = new AIPredictionService();
 
@@ -1539,8 +1532,14 @@ export class GameweekAnalyzerService {
       storage.getAutomationSettings(userId),
       this.getCurrentTeam(userId, gameweek),
       this.getManagerData(userId),
-      storage.getChipsUsed(userId),
-      storage.getTransfersByUser(userId),
+      storage.getChipsUsed(userId).catch((err) => {
+        console.warn('[GameweekAnalyzer] Failed to fetch chips used, defaulting to empty:', err.message);
+        return [] as any[];
+      }),
+      storage.getTransfersByUser(userId).catch((err) => {
+        console.warn('[GameweekAnalyzer] Failed to fetch transfer history, defaulting to empty:', err.message);
+        return [] as any[];
+      }),
     ]);
 
     // Extract data from snapshot context
@@ -2827,7 +2826,7 @@ CRITICAL REQUIREMENTS:
           : finalPromptWithLearning;
         
         console.log(`[GameweekAnalyzer] Calling OpenAI API (attempt ${attempt + 1}/${maxRetries + 1})`);
-        const response = await getOpenAI().chat.completions.create({
+        const response = await openai.chat.completions.create({
           model: "gpt-4o",
           messages: [{ role: "user", content: finalPrompt }],
           response_format: { type: "json_object" },

@@ -33,8 +33,7 @@ export default function Settings() {
   const userId = 1;
 
   const { data: settings, isLoading, error, refetch } = useQuery<UserSettings>({
-    queryKey: [`/api/settings/${userId}`],
-    queryFn: () => apiRequest("GET", `/api/settings/${userId}`),
+    queryKey: ["/api/settings", userId],
     staleTime: 60 * 1000,
   });
 
@@ -67,7 +66,7 @@ export default function Settings() {
       return apiRequest("POST", `/api/settings/${userId}`, newSettings);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/settings/${userId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings", userId] });
       toast({
         title: "Settings saved",
         description: "Your preferences have been updated successfully.",
@@ -91,7 +90,7 @@ export default function Settings() {
         title: "Team synced successfully",
         description: `Synced ${data.playerCount} players, Team Value: £${(data.teamValue / 10).toFixed(1)}m, Free Transfers: ${data.freeTransfers}`,
       });
-      queryClient.invalidateQueries({ queryKey: [`/api/settings/${userId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings", userId] });
       queryClient.invalidateQueries({ queryKey: ["/api/manager", parseInt(managerId), "status"] });
       queryClient.invalidateQueries({ queryKey: [`/api/manager/${managerId}/status`] });
     },

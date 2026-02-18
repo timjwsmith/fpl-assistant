@@ -1,5 +1,6 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { drizzle } from "drizzle-orm/neon-serverless";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import ws from "ws";
 import { eq, and, desc, gt, lte, isNull } from "drizzle-orm";
 import {
   users,
@@ -66,13 +67,9 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL environment variable is not set");
 }
 
-const client = postgres(process.env.DATABASE_URL, {
-  ssl: 'require',
-  max: 10,
-  idle_timeout: 20,
-  connect_timeout: 10,
-});
-export const db = drizzle(client);
+neonConfig.webSocketConstructor = ws;
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const db = drizzle(pool);
 
 export interface IStorage {
   getOrCreateUser(fplManagerId: number): Promise<User>;
@@ -975,7 +972,11 @@ export class PostgresStorage implements IStorage {
 
   // AI Precomputations methods
   async savePrecomputation(data: InsertAiPrecomputation): Promise<void> {
-    await db.insert(aiPrecomputations).values(data);
+    const insertData: any = { ...data };
+    if (insertData.playerId === null || insertData.playerId === undefined) {
+      delete insertData.playerId;
+    }
+    await db.insert(aiPrecomputations).values(insertData);
   }
 
   async getPrecomputation(
@@ -1027,10 +1028,9 @@ export class PostgresStorage implements IStorage {
   async cleanupExpiredPrecomputations(): Promise<number> {
     const result = await db
       .delete(aiPrecomputations)
-      .where(lte(aiPrecomputations.expiresAt, new Date()))
-      .returning();
-
-    return result.length;
+      .where(lte(aiPrecomputations.expiresAt, new Date()));
+    
+    return result.rowCount || 0;
   }
 
   // AI Decision Ledger methods
@@ -1404,4 +1404,3 @@ export class PostgresStorage implements IStorage {
 }
 
 export const storage = new PostgresStorage();
-

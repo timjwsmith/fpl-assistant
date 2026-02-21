@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Dev Server",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "--env-file=/Users/Tim/Library/Mobile Documents/com~apple~CloudDocs/Downloads/FantasyEPL/.env",
+        "--import=tsx",
+        "server/index.ts"
+      ],
+      "port": 5000
+    }
+  ]
+}

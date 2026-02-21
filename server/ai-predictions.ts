@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getAIJsonResponse } from "./ai-client";
 import { storage } from "./storage";
 import type {
   FPLPlayer,
@@ -8,12 +8,6 @@ import type {
   Prediction,
   ChipStrategy,
 } from "@shared/schema";
-
-// Using Replit AI Integrations blueprint - the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
 
 interface PredictionContext {
   player: FPLPlayer;
@@ -54,16 +48,10 @@ Based on form, fixtures, and underlying stats, provide a prediction in JSON form
 }
 `;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 500,
-    });
-
     let result;
     try {
-      result = JSON.parse(response.choices[0].message.content || "{}");
+      const content = await getAIJsonResponse(prompt, 500);
+      result = JSON.parse(content || "{}");
     } catch (error) {
       console.error("Failed to parse AI response for player points prediction:", error);
       result = {};
@@ -132,16 +120,10 @@ Provide 3 transfer recommendations in JSON format:
 }
 `;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 1000,
-    });
-
     let result;
     try {
-      result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
+      const content = await getAIJsonResponse(prompt, 1000);
+      result = JSON.parse(content || '{ "recommendations": [] }');
     } catch (error) {
       console.error("Failed to parse AI response for transfer recommendations:", error);
       result = { recommendations: [] };
@@ -160,7 +142,7 @@ Provide 3 transfer recommendations in JSON format:
               userId,
               gameweek,
             });
-            
+
             await storage.upsertPrediction({
               userId,
               gameweek,
@@ -217,16 +199,10 @@ Provide 3 captain recommendations in JSON format:
 }
 `;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 1000,
-    });
-
     let result;
     try {
-      result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
+      const content = await getAIJsonResponse(prompt, 1000);
+      result = JSON.parse(content || '{ "recommendations": [] }');
     } catch (error) {
       console.error("Failed to parse AI response for captain recommendations:", error);
       result = { recommendations: [] };
@@ -289,16 +265,10 @@ Provide chip strategy in JSON format:
 }
 `;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 1000,
-    });
-
     let result;
     try {
-      result = JSON.parse(response.choices[0].message.content || "{ \"strategies\": [] }");
+      const content = await getAIJsonResponse(prompt, 1000);
+      result = JSON.parse(content || '{ "strategies": [] }');
     } catch (error) {
       console.error("Failed to parse AI response for chip strategy:", error);
       result = { strategies: [] };
@@ -327,16 +297,10 @@ Provide analysis in JSON format:
 }
 `;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 500,
-    });
-
     let result;
     try {
-      result = JSON.parse(response.choices[0].message.content || "{}");
+      const content = await getAIJsonResponse(prompt, 500);
+      result = JSON.parse(content || "{}");
     } catch (error) {
       console.error("Failed to parse AI response for team composition analysis:", error);
       result = {};

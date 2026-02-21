@@ -6,6 +6,7 @@
       "runtimeExecutable": "node",
       "runtimeArgs": [
         "--env-file=/Users/Tim/Library/Mobile Documents/com~apple~CloudDocs/Downloads/FantasyEPL/.env",
+        "--dns-result-order=ipv4first",
         "--import=tsx",
         "server/index.ts"
       ],

@@ -22,10 +22,9 @@ import type {
   AutomationSettings,
 } from "@shared/schema";
 
-const openai = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY
+const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
+      apiKey: process.env.OPENAI_API_KEY,
     })
   : null;
 

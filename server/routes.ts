@@ -2086,50 +2086,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // GitHub Sync Endpoints
-  app.get("/api/github/user", async (req, res) => {
-    try {
-      const { getGitHubUser } = await import('./github-sync');
-      const user = await getGitHubUser();
-      res.json({ 
-        login: user.login, 
-        name: user.name, 
-        avatar_url: user.avatar_url,
-        html_url: user.html_url 
-      });
-    } catch (error: any) {
-      console.error("[GitHub] Error getting user:", error);
-      res.status(500).json({ error: error.message || "Failed to get GitHub user" });
-    }
-  });
-
-  app.get("/api/github/repos", async (req, res) => {
-    try {
-      const { listRepositories } = await import('./github-sync');
-      const repos = await listRepositories();
-      res.json({ repos });
-    } catch (error: any) {
-      console.error("[GitHub] Error listing repos:", error);
-      res.status(500).json({ error: error.message || "Failed to list repositories" });
-    }
-  });
-
-  app.post("/api/github/push", async (req, res) => {
-    try {
-      const { repoName, isPrivate } = req.body;
-      if (!repoName) {
-        return res.status(400).json({ error: "Repository name is required" });
-      }
-      
-      const { pushToGitHub } = await import('./github-sync');
-      const result = await pushToGitHub(repoName, true, isPrivate || false);
-      res.json(result);
-    } catch (error: any) {
-      console.error("[GitHub] Error pushing to repo:", error);
-      res.status(500).json({ error: error.message || "Failed to push to GitHub" });
-    }
-  });
-
   const httpServer = createServer(app);
   return httpServer;
 }

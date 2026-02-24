@@ -33,7 +33,7 @@ export default function Settings() {
   const userId = 1;
 
   const { data: settings, isLoading, error, refetch } = useQuery<UserSettings>({
-    queryKey: ["/api/settings", userId],
+    queryKey: [`/api/settings/${userId}`],
     staleTime: 60 * 1000,
   });
 
@@ -53,20 +53,19 @@ export default function Settings() {
   }, [settings]);
 
   const { data: authStatus, refetch: refetchAuthStatus } = useQuery<FPLAuthStatus>({
-    queryKey: ["/api/fpl-auth/status", userId],
-    queryFn: async () => {
-      const response = await apiRequest("GET", `/api/fpl-auth/status/${userId}`) as FPLAuthStatus;
-      return response;
-    },
+    queryKey: [`/api/fpl-auth/status/${userId}`],
     staleTime: 30 * 1000,
   });
 
   const saveSettings = useMutation({
     mutationFn: async (newSettings: UserSettings) => {
-      return apiRequest("POST", `/api/settings/${userId}`, newSettings);
+      return apiRequest(`/api/settings/${userId}`, {
+        method: "POST",
+        body: JSON.stringify(newSettings),
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/settings", userId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/settings/${userId}`] });
       toast({
         title: "Settings saved",
         description: "Your preferences have been updated successfully.",
@@ -83,15 +82,17 @@ export default function Settings() {
 
   const syncTeam = useMutation({
     mutationFn: async (manId: string) => {
-      return apiRequest("POST", `/api/manager/sync/${manId}`, {});
+      return apiRequest(`/api/manager/sync/${manId}`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
     },
     onSuccess: (data: any) => {
       toast({
         title: "Team synced successfully",
         description: `Synced ${data.playerCount} players, Team Value: £${(data.teamValue / 10).toFixed(1)}m, Free Transfers: ${data.freeTransfers}`,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/settings", userId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/manager", parseInt(managerId), "status"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/settings/${userId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/manager/${managerId}/status`] });
     },
     onError: (error: any) => {
@@ -105,14 +106,17 @@ export default function Settings() {
 
   const emailPasswordLoginMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/fpl-auth/login", {
-        userId,
-        email: fplEmail,
-        password: fplPassword,
+      return apiRequest("/api/fpl-auth/login", {
+        method: "POST",
+        body: JSON.stringify({
+          userId,
+          email: fplEmail,
+          password: fplPassword,
+        }),
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/fpl-auth/status", userId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/fpl-auth/status/${userId}`] });
       refetchAuthStatus();
       setFplEmail("");
       setFplPassword("");
@@ -132,13 +136,16 @@ export default function Settings() {
 
   const cookieLoginMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/fpl-auth/login-with-cookies", {
-        userId,
-        cookies: fplCookies,
+      return apiRequest("/api/fpl-auth/login-with-cookies", {
+        method: "POST",
+        body: JSON.stringify({
+          userId,
+          cookies: fplCookies,
+        }),
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/fpl-auth/status", userId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/fpl-auth/status/${userId}`] });
       refetchAuthStatus();
       setFplCookies("");
       toast({
@@ -157,10 +164,12 @@ export default function Settings() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", `/api/fpl-auth/logout/${userId}`);
+      return apiRequest(`/api/fpl-auth/logout/${userId}`, {
+        method: "POST",
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/fpl-auth/status", userId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/fpl-auth/status/${userId}`] });
       refetchAuthStatus();
       setFplEmail("");
       setFplPassword("");

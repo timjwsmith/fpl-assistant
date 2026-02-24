@@ -28,6 +28,12 @@ interface FPLAuthStatus {
   expiryWarning: boolean;
 }
 
+interface AIProviderInfo {
+  provider: string;
+  model: string;
+  configured: boolean;
+}
+
 export default function Settings() {
   const { toast } = useToast();
   const userId = 1;
@@ -55,6 +61,11 @@ export default function Settings() {
   const { data: authStatus, refetch: refetchAuthStatus } = useQuery<FPLAuthStatus>({
     queryKey: [`/api/fpl-auth/status/${userId}`],
     staleTime: 30 * 1000,
+  });
+
+  const { data: aiProvider } = useQuery<AIProviderInfo>({
+    queryKey: ['/api/ai/provider'],
+    staleTime: 5 * 60 * 1000,
   });
 
   const saveSettings = useMutation({
@@ -296,6 +307,26 @@ export default function Settings() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
+              <Label>AI Provider</Label>
+              <div className="flex items-center gap-2">
+                {aiProvider?.configured ? (
+                  <Badge variant="default" className="text-xs">
+                    {aiProvider.model}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs">
+                    Not Configured
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {aiProvider?.configured
+                  ? `Using ${aiProvider.model} for predictions and analysis`
+                  : 'No AI provider configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY in .env file'}
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="risk-tolerance">Risk Tolerance</Label>
               <Select value={riskTolerance} onValueChange={(value: any) => setRiskTolerance(value)}>
                 <SelectTrigger id="risk-tolerance" data-testid="select-risk-tolerance">
@@ -319,9 +350,9 @@ export default function Settings() {
               </AlertDescription>
             </Alert>
 
-            <Button 
-              onClick={handleSave} 
-              className="w-full touch-target" 
+            <Button
+              onClick={handleSave}
+              className="w-full touch-target"
               disabled={saveSettings.isPending}
               data-testid="button-save"
             >

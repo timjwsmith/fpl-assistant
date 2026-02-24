@@ -1677,13 +1677,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User Settings Endpoints
+  app.get("/api/ai/provider", async (req, res) => {
+    try {
+      const hasOpenAI = !!process.env.OPENAI_API_KEY;
+      const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
+
+      let provider = "none";
+      let model = "Not configured";
+
+      if (hasOpenAI) {
+        provider = "openai";
+        model = "GPT-4o";
+      } else if (hasAnthropic) {
+        provider = "anthropic";
+        model = "Claude 3.5 Sonnet";
+      }
+
+      res.json({
+        provider,
+        model,
+        configured: provider !== "none",
+      });
+    } catch (error) {
+      console.error("Error checking AI provider:", error);
+      res.status(500).json({ error: "Failed to check AI provider" });
+    }
+  });
+
   app.get("/api/settings/:userId", async (req, res) => {
     try {
       const userId = parseInt(req.params.userId);
       if (isNaN(userId)) {
         return res.status(400).json({ error: "Invalid userId parameter" });
       }
-      
+
       const settings = await storage.getUserSettings(userId);
       if (!settings) {
         return res.json({

@@ -5,6 +5,7 @@ import { understatService } from "./understat-api";
 import { snapshotContext, type SnapshotContext } from "./snapshot-context";
 import { decisionLogger } from "./decision-logger";
 import { calibrationService } from "./calibration-service";
+import { statisticalPredictor } from "./statistical-predictor";
 import type {
   FPLPlayer,
   FPLFixture,
@@ -77,7 +78,53 @@ interface PredictionContext {
 }
 
 export class AIPredictionService {
-  async predictPlayerPoints(context: PredictionContext): Promise<Prediction> {
+  async predictPlayerPoints(context: PredictionContext, useStatisticalModel: boolean = true): Promise<Prediction> {
+    if (useStatisticalModel) {
+      return this.predictPlayerPointsStatistical(context);
+    }
+
+    return this.predictPlayerPointsAI(context);
+  }
+
+  private async predictPlayerPointsStatistical(context: PredictionContext): Promise<Prediction> {
+    const { fplApi } = await import("./fpl-api");
+    const allTeams = await fplApi.getTeams();
+
+    const detailedPrediction = await statisticalPredictor.predictPlayerPointsStatistical(
+      context.player,
+      context.upcomingFixtures,
+      allTeams
+    );
+
+    if (context.userId && context.gameweek) {
+      try {
+        await storage.upsertPrediction({
+          userId: context.userId,
+          gameweek: context.gameweek,
+          playerId: context.player.id,
+          predictedPoints: detailedPrediction.predicted_points,
+          actualPoints: null,
+          confidence: detailedPrediction.confidence,
+          snapshotId: context.snapshotId,
+        });
+        if (context.snapshotId) {
+          console.log(`[StatisticalPrediction] Saved prediction for player ${context.player.id} with snapshot ${context.snapshotId}`);
+        }
+      } catch (error) {
+        console.error('Error saving statistical prediction to database:', error);
+      }
+    }
+
+    return {
+      player_id: detailedPrediction.player_id,
+      predicted_points: detailedPrediction.predicted_points,
+      confidence: detailedPrediction.confidence,
+      reasoning: detailedPrediction.reasoning,
+      fixtures_considered: detailedPrediction.fixtures_considered,
+    };
+  }
+
+  private async predictPlayerPointsAI(context: PredictionContext): Promise<Prediction> {
     const position = context.player.element_type === 1 ? 'GK' : context.player.element_type === 2 ? 'DEF' : context.player.element_type === 3 ? 'MID' : 'FWD';
     const isDefensive = position === 'GK' || position === 'DEF';
     

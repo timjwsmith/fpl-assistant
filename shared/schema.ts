@@ -249,7 +249,7 @@ export type UserSettings = z.infer<typeof userSettingsSchema>;
 // Users Table
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
-  fplManagerId: integer('fpl_manager_id').unique().notNull(),
+  fplManagerId: integer('fpl_manager_id').unique(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

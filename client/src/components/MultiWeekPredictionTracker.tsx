@@ -28,7 +28,7 @@ export function MultiWeekPredictionTracker({ userId }: { userId: number }) {
       <div>
         <h3 className="text-xl font-semibold">Multi-Week Prediction Tracker</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Tracking AI's 6-week transfer gain predictions vs actual outcomes
+          Tracking transfer predictions vs actual outcomes over multiple gameweeks
         </p>
       </div>
       

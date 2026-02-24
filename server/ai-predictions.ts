@@ -384,6 +384,7 @@ Provide exactly 3 transfer recommendations in this JSON format:
       "player_out_id": <id to transfer out>,
       "player_in_id": <id to bring in>,
       "expected_points_gain": <expected additional points over next 3 GWs>,
+      "expected_points_gain_timeframe": "3 gameweeks",
       "reasoning": "<brief explanation focusing on consistency, fixtures, injuries, and ICT metrics>",
       "priority": "high|medium|low",
       "cost_impact": <price difference (positive = money saved, negative = money spent)>
@@ -402,29 +403,36 @@ Provide exactly 3 transfer recommendations in this JSON format:
         for (const rec of recommendations) {
           try {
             const playerIn = allPlayers.find(p => p.id === rec.player_in_id);
-            if (playerIn) {
-              const upcomingFixtures = fixtures.filter(f => f.event && f.event >= gameweek).slice(0, 3);
-              const prediction = await this.predictPlayerPoints({
-                player: playerIn,
-                upcomingFixtures,
-                userId,
-                gameweek,
-                snapshotId: context.snapshotId,
-              });
-              
-              await storage.upsertPrediction({
-                userId,
-                gameweek,
-                playerId: rec.player_in_id,
-                predictedPoints: prediction.predicted_points,
-                actualPoints: null,
-                confidence: rec.priority === 'high' ? 80 : rec.priority === 'medium' ? 60 : 40,
-                snapshotId: context.snapshotId,
-              });
-              console.log(`[Transfers] Saved transfer recommendation prediction for player ${rec.player_in_id} with snapshot ${context.snapshotId}`);
+            const playerOut = currentPlayers.find(p => p.id === rec.player_out_id);
+
+            if (playerIn && playerOut) {
+              // Calculate multi-gameweek predictions using statistical model
+              const upcomingFixtures = fixtures.filter(f => f.event && f.event >= gameweek && !f.finished);
+              const numGameweeks = 3; // Standard timeframe for transfer evaluation
+
+              const playerInFixtures = upcomingFixtures
+                .filter(f => f.team_h === playerIn.team || f.team_a === playerIn.team)
+                .slice(0, numGameweeks);
+
+              const playerOutFixtures = upcomingFixtures
+                .filter(f => f.team_h === playerOut.team || f.team_a === playerOut.team)
+                .slice(0, numGameweeks);
+
+              const [playerInPrediction, playerOutPrediction] = await Promise.all([
+                statisticalPredictor.predictMultipleGameweeks(playerIn, playerInFixtures, teams, numGameweeks),
+                statisticalPredictor.predictMultipleGameweeks(playerOut, playerOutFixtures, teams, numGameweeks)
+              ]);
+
+              // Calculate actual expected gain based on statistical predictions
+              const statisticalGain = playerInPrediction.totalPoints - playerOutPrediction.totalPoints;
+
+              // Update the recommendation with statistical prediction
+              rec.expected_points_gain = parseFloat(statisticalGain.toFixed(1));
+
+              console.log(`[Transfers] Statistical prediction: ${playerOut.web_name} (${playerOutPrediction.totalPoints.toFixed(1)}) → ${playerIn.web_name} (${playerInPrediction.totalPoints.toFixed(1)}) = ${statisticalGain.toFixed(1)} pts gain over ${numGameweeks} GWs`);
             }
           } catch (error) {
-            console.error(`Error saving transfer recommendation prediction for player ${rec.player_in_id}:`, error);
+            console.error(`Error calculating statistical transfer prediction for player ${rec.player_in_id}:`, error);
           }
         }
       }

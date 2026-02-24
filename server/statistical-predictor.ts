@@ -299,6 +299,42 @@ export class StatisticalPredictorService {
     return reasons.join('; ');
   }
 
+  async predictMultipleGameweeks(
+    player: FPLPlayer,
+    upcomingFixtures: FPLFixture[],
+    allTeams: FPLTeam[],
+    numGameweeks: number
+  ): Promise<{ totalPoints: number; fixtures: DetailedPrediction[] }> {
+    // Limit to the requested number of gameweeks
+    const fixturestoConsider = upcomingFixtures.slice(0, numGameweeks);
+
+    if (fixturestoConsider.length === 0) {
+      return {
+        totalPoints: 0,
+        fixtures: []
+      };
+    }
+
+    const predictions: DetailedPrediction[] = [];
+    let totalPoints = 0;
+
+    // Predict for each fixture individually
+    for (const fixture of fixturestoConsider) {
+      const prediction = await this.predictPlayerPointsStatistical(
+        player,
+        [fixture],
+        allTeams
+      );
+      predictions.push(prediction);
+      totalPoints += prediction.predicted_points;
+    }
+
+    return {
+      totalPoints,
+      fixtures: predictions
+    };
+  }
+
   private createZeroPrediction(
     player: FPLPlayer,
     position: string,

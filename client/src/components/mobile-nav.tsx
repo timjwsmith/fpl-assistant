@@ -1,4 +1,4 @@
-import { Home, Users, Repeat, Calendar, BarChart3, Settings } from "lucide-react";
+import { Home, Users, Repeat, Calendar, BarChart3, Settings, Lightbulb } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
@@ -28,10 +28,10 @@ const navItems = [
     testId: "mobile-nav-planner",
   },
   {
-    title: "AI Impact",
-    url: "/ai-impact",
-    icon: BarChart3,
-    testId: "mobile-nav-ai-impact",
+    title: "Insights",
+    url: "/insights",
+    icon: Lightbulb,
+    testId: "mobile-nav-insights",
   },
   {
     title: "Settings",

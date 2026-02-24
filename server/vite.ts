@@ -32,10 +32,7 @@ export async function setupVite(app: Express, server: Server) {
     },
     server: {
       middlewareMode: true,
-      hmr: {
-        server,
-        host: '127.0.0.1'
-      },
+      hmr: { server },
     },
     appType: "custom",
   });

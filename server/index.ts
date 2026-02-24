@@ -63,23 +63,10 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
-  const host = '127.0.0.1';
 
-  console.log(`Attempting to listen on ${host}:${port}`);
-
-  server.listen(port, host, () => {
+  // Don't specify host - let Node.js use default localhost binding
+  // Specifying '127.0.0.1' or '0.0.0.0' explicitly can cause ENOTSUP on some systems
+  server.listen(port, () => {
     log(`serving on port ${port}`);
-  });
-
-  server.on('error', (error: any) => {
-    console.error('Server error:', error);
-    if (error.code === 'ENOTSUP') {
-      console.error('\nENOTSUP error detected. This can happen on macOS with certain network configurations.');
-      console.error('Trying alternative approach...');
-      server.close();
-      server.listen(port, () => {
-        log(`serving on port ${port} (without explicit host binding)`);
-      });
-    }
   });
 })();

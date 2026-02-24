@@ -27,13 +27,15 @@ class AutomationScheduler {
 
     this.isRunning = true;
 
-    // Run initial checks
-    this.checkAndApplyPlans().catch(error => {
-      console.error('[AutoScheduler] Error in initial check:', error);
-    });
-    this.checkScheduledJobs().catch(error => {
-      console.error('[AutoScheduler] Error in initial scheduled jobs check:', error);
-    });
+    // Run initial checks in background (don't block startup)
+    setTimeout(() => {
+      this.checkAndApplyPlans().catch(error => {
+        console.error('[AutoScheduler] Error in initial check:', error);
+      });
+      this.checkScheduledJobs().catch(error => {
+        console.error('[AutoScheduler] Error in initial scheduled jobs check:', error);
+      });
+    }, 1000);
 
     // Schedule recurring checks
     this.intervalId = setInterval(() => {

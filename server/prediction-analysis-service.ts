@@ -2,12 +2,19 @@ import { storage } from './storage';
 import { fplApi } from './fpl-api';
 import type { GameweekPlan } from '../shared/schema';
 import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 
 // Using Replit AI Integrations - provides OpenAI-compatible API access without requiring your own API key
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
-});
+const openai = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY
+  ? new OpenAI({
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
+    })
+  : null;
+
+const anthropic = process.env.ANTHROPIC_API_KEY
+  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  : null;
 
 interface PredictionFailureAnalysis {
   gameweek: number;

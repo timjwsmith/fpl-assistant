@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import { storage } from "./storage";
 import { understatService } from "./understat-api";
 import { snapshotContext, type SnapshotContext } from "./snapshot-context";
@@ -15,10 +16,54 @@ import type {
 } from "@shared/schema";
 
 // Using Replit AI Integrations blueprint with GPT-4o for deterministic predictions (temperature: 0)
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
+// Fallback to Anthropic if OpenAI is not available
+const openai = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY
+  ? new OpenAI({
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
+    })
+  : null;
+
+const anthropic = process.env.ANTHROPIC_API_KEY
+  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  : null;
+
+async function getAICompletion(prompt: string, options: { temperature?: number; stream?: boolean } = {}): Promise<any> {
+  if (openai) {
+    return await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 4000,
+      temperature: options.temperature ?? 0,
+      seed: 42,
+      stream: options.stream ?? false,
+    });
+  } else if (anthropic) {
+    const response = await anthropic.messages.create({
+      model: "claude-3-5-sonnet-20241022",
+      max_tokens: 4000,
+      temperature: options.temperature ?? 0,
+      messages: [{ role: "user", content: prompt }],
+      stream: options.stream ?? false,
+    });
+    return response;
+  } else {
+    throw new Error("No AI provider configured. Please set ANTHROPIC_API_KEY or OPENAI_API_KEY");
+  }
+}
+
+function extractJSONFromResponse(response: any): any {
+  if (openai && response.choices) {
+    return JSON.parse(response.choices[0].message.content || "{}");
+  } else if (anthropic && response.content) {
+    const content = response.content[0];
+    if (content.type === "text") {
+      return JSON.parse(content.text);
+    }
+  }
+  return {};
+}
 
 interface PredictionContext {
   player: FPLPlayer;
@@ -104,20 +149,12 @@ Based on AVAILABILITY FIRST, then form, the NEXT fixture difficulty, underlying 
 }
 `;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 4000,
-      temperature: 0, // Deterministic predictions for consistency
-      seed: 42, // Perfect reproducibility for same inputs
-    });
-
     let result;
     try {
-      result = JSON.parse(response.choices[0].message.content || "{}");
+      const response = await getAICompletion(prompt);
+      result = extractJSONFromResponse(response);
     } catch (error) {
-      console.error("Failed to parse AI response for player points prediction:", error);
+      console.error("Failed to get AI response for player points prediction:", error);
       result = {};
     }
 
@@ -311,16 +348,8 @@ Provide exactly 3 transfer recommendations in this JSON format:
 }`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 4000,
-        temperature: 0, // Deterministic predictions for consistency
-        seed: 42, // Perfect reproducibility for same inputs
-      });
-
-      const result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
+      const response = await getAICompletion(prompt);
+      const result = extractJSONFromResponse(response);
       console.log('[AI] Transfer recommendations result:', JSON.stringify(result, null, 2));
       
       const recommendations = Array.isArray(result.recommendations) ? result.recommendations : [];
@@ -469,16 +498,8 @@ Provide exactly 3 captain recommendations in this JSON format:
 }`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 4000,
-        temperature: 0, // Deterministic predictions for consistency
-        seed: 42, // Perfect reproducibility for same inputs
-      });
-
-      const result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
+      const response = await getAICompletion(prompt);
+      const result = extractJSONFromResponse(response);
       console.log('[AI] Captain recommendations result:', JSON.stringify(result, null, 2));
       
       const recommendations = Array.isArray(result.recommendations) ? result.recommendations : [];
@@ -660,36 +681,70 @@ JSON format (be concise):
 
     try {
       console.log('[AI STREAM] Starting stream for', players.length, 'players');
-      
-      const stream = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 4000,
-        temperature: 0, // Deterministic predictions for consistency
-        seed: 42, // Perfect reproducibility for same inputs
-        stream: true,
-      });
 
-      let fullContent = '';
-      
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || '';
-        if (content) {
-          fullContent += content;
-          onChunk(content);
-        }
+      if (!openai && !anthropic) {
+        throw new Error("No AI provider configured");
       }
 
-      console.log('[AI STREAM] Complete. Full response:', fullContent);
-      
-      try {
-        const result = JSON.parse(fullContent);
-        onChunk('\n[DONE]');
-        console.log('[AI STREAM] Parsed result:', result.predicted_points, 'pts,', result.confidence, '% confidence');
-      } catch (parseError) {
-        console.error('[AI STREAM] Failed to parse final result:', parseError);
-        onChunk('\n[ERROR]');
+      if (openai) {
+        const stream = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [{ role: "user", content: prompt }],
+          response_format: { type: "json_object" },
+          max_completion_tokens: 4000,
+          temperature: 0,
+          seed: 42,
+          stream: true,
+        });
+
+        let fullContent = '';
+
+        for await (const chunk of stream) {
+          const content = chunk.choices[0]?.delta?.content || '';
+          if (content) {
+            fullContent += content;
+            onChunk(content);
+          }
+        }
+
+        console.log('[AI STREAM] Complete. Full response:', fullContent);
+
+        try {
+          const result = JSON.parse(fullContent);
+          onChunk('\n[DONE]');
+          console.log('[AI STREAM] Parsed result:', result.predicted_points, 'pts,', result.confidence, '% confidence');
+        } catch (parseError) {
+          console.error('[AI STREAM] Failed to parse final result:', parseError);
+          onChunk('\n[ERROR]');
+        }
+      } else if (anthropic) {
+        const stream = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 4000,
+          temperature: 0,
+          messages: [{ role: "user", content: prompt }],
+          stream: true,
+        });
+
+        let fullContent = '';
+
+        for await (const chunk of stream) {
+          if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+            fullContent += chunk.delta.text;
+            onChunk(chunk.delta.text);
+          }
+        }
+
+        console.log('[AI STREAM] Complete. Full response:', fullContent);
+
+        try {
+          const result = JSON.parse(fullContent);
+          onChunk('\n[DONE]');
+          console.log('[AI STREAM] Parsed result:', result.predicted_points, 'pts,', result.confidence, '% confidence');
+        } catch (parseError) {
+          console.error('[AI STREAM] Failed to parse final result:', parseError);
+          onChunk('\n[ERROR]');
+        }
       }
     } catch (error) {
       console.error('[AI STREAM] Error:', error);

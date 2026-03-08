@@ -1,4 +1,3 @@
-import "dotenv/config";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
@@ -69,13 +68,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 neonConfig.webSocketConstructor = ws;
-neonConfig.wsProxy = (host) => `${host}?sslmode=require`;
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle(pool);
 
 export interface IStorage {

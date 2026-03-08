@@ -28,18 +28,12 @@ interface FPLAuthStatus {
   expiryWarning: boolean;
 }
 
-interface AIProviderInfo {
-  provider: string;
-  model: string;
-  configured: boolean;
-}
-
 export default function Settings() {
   const { toast } = useToast();
   const userId = 1;
 
   const { data: settings, isLoading, error, refetch } = useQuery<UserSettings>({
-    queryKey: [`/api/settings/${userId}`],
+    queryKey: ["/api/settings", userId],
     staleTime: 60 * 1000,
   });
 
@@ -59,24 +53,20 @@ export default function Settings() {
   }, [settings]);
 
   const { data: authStatus, refetch: refetchAuthStatus } = useQuery<FPLAuthStatus>({
-    queryKey: [`/api/fpl-auth/status/${userId}`],
+    queryKey: ["/api/fpl-auth/status", userId],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/fpl-auth/status/${userId}`) as FPLAuthStatus;
+      return response;
+    },
     staleTime: 30 * 1000,
-  });
-
-  const { data: aiProvider } = useQuery<AIProviderInfo>({
-    queryKey: ['/api/ai/provider'],
-    staleTime: 5 * 60 * 1000,
   });
 
   const saveSettings = useMutation({
     mutationFn: async (newSettings: UserSettings) => {
-      return apiRequest(`/api/settings/${userId}`, {
-        method: "POST",
-        body: JSON.stringify(newSettings),
-      });
+      return apiRequest("POST", `/api/settings/${userId}`, newSettings);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/settings/${userId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings", userId] });
       toast({
         title: "Settings saved",
         description: "Your preferences have been updated successfully.",
@@ -93,17 +83,15 @@ export default function Settings() {
 
   const syncTeam = useMutation({
     mutationFn: async (manId: string) => {
-      return apiRequest(`/api/manager/sync/${manId}`, {
-        method: "POST",
-        body: JSON.stringify({}),
-      });
+      return apiRequest("POST", `/api/manager/sync/${manId}`, {});
     },
     onSuccess: (data: any) => {
       toast({
         title: "Team synced successfully",
         description: `Synced ${data.playerCount} players, Team Value: £${(data.teamValue / 10).toFixed(1)}m, Free Transfers: ${data.freeTransfers}`,
       });
-      queryClient.invalidateQueries({ queryKey: [`/api/settings/${userId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/manager", parseInt(managerId), "status"] });
       queryClient.invalidateQueries({ queryKey: [`/api/manager/${managerId}/status`] });
     },
     onError: (error: any) => {
@@ -117,17 +105,14 @@ export default function Settings() {
 
   const emailPasswordLoginMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("/api/fpl-auth/login", {
-        method: "POST",
-        body: JSON.stringify({
-          userId,
-          email: fplEmail,
-          password: fplPassword,
-        }),
+      return apiRequest("POST", "/api/fpl-auth/login", {
+        userId,
+        email: fplEmail,
+        password: fplPassword,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/fpl-auth/status/${userId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/fpl-auth/status", userId] });
       refetchAuthStatus();
       setFplEmail("");
       setFplPassword("");
@@ -147,16 +132,13 @@ export default function Settings() {
 
   const cookieLoginMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("/api/fpl-auth/login-with-cookies", {
-        method: "POST",
-        body: JSON.stringify({
-          userId,
-          cookies: fplCookies,
-        }),
+      return apiRequest("POST", "/api/fpl-auth/login-with-cookies", {
+        userId,
+        cookies: fplCookies,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/fpl-auth/status/${userId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/fpl-auth/status", userId] });
       refetchAuthStatus();
       setFplCookies("");
       toast({
@@ -175,12 +157,10 @@ export default function Settings() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest(`/api/fpl-auth/logout/${userId}`, {
-        method: "POST",
-      });
+      return apiRequest("POST", `/api/fpl-auth/logout/${userId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/fpl-auth/status/${userId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/fpl-auth/status", userId] });
       refetchAuthStatus();
       setFplEmail("");
       setFplPassword("");
@@ -307,26 +287,6 @@ export default function Settings() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>AI Provider</Label>
-              <div className="flex items-center gap-2">
-                {aiProvider?.configured ? (
-                  <Badge variant="default" className="text-xs">
-                    {aiProvider.model}
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-xs">
-                    Not Configured
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {aiProvider?.configured
-                  ? `Using ${aiProvider.model} for predictions and analysis`
-                  : 'No AI provider configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY in .env file'}
-              </p>
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="risk-tolerance">Risk Tolerance</Label>
               <Select value={riskTolerance} onValueChange={(value: any) => setRiskTolerance(value)}>
                 <SelectTrigger id="risk-tolerance" data-testid="select-risk-tolerance">
@@ -350,9 +310,9 @@ export default function Settings() {
               </AlertDescription>
             </Alert>
 
-            <Button
-              onClick={handleSave}
-              className="w-full touch-target"
+            <Button 
+              onClick={handleSave} 
+              className="w-full touch-target" 
               disabled={saveSettings.isPending}
               data-testid="button-save"
             >

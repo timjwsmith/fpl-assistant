@@ -18,10 +18,6 @@ import { gameweekSnapshot } from "./gameweek-data-snapshot";
 import { precomputationCache } from "./precomputation-cache";
 import { predictionEvaluator } from "./prediction-evaluator";
 import { calibrationService } from "./calibration-service";
-import { enhancedAIPredictions } from "./enhanced-ai-predictions";
-import { insightsGenerator } from "./insights-generator";
-import { transferAnalyzer } from "./transfer-analyzer";
-import { gameweekOptimizer } from "./gameweek-optimizer";
 import { z } from "zod";
 import { userSettingsSchema, multiWeekTransferPredictions, type MultiWeekTransferPrediction } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
@@ -1681,40 +1677,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User Settings Endpoints
-  app.get("/api/ai/provider", async (req, res) => {
-    try {
-      const hasOpenAI = !!process.env.OPENAI_API_KEY;
-      const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
-
-      let provider = "none";
-      let model = "Not configured";
-
-      if (hasOpenAI) {
-        provider = "openai";
-        model = "GPT-4o";
-      } else if (hasAnthropic) {
-        provider = "anthropic";
-        model = "Claude 3.5 Sonnet";
-      }
-
-      res.json({
-        provider,
-        model,
-        configured: provider !== "none",
-      });
-    } catch (error) {
-      console.error("Error checking AI provider:", error);
-      res.status(500).json({ error: "Failed to check AI provider" });
-    }
-  });
-
   app.get("/api/settings/:userId", async (req, res) => {
     try {
       const userId = parseInt(req.params.userId);
       if (isNaN(userId)) {
         return res.status(400).json({ error: "Invalid userId parameter" });
       }
-
+      
       const settings = await storage.getUserSettings(userId);
       if (!settings) {
         return res.json({
@@ -2109,7 +2078,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/monitoring/dashboard", async (req, res) => {
     const snapshotStatus = gameweekSnapshot.getCacheStatus();
     const precomputationStats = precomputationCache.getStats();
-
+    
     res.json({
       snapshot: snapshotStatus,
       precomputation: precomputationStats,
@@ -2117,175 +2086,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  app.get("/api/enhanced-predictions/:playerId", async (req, res) => {
+  // GitHub Sync Endpoints
+  app.get("/api/github/user", async (req, res) => {
     try {
-      const playerId = parseInt(req.params.playerId);
-      if (isNaN(playerId)) {
-        return res.status(400).json({ error: "Invalid playerId" });
-      }
-
-      const planningGameweek = await fplApi.getPlanningGameweek();
-      const gameweek = planningGameweek?.id || 1;
-      const snapshot = await gameweekSnapshot.getSnapshot(gameweek);
-
-      const player = snapshot.data.players.find(p => p.id === playerId);
-      if (!player) {
-        return res.status(404).json({ error: "Player not found" });
-      }
-
-      const fixtures = await fplApi.getFixtures();
-      const upcomingFixtures = fixtures
-        .filter(f => !f.finished && f.event && (f.team_h === player.team || f.team_a === player.team))
-        .slice(0, 3);
-
-      const prediction = await enhancedAIPredictions.predictWithConfidenceInterval(
-        player,
-        upcomingFixtures,
-        snapshot.data.teams
-      );
-
-      res.json(prediction);
-    } catch (error) {
-      console.error("Error generating enhanced prediction:", error);
-      res.status(500).json({ error: "Failed to generate enhanced prediction" });
+      const { getGitHubUser } = await import('./github-sync');
+      const user = await getGitHubUser();
+      res.json({ 
+        login: user.login, 
+        name: user.name, 
+        avatar_url: user.avatar_url,
+        html_url: user.html_url 
+      });
+    } catch (error: any) {
+      console.error("[GitHub] Error getting user:", error);
+      res.status(500).json({ error: error.message || "Failed to get GitHub user" });
     }
   });
 
-  app.get("/api/insights/weekly", async (req, res) => {
+  app.get("/api/github/repos", async (req, res) => {
     try {
-      const planningGameweek = await fplApi.getPlanningGameweek();
-      const gameweek = planningGameweek?.id || 1;
-      const snapshot = await gameweekSnapshot.getSnapshot(gameweek);
-      const fixtures = await fplApi.getFixtures();
-
-      const insights = await insightsGenerator.generateWeeklyInsights(
-        snapshot.data.players,
-        fixtures,
-        snapshot.data.teams,
-        gameweek
-      );
-
-      res.json(insights);
-    } catch (error) {
-      console.error("Error generating weekly insights:", error);
-      res.status(500).json({ error: "Failed to generate weekly insights" });
+      const { listRepositories } = await import('./github-sync');
+      const repos = await listRepositories();
+      res.json({ repos });
+    } catch (error: any) {
+      console.error("[GitHub] Error listing repos:", error);
+      res.status(500).json({ error: error.message || "Failed to list repositories" });
     }
   });
 
-  app.post("/api/transfers/analyze", async (req, res) => {
+  app.post("/api/github/push", async (req, res) => {
     try {
-      const { currentSquad, budget } = req.body;
-
-      if (!currentSquad || !Array.isArray(currentSquad)) {
-        return res.status(400).json({ error: "Invalid currentSquad" });
+      const { repoName, isPrivate } = req.body;
+      if (!repoName) {
+        return res.status(400).json({ error: "Repository name is required" });
       }
-
-      const planningGameweek = await fplApi.getPlanningGameweek();
-      const gameweek = planningGameweek?.id || 1;
-      const snapshot = await gameweekSnapshot.getSnapshot(gameweek);
-      const fixtures = await fplApi.getFixtures();
-
-      const recommendations = await aiPredictions.getTransferRecommendations(
-        currentSquad,
-        snapshot.data.players,
-        fixtures,
-        budget || 0
-      );
-
-      const enhanced = await transferAnalyzer.enhanceTransferRecommendations(
-        recommendations,
-        snapshot.data.players,
-        fixtures,
-        snapshot.data.teams
-      );
-
-      res.json(enhanced);
-    } catch (error) {
-      console.error("Error analyzing transfers:", error);
-      res.status(500).json({ error: "Failed to analyze transfers" });
-    }
-  });
-
-  app.post("/api/wildcard/plan", async (req, res) => {
-    try {
-      const { currentSquad, budget, riskProfile } = req.body;
-
-      if (!currentSquad || !Array.isArray(currentSquad)) {
-        return res.status(400).json({ error: "Invalid currentSquad" });
-      }
-
-      const planningGameweek = await fplApi.getPlanningGameweek();
-      const gameweek = planningGameweek?.id || 1;
-      const snapshot = await gameweekSnapshot.getSnapshot(gameweek);
-      const fixtures = await fplApi.getFixtures();
-
-      const plan = await transferAnalyzer.generateWildcardPlan(
-        currentSquad,
-        snapshot.data.players,
-        fixtures,
-        snapshot.data.teams,
-        budget || 100,
-        riskProfile || "balanced"
-      );
-
-      res.json(plan);
-    } catch (error) {
-      console.error("Error generating wildcard plan:", error);
-      res.status(500).json({ error: "Failed to generate wildcard plan" });
-    }
-  });
-
-  app.post("/api/gameweek/optimize", async (req, res) => {
-    try {
-      const { squad, gameweek, remainingChips } = req.body;
-
-      if (!squad || !Array.isArray(squad)) {
-        return res.status(400).json({ error: "Invalid squad" });
-      }
-
-      const planningGameweek = await fplApi.getPlanningGameweek();
-      const targetGameweek = gameweek || planningGameweek?.id || 1;
-      const snapshot = await gameweekSnapshot.getSnapshot(targetGameweek);
-      const fixtures = await fplApi.getFixtures();
-
-      const plan = await gameweekOptimizer.createOptimalGameweekPlan(
-        squad,
-        fixtures,
-        snapshot.data.teams,
-        targetGameweek,
-        remainingChips || []
-      );
-
-      res.json(plan);
-    } catch (error) {
-      console.error("Error optimizing gameweek:", error);
-      res.status(500).json({ error: "Failed to optimize gameweek" });
-    }
-  });
-
-  app.get("/api/chip-timing/:userId", async (req, res) => {
-    try {
-      const userId = parseInt(req.params.userId);
-      if (isNaN(userId)) {
-        return res.status(400).json({ error: "Invalid userId" });
-      }
-
-      const planningGameweek = await fplApi.getPlanningGameweek();
-      const gameweek = planningGameweek?.id || 1;
-      const fixtures = await fplApi.getFixtures();
-
-      const remainingChips = ["wildcard", "freehit", "benchboost", "triplecaptain"];
-
-      const recommendations = await gameweekOptimizer.recommendChipTiming(
-        gameweek,
-        remainingChips,
-        fixtures
-      );
-
-      res.json(recommendations);
-    } catch (error) {
-      console.error("Error generating chip timing:", error);
-      res.status(500).json({ error: "Failed to generate chip timing recommendations" });
+      
+      const { pushToGitHub } = await import('./github-sync');
+      const result = await pushToGitHub(repoName, true, isPrivate || false);
+      res.json(result);
+    } catch (error: any) {
+      console.error("[GitHub] Error pushing to repo:", error);
+      res.status(500).json({ error: error.message || "Failed to push to GitHub" });
     }
   });
 

@@ -1,11 +1,9 @@
 import OpenAI from "openai";
-import Anthropic from "@anthropic-ai/sdk";
 import { storage } from "./storage";
 import { understatService } from "./understat-api";
 import { snapshotContext, type SnapshotContext } from "./snapshot-context";
 import { decisionLogger } from "./decision-logger";
 import { calibrationService } from "./calibration-service";
-import { statisticalPredictor } from "./statistical-predictor";
 import type {
   FPLPlayer,
   FPLFixture,
@@ -16,52 +14,11 @@ import type {
   ChipStrategy,
 } from "@shared/schema";
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    })
-  : null;
-
-const anthropic = process.env.ANTHROPIC_API_KEY
-  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  : null;
-
-async function getAICompletion(prompt: string, options: { temperature?: number; stream?: boolean } = {}): Promise<any> {
-  if (openai) {
-    return await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 4000,
-      temperature: options.temperature ?? 0,
-      seed: 42,
-      stream: options.stream ?? false,
-    });
-  } else if (anthropic) {
-    const response = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 4000,
-      temperature: options.temperature ?? 0,
-      messages: [{ role: "user", content: prompt }],
-      stream: options.stream ?? false,
-    });
-    return response;
-  } else {
-    throw new Error("No AI provider configured. Please set ANTHROPIC_API_KEY or OPENAI_API_KEY");
-  }
-}
-
-function extractJSONFromResponse(response: any): any {
-  if (openai && response.choices) {
-    return JSON.parse(response.choices[0].message.content || "{}");
-  } else if (anthropic && response.content) {
-    const content = response.content[0];
-    if (content.type === "text") {
-      return JSON.parse(content.text);
-    }
-  }
-  return {};
-}
+// Using Replit AI Integrations blueprint with GPT-4o for deterministic predictions (temperature: 0)
+const openai = new OpenAI({
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+});
 
 interface PredictionContext {
   player: FPLPlayer;
@@ -78,53 +35,7 @@ interface PredictionContext {
 }
 
 export class AIPredictionService {
-  async predictPlayerPoints(context: PredictionContext, useStatisticalModel: boolean = true): Promise<Prediction> {
-    if (useStatisticalModel) {
-      return this.predictPlayerPointsStatistical(context);
-    }
-
-    return this.predictPlayerPointsAI(context);
-  }
-
-  private async predictPlayerPointsStatistical(context: PredictionContext): Promise<Prediction> {
-    const { fplApi } = await import("./fpl-api");
-    const allTeams = await fplApi.getTeams();
-
-    const detailedPrediction = await statisticalPredictor.predictPlayerPointsStatistical(
-      context.player,
-      context.upcomingFixtures,
-      allTeams
-    );
-
-    if (context.userId && context.gameweek) {
-      try {
-        await storage.upsertPrediction({
-          userId: context.userId,
-          gameweek: context.gameweek,
-          playerId: context.player.id,
-          predictedPoints: detailedPrediction.predicted_points,
-          actualPoints: null,
-          confidence: detailedPrediction.confidence,
-          snapshotId: context.snapshotId,
-        });
-        if (context.snapshotId) {
-          console.log(`[StatisticalPrediction] Saved prediction for player ${context.player.id} with snapshot ${context.snapshotId}`);
-        }
-      } catch (error) {
-        console.error('Error saving statistical prediction to database:', error);
-      }
-    }
-
-    return {
-      player_id: detailedPrediction.player_id,
-      predicted_points: detailedPrediction.predicted_points,
-      confidence: detailedPrediction.confidence,
-      reasoning: detailedPrediction.reasoning,
-      fixtures_considered: detailedPrediction.fixtures_considered,
-    };
-  }
-
-  private async predictPlayerPointsAI(context: PredictionContext): Promise<Prediction> {
+  async predictPlayerPoints(context: PredictionContext): Promise<Prediction> {
     const position = context.player.element_type === 1 ? 'GK' : context.player.element_type === 2 ? 'DEF' : context.player.element_type === 3 ? 'MID' : 'FWD';
     const isDefensive = position === 'GK' || position === 'DEF';
     
@@ -193,12 +104,20 @@ Based on AVAILABILITY FIRST, then form, the NEXT fixture difficulty, underlying 
 }
 `;
 
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 4000,
+      temperature: 0, // Deterministic predictions for consistency
+      seed: 42, // Perfect reproducibility for same inputs
+    });
+
     let result;
     try {
-      const response = await getAICompletion(prompt);
-      result = extractJSONFromResponse(response);
+      result = JSON.parse(response.choices[0].message.content || "{}");
     } catch (error) {
-      console.error("Failed to get AI response for player points prediction:", error);
+      console.error("Failed to parse AI response for player points prediction:", error);
       result = {};
     }
 
@@ -384,7 +303,6 @@ Provide exactly 3 transfer recommendations in this JSON format:
       "player_out_id": <id to transfer out>,
       "player_in_id": <id to bring in>,
       "expected_points_gain": <expected additional points over next 3 GWs>,
-      "expected_points_gain_timeframe": "3 gameweeks",
       "reasoning": "<brief explanation focusing on consistency, fixtures, injuries, and ICT metrics>",
       "priority": "high|medium|low",
       "cost_impact": <price difference (positive = money saved, negative = money spent)>
@@ -393,8 +311,16 @@ Provide exactly 3 transfer recommendations in this JSON format:
 }`;
 
     try {
-      const response = await getAICompletion(prompt);
-      const result = extractJSONFromResponse(response);
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 4000,
+        temperature: 0, // Deterministic predictions for consistency
+        seed: 42, // Perfect reproducibility for same inputs
+      });
+
+      const result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
       console.log('[AI] Transfer recommendations result:', JSON.stringify(result, null, 2));
       
       const recommendations = Array.isArray(result.recommendations) ? result.recommendations : [];
@@ -403,36 +329,29 @@ Provide exactly 3 transfer recommendations in this JSON format:
         for (const rec of recommendations) {
           try {
             const playerIn = allPlayers.find(p => p.id === rec.player_in_id);
-            const playerOut = currentPlayers.find(p => p.id === rec.player_out_id);
-
-            if (playerIn && playerOut) {
-              // Calculate multi-gameweek predictions using statistical model
-              const upcomingFixtures = fixtures.filter(f => f.event && f.event >= gameweek && !f.finished);
-              const numGameweeks = 3; // Standard timeframe for transfer evaluation
-
-              const playerInFixtures = upcomingFixtures
-                .filter(f => f.team_h === playerIn.team || f.team_a === playerIn.team)
-                .slice(0, numGameweeks);
-
-              const playerOutFixtures = upcomingFixtures
-                .filter(f => f.team_h === playerOut.team || f.team_a === playerOut.team)
-                .slice(0, numGameweeks);
-
-              const [playerInPrediction, playerOutPrediction] = await Promise.all([
-                statisticalPredictor.predictMultipleGameweeks(playerIn, playerInFixtures, teams, numGameweeks),
-                statisticalPredictor.predictMultipleGameweeks(playerOut, playerOutFixtures, teams, numGameweeks)
-              ]);
-
-              // Calculate actual expected gain based on statistical predictions
-              const statisticalGain = playerInPrediction.totalPoints - playerOutPrediction.totalPoints;
-
-              // Update the recommendation with statistical prediction
-              rec.expected_points_gain = parseFloat(statisticalGain.toFixed(1));
-
-              console.log(`[Transfers] Statistical prediction: ${playerOut.web_name} (${playerOutPrediction.totalPoints.toFixed(1)}) → ${playerIn.web_name} (${playerInPrediction.totalPoints.toFixed(1)}) = ${statisticalGain.toFixed(1)} pts gain over ${numGameweeks} GWs`);
+            if (playerIn) {
+              const upcomingFixtures = fixtures.filter(f => f.event && f.event >= gameweek).slice(0, 3);
+              const prediction = await this.predictPlayerPoints({
+                player: playerIn,
+                upcomingFixtures,
+                userId,
+                gameweek,
+                snapshotId: context.snapshotId,
+              });
+              
+              await storage.upsertPrediction({
+                userId,
+                gameweek,
+                playerId: rec.player_in_id,
+                predictedPoints: prediction.predicted_points,
+                actualPoints: null,
+                confidence: rec.priority === 'high' ? 80 : rec.priority === 'medium' ? 60 : 40,
+                snapshotId: context.snapshotId,
+              });
+              console.log(`[Transfers] Saved transfer recommendation prediction for player ${rec.player_in_id} with snapshot ${context.snapshotId}`);
             }
           } catch (error) {
-            console.error(`Error calculating statistical transfer prediction for player ${rec.player_in_id}:`, error);
+            console.error(`Error saving transfer recommendation prediction for player ${rec.player_in_id}:`, error);
           }
         }
       }
@@ -550,8 +469,16 @@ Provide exactly 3 captain recommendations in this JSON format:
 }`;
 
     try {
-      const response = await getAICompletion(prompt);
-      const result = extractJSONFromResponse(response);
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 4000,
+        temperature: 0, // Deterministic predictions for consistency
+        seed: 42, // Perfect reproducibility for same inputs
+      });
+
+      const result = JSON.parse(response.choices[0].message.content || "{ \"recommendations\": [] }");
       console.log('[AI] Captain recommendations result:', JSON.stringify(result, null, 2));
       
       const recommendations = Array.isArray(result.recommendations) ? result.recommendations : [];
@@ -733,70 +660,36 @@ JSON format (be concise):
 
     try {
       console.log('[AI STREAM] Starting stream for', players.length, 'players');
+      
+      const stream = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 4000,
+        temperature: 0, // Deterministic predictions for consistency
+        seed: 42, // Perfect reproducibility for same inputs
+        stream: true,
+      });
 
-      if (!openai && !anthropic) {
-        throw new Error("No AI provider configured");
+      let fullContent = '';
+      
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content || '';
+        if (content) {
+          fullContent += content;
+          onChunk(content);
+        }
       }
 
-      if (openai) {
-        const stream = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 4000,
-          temperature: 0,
-          seed: 42,
-          stream: true,
-        });
-
-        let fullContent = '';
-
-        for await (const chunk of stream) {
-          const content = chunk.choices[0]?.delta?.content || '';
-          if (content) {
-            fullContent += content;
-            onChunk(content);
-          }
-        }
-
-        console.log('[AI STREAM] Complete. Full response:', fullContent);
-
-        try {
-          const result = JSON.parse(fullContent);
-          onChunk('\n[DONE]');
-          console.log('[AI STREAM] Parsed result:', result.predicted_points, 'pts,', result.confidence, '% confidence');
-        } catch (parseError) {
-          console.error('[AI STREAM] Failed to parse final result:', parseError);
-          onChunk('\n[ERROR]');
-        }
-      } else if (anthropic) {
-        const stream = await anthropic.messages.create({
-          model: "claude-3-5-sonnet-20241022",
-          max_tokens: 4000,
-          temperature: 0,
-          messages: [{ role: "user", content: prompt }],
-          stream: true,
-        });
-
-        let fullContent = '';
-
-        for await (const chunk of stream) {
-          if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-            fullContent += chunk.delta.text;
-            onChunk(chunk.delta.text);
-          }
-        }
-
-        console.log('[AI STREAM] Complete. Full response:', fullContent);
-
-        try {
-          const result = JSON.parse(fullContent);
-          onChunk('\n[DONE]');
-          console.log('[AI STREAM] Parsed result:', result.predicted_points, 'pts,', result.confidence, '% confidence');
-        } catch (parseError) {
-          console.error('[AI STREAM] Failed to parse final result:', parseError);
-          onChunk('\n[ERROR]');
-        }
+      console.log('[AI STREAM] Complete. Full response:', fullContent);
+      
+      try {
+        const result = JSON.parse(fullContent);
+        onChunk('\n[DONE]');
+        console.log('[AI STREAM] Parsed result:', result.predicted_points, 'pts,', result.confidence, '% confidence');
+      } catch (parseError) {
+        console.error('[AI STREAM] Failed to parse final result:', parseError);
+        onChunk('\n[ERROR]');
       }
     } catch (error) {
       console.error('[AI STREAM] Error:', error);

@@ -62,6 +62,7 @@ export default function TeamModeller() {
   const [staleDataInfo, setStaleDataInfo] = useState<{ isStale: boolean; reason: string } | null>(null);
   const hasAttemptedAutoSync = useRef(false);
   const hasHydratedFromSavedTeam = useRef(false);
+  const baselineTeamCostRef = useRef<number | null>(null);
 
   const { data: players, isLoading: loadingPlayers, error: playersError, refetch: refetchPlayers } = useFPLPlayers();
   const { data: teams, isLoading: loadingTeams, error: teamsError, refetch: refetchTeams } = useFPLTeams();
@@ -165,7 +166,10 @@ export default function TeamModeller() {
   const selectedPlayers = slots.filter(s => s.player !== null).map(s => s.player!);
   const computedTeamValue = selectedPlayers.reduce((sum, p) => sum + p.now_cost / 10, 0);
   const teamValue = managerStatus?.teamValue ? managerStatus.teamValue / 10 : computedTeamValue;
-  const budgetRemaining = managerStatus?.bank !== undefined ? managerStatus.bank / 10 : (100.0 - computedTeamValue);
+  const baseBankValue = managerStatus?.bank !== undefined ? managerStatus.bank / 10 : null;
+  const budgetRemaining = baseBankValue !== null && baselineTeamCostRef.current !== null
+    ? baseBankValue + (baselineTeamCostRef.current - computedTeamValue)
+    : (100.0 - computedTeamValue);
   const playingCount = slots.slice(0, 11).filter(s => s.player !== null).length;
 
   const saveTeamMutation = useMutation({
@@ -469,6 +473,9 @@ export default function TeamModeller() {
           setFormation(savedTeamData.formation);
           console.log('[HYDRATE] Formation restored:', savedTeamData.formation);
         }
+        const baselineCost = loadedSlots.reduce((sum, s) => sum + (s.player ? s.player.now_cost / 10 : 0), 0);
+        baselineTeamCostRef.current = baselineCost;
+        console.log('[HYDRATE] Baseline team cost captured:', baselineCost.toFixed(1) + 'm');
         hasHydratedFromSavedTeam.current = true;
         console.log('[HYDRATE] Hydration complete - 15 slots set');
       } else {
@@ -905,8 +912,8 @@ export default function TeamModeller() {
               variant="outline" 
               size="sm" 
               onClick={() => {
-                // Reset hydration guard so synced team data will be loaded into slots
                 hasHydratedFromSavedTeam.current = false;
+                baselineTeamCostRef.current = null;
                 syncManagerTeamMutation.mutate(settings.manager_id!);
               }} 
               disabled={syncManagerTeamMutation.isPending}

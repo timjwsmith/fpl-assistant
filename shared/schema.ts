@@ -293,6 +293,7 @@ export const userTeams = pgTable('user_teams', {
   bank: integer('bank').notNull(),
   transfersMade: integer('transfers_made').notNull().default(0),
   lastDeadlineBank: integer('last_deadline_bank').notNull().default(0),
+  fplSquadCost: integer('fpl_squad_cost').notNull().default(0),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
 }, (table) => ({

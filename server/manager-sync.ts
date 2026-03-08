@@ -159,6 +159,13 @@ export class ManagerSyncService {
       const transfersMade = picks.entry_history.event_transfers;
       const lastDeadlineBank = managerDetails.last_deadline_bank;
 
+      // Sum of all 15 players' current now_cost — stored so budget can be computed
+      // accurately when virtual swaps are made in the Team Modeller
+      const fplSquadCost = players.reduce((sum, p) => {
+        const playerData = allPlayers.find((fp: FPLPlayer) => fp.id === p.player_id);
+        return sum + (playerData?.now_cost ?? 0);
+      }, 0);
+
       const freeTransfers = this.calculateFreeTransfers(
         actualGameweek.id,
         lastDeadlineBank,
@@ -174,6 +181,7 @@ export class ManagerSyncService {
         bank,
         transfersMade,
         lastDeadlineBank,
+        fplSquadCost,
       };
 
       // Save team for the actual gameweek we fetched picks from
@@ -275,10 +283,25 @@ export class ManagerSyncService {
       const captainPlayer = team.players.find(p => p.is_captain);
       const viceCaptainPlayer = team.players.find(p => p.is_vice_captain);
 
+      // Compute the planning bank: total_budget (fixed at FPL sync) minus current team cost
+      // total_budget = lastDeadlineBank + fplSquadCost (both stored at sync time, never overwritten)
+      // current_team_cost = sum of current now_cost for players in the modeller team (live from FPL API)
+      let planningBank = team.bank;
+      if (team.fplSquadCost > 0) {
+        const allPlayers = await fplApi.getPlayers();
+        const playerPriceMap = new Map(allPlayers.map((p: FPLPlayer) => [p.id, p.now_cost]));
+        const currentTeamCost = team.players.reduce((sum, p) => {
+          return sum + (p.player_id ? (playerPriceMap.get(p.player_id) ?? 0) : 0);
+        }, 0);
+        const totalBudget = team.lastDeadlineBank + team.fplSquadCost;
+        planningBank = totalBudget - currentTeamCost;
+        console.log(`[Manager Status] Budget: totalBudget=${totalBudget/10}m, currentCost=${currentTeamCost/10}m, planningBank=${planningBank/10}m`);
+      }
+
       return {
         success: true,
         teamValue: team.teamValue,
-        bank: team.bank,
+        bank: planningBank,
         freeTransfers,
         playerCount: team.players.length,
         captainId: captainPlayer?.player_id || null,

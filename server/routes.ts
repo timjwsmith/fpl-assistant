@@ -1741,6 +1741,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Preserve lastDeadlineBank and fplSquadCost from existing DB record — these are
+      // set only on FPL sync and must never be overwritten by Team Modeller saves
+      const existingTeam = await storage.getTeam(userId, gameweek);
+      const preservedLastDeadlineBank = existingTeam?.lastDeadlineBank ?? bank;
+      const preservedFplSquadCost = existingTeam?.fplSquadCost ?? 0;
+
       const team = await storage.saveTeam({
         userId,
         gameweek,
@@ -1749,7 +1755,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         teamValue,
         bank,
         transfersMade: transfersMade || 0,
-        lastDeadlineBank: bank,
+        lastDeadlineBank: preservedLastDeadlineBank,
+        fplSquadCost: preservedFplSquadCost,
       });
 
       // IMPORTANT: Trigger async plan regeneration when team is saved

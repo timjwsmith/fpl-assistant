@@ -32,6 +32,9 @@ interface DraggablePlayerSlotProps {
   slot: PitchSlot;
   onRemove?: (position: number) => void;
   onClick?: (position: number) => void;
+  onCaptainClick?: (position: number) => void;
+  captainMode?: 'captain' | 'vice-captain' | null;
+  isStartingXI?: boolean;
 }
 
 interface DroppableSlotProps {
@@ -40,10 +43,13 @@ interface DroppableSlotProps {
   isDragActive: boolean;
   onClick?: (position: number) => void;
   onRemove?: (position: number) => void;
+  onCaptainClick?: (position: number) => void;
   isSelected?: boolean;
+  captainMode?: 'captain' | 'vice-captain' | null;
+  isStartingXI?: boolean;
 }
 
-function DraggablePlayerSlot({ slot, onRemove, onClick }: DraggablePlayerSlotProps) {
+function DraggablePlayerSlot({ slot, onRemove, onClick, onCaptainClick, captainMode, isStartingXI }: DraggablePlayerSlotProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `player-${slot.position}`,
     data: {
@@ -65,20 +71,25 @@ function DraggablePlayerSlot({ slot, onRemove, onClick }: DraggablePlayerSlotPro
     onClick?.(slot.position);
   };
 
+  const inCaptainMode = captainMode != null;
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      {...listeners}
-      {...attributes}
+      {...(inCaptainMode ? {} : { ...listeners, ...attributes })}
       onClick={handleClick}
       className={cn(
-        "relative group cursor-grab active:cursor-grabbing",
+        "relative group",
+        inCaptainMode ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
         isDragging && "opacity-50"
       )}
       data-testid={`draggable-player-${slot.position}`}
     >
-      <div className="relative flex flex-col items-center gap-1 hover-elevate active-elevate-2 rounded-lg p-2 -m-2">
+      <div className={cn(
+        "relative flex flex-col items-center gap-1 hover-elevate active-elevate-2 rounded-lg p-2 -m-2",
+        inCaptainMode && "ring-2 ring-primary/40 ring-offset-1 rounded-lg"
+      )}>
         <div className="relative w-fit">
           <Avatar className="h-14 w-14 border-2 border-background ring-2 ring-primary/50">
             <AvatarImage 
@@ -90,14 +101,36 @@ function DraggablePlayerSlot({ slot, onRemove, onClick }: DraggablePlayerSlotPro
             </AvatarFallback>
           </Avatar>
           {slot.isCaptain && (
-            <div className="absolute -top-1 -right-1 h-5 w-5 rounded-md bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold z-10 shadow-lg">
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isStartingXI && onCaptainClick) onCaptainClick(slot.position);
+              }}
+              title="Click to change captain"
+              className={cn(
+                "absolute -top-1 -right-1 h-5 w-5 rounded-md bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold z-10 shadow-lg",
+                isStartingXI && "hover:scale-110 transition-transform cursor-pointer"
+              )}
+            >
               C
-            </div>
+            </button>
           )}
           {slot.isViceCaptain && (
-            <div className="absolute -top-1 -right-1 h-5 w-5 rounded-md bg-secondary text-secondary-foreground flex items-center justify-center text-xs font-bold z-10 shadow-lg">
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isStartingXI && onCaptainClick) onCaptainClick(slot.position);
+              }}
+              title="Click to change vice-captain"
+              className={cn(
+                "absolute -top-1 -right-1 h-5 w-5 rounded-md bg-secondary text-secondary-foreground flex items-center justify-center text-xs font-bold z-10 shadow-lg",
+                isStartingXI && "hover:scale-110 transition-transform cursor-pointer"
+              )}
+            >
               V
-            </div>
+            </button>
           )}
         </div>
         <div className="text-center mt-0.5">
@@ -108,7 +141,7 @@ function DraggablePlayerSlot({ slot, onRemove, onClick }: DraggablePlayerSlotPro
             £{(slot.player.now_cost / 10).toFixed(1)}m
           </p>
         </div>
-        {onRemove && (
+        {onRemove && !inCaptainMode && (
           <button
             onPointerDown={(e) => {
               e.stopPropagation();
@@ -134,7 +167,7 @@ function DraggablePlayerSlot({ slot, onRemove, onClick }: DraggablePlayerSlotPro
   );
 }
 
-function DroppableSlot({ slot, isValidDrop, isDragActive, onClick, onRemove, isSelected }: DroppableSlotProps) {
+function DroppableSlot({ slot, isValidDrop, isDragActive, onClick, onRemove, onCaptainClick, isSelected, captainMode, isStartingXI }: DroppableSlotProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `slot-${slot.position}`,
     data: {
@@ -146,6 +179,7 @@ function DroppableSlot({ slot, isValidDrop, isDragActive, onClick, onRemove, isS
   });
 
   const hasPlayer = slot.player !== null;
+  const inCaptainMode = captainMode != null;
 
   return (
     <div
@@ -153,7 +187,7 @@ function DroppableSlot({ slot, isValidDrop, isDragActive, onClick, onRemove, isS
       className={cn(
         "relative",
         isDragActive && !hasPlayer && "transition-all duration-200",
-        isSelected && hasPlayer && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-lg"
+        isSelected && hasPlayer && !inCaptainMode && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-lg"
       )}
       data-testid={`slot-position-${slot.position}`}
     >
@@ -161,10 +195,17 @@ function DroppableSlot({ slot, isValidDrop, isDragActive, onClick, onRemove, isS
         <div 
           className={cn(
             "cursor-pointer",
-            isSelected && "animate-pulse"
+            isSelected && !inCaptainMode && "animate-pulse"
           )}
         >
-          <DraggablePlayerSlot slot={slot} onRemove={onRemove} onClick={onClick} />
+          <DraggablePlayerSlot 
+            slot={slot} 
+            onRemove={onRemove} 
+            onClick={onClick}
+            onCaptainClick={onCaptainClick}
+            captainMode={captainMode}
+            isStartingXI={isStartingXI}
+          />
         </div>
       ) : (
         <button
@@ -193,56 +234,10 @@ function DroppableSlot({ slot, isValidDrop, isDragActive, onClick, onRemove, isS
   );
 }
 
-function DraggableBadge({ type, isActive }: { type: 'captain' | 'vice-captain'; isActive: boolean }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `badge-${type}`,
-    data: {
-      type: 'badge',
-      badgeType: type,
-    },
-  });
-
-  const style = transform ? {
-    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-  } : undefined;
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...listeners}
-      {...attributes}
-      className={cn(
-        "cursor-grab active:cursor-grabbing",
-        isDragging && "opacity-50"
-      )}
-      data-testid={`draggable-badge-${type}`}
-    >
-      <Badge 
-        className={cn(
-          "h-10 w-10 flex items-center justify-center text-lg font-bold",
-          type === 'captain' ? "bg-primary" : "bg-secondary",
-          !isActive && "opacity-50"
-        )}
-      >
-        {type === 'captain' ? 'C' : 'V'}
-      </Badge>
-    </div>
-  );
-}
-
 function getElementTypeForPosition(position: number): number {
-  // Position 1 is always GK
   if (position === 1) return 1;
-  
-  // Positions 2-6 could be DEF (2)
   if (position >= 2 && position <= 6) return 2;
-  
-  // Positions 7-11 could be MID (3) or FWD (4)
-  // We'll be more permissive here and allow both
-  if (position >= 7 && position <= 11) return 0; // 0 means accept any outfield
-  
-  // Bench positions accept any
+  if (position >= 7 && position <= 11) return 0;
   return 0;
 }
 
@@ -260,6 +255,7 @@ export function PitchVisualization({
 }: PitchVisualizationProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draggedPlayer, setDraggedPlayer] = useState<FPLPlayer | null>(null);
+  const [captainMode, setCaptainMode] = useState<'captain' | 'vice-captain' | null>(null);
 
   const pointerSensor = useSensor(PointerSensor, {
     activationConstraint: {
@@ -283,11 +279,12 @@ export function PitchVisualization({
   const midfielders = slots.filter(s => s.position >= 2 + def && s.position < 2 + def + mid);
   const forwards = slots.filter(s => s.position >= 2 + def + mid && s.position <= 11);
 
-  const hasCaptain = slots.some(s => s.isCaptain);
-  const hasViceCaptain = slots.some(s => s.isViceCaptain);
+  const captainSlot = slots.find(s => s.isCaptain);
+  const viceCaptainSlot = slots.find(s => s.isViceCaptain);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
+    setCaptainMode(null);
     
     if (event.active.data.current?.type === 'player') {
       const player = event.active.data.current.player;
@@ -310,72 +307,57 @@ export function PitchVisualization({
       return;
     }
 
-    // Handle badge drops (captain/vice-captain assignment)
     if (active.data.current?.type === 'badge') {
       const badgeType = active.data.current.badgeType;
       const badgeLabel = badgeType === 'captain' ? 'Captain' : 'Vice-captain';
       
-      // Check if dropping on a slot
       if (over.data.current?.type === 'slot') {
         const targetPosition = over.data.current.position;
         const allSlots = [...slots, ...benchSlots];
         const targetSlot = allSlots.find(s => s.position === targetPosition);
         
-        // Check if slot has a player
         if (!targetSlot?.player) {
           onError?.('Cannot assign ' + badgeLabel.toLowerCase(), 'Please drop the badge on a player, not an empty slot');
           return;
         }
         
-        // Check if player is in starting XI (1-11)
         if (targetSlot.position > 11) {
           onError?.('Cannot assign ' + badgeLabel.toLowerCase(), badgeLabel + ' can only be assigned to players in your starting XI');
           return;
         }
         
-        // Valid assignment
         onCaptainAssign?.(targetPosition, badgeType === 'captain');
       }
       return;
     }
 
-    // Handle player swaps
     if (active.data.current?.type === 'player' && over.data.current?.type === 'slot') {
       const fromPosition = active.data.current.position;
       const toPosition = over.data.current.position;
       
       if (fromPosition === toPosition) return;
 
-      // Validate position compatibility
       const draggedElementType = active.data.current.elementType;
-      const targetAccepts = over.data.current.accepts;
-      
-      // Get target slot info to check if it's also a GK
       const allSlots = [...slots, ...benchSlots];
       const targetSlot = allSlots.find(s => s.position === toPosition);
       const targetElementType = targetSlot?.player?.element_type;
       
       console.log(`[DnD] Swap attempt: pos ${fromPosition} (type ${draggedElementType}) -> pos ${toPosition} (type ${targetElementType})`);
 
-      // Position 1 must have a GK - but allow if swapping with another GK
       if (toPosition === 1 && draggedElementType !== 1) {
         console.log(`[DnD] Blocked: non-GK cannot go to position 1`);
         return;
       }
       
-      // GK can only go to position 1 UNLESS swapping with another GK
       if (draggedElementType === 1 && toPosition !== 1) {
-        // Allow GK-to-GK swaps (e.g., swapping starting GK with bench GK)
         if (targetElementType === 1) {
           console.log(`[DnD] Allowing GK-to-GK swap`);
-          // This is valid - both are GKs, so swap is allowed
         } else {
           console.log(`[DnD] Blocked: GK cannot go to non-GK position ${toPosition}`);
           return;
         }
       }
 
-      // For other positions, allow swaps
       console.log(`[DnD] Executing swap`);
       onPlayerSwap?.(fromPosition, toPosition);
     }
@@ -392,23 +374,55 @@ export function PitchVisualization({
     
     const draggedElementType = draggedPlayer.element_type;
     
-    // Position 1 must be GK
     if (slotPosition === 1) return draggedElementType === 1;
     
-    // GK can only go to position 1 OR swap with another GK
     if (draggedElementType === 1) {
       if (slotPosition === 1) return true;
-      // Check if target slot has a GK (allow GK-to-GK swaps)
       const allSlots = [...slots, ...benchSlots];
       const targetSlot = allSlots.find(s => s.position === slotPosition);
       return targetSlot?.player?.element_type === 1;
     }
     
-    // All other positions can swap freely
     return true;
   };
 
   const isDragActive = activeId !== null && activeId.startsWith('player-');
+
+  // Handle slot click: if in captain mode, assign captain; otherwise normal click
+  const handleSlotClick = (position: number) => {
+    if (captainMode !== null) {
+      const allSlots = [...slots, ...benchSlots];
+      const targetSlot = allSlots.find(s => s.position === position);
+      if (!targetSlot?.player) {
+        setCaptainMode(null);
+        return;
+      }
+      if (position > 11) {
+        onError?.('Cannot assign', captainMode === 'captain' ? 'Captain' : 'Vice-captain' + ' can only be assigned to players in your starting XI');
+        setCaptainMode(null);
+        return;
+      }
+      onCaptainAssign?.(position, captainMode === 'captain');
+      setCaptainMode(null);
+      return;
+    }
+    onPlayerClick?.(position);
+  };
+
+  // Clicking C/V badge on existing captain/vice-captain starts re-assignment mode
+  const handleCaptainBadgeClick = (position: number) => {
+    const slot = slots.find(s => s.position === position);
+    if (!slot) return;
+    if (slot.isCaptain) {
+      setCaptainMode('captain');
+    } else if (slot.isViceCaptain) {
+      setCaptainMode('vice-captain');
+    }
+  };
+
+  const toggleCaptainMode = (mode: 'captain' | 'vice-captain') => {
+    setCaptainMode(prev => prev === mode ? null : mode);
+  };
 
   return (
     <DndContext
@@ -418,24 +432,64 @@ export function PitchVisualization({
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="space-y-6">
-        <div className="flex items-center justify-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">Assign Captain:</span>
-            <DraggableBadge type="captain" isActive={!hasCaptain} />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">Assign Vice:</span>
-            <DraggableBadge type="vice-captain" isActive={!hasViceCaptain} />
-          </div>
+      <div className="space-y-4">
+        <div className="flex items-center justify-center gap-3 flex-wrap">
+          <button
+            onClick={() => toggleCaptainMode('captain')}
+            className={cn(
+              "flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all",
+              captainMode === 'captain'
+                ? "bg-primary text-primary-foreground border-primary shadow-md ring-2 ring-primary/40"
+                : "bg-card border-border hover:border-primary/50 hover:bg-primary/5"
+            )}
+            data-testid="button-assign-captain"
+          >
+            <span className={cn(
+              "h-6 w-6 rounded-md flex items-center justify-center text-xs font-bold",
+              captainMode === 'captain' ? "bg-primary-foreground text-primary" : "bg-primary text-primary-foreground"
+            )}>C</span>
+            {captainMode === 'captain' ? 'Click a player to assign captain' : (
+              captainSlot ? `Captain: ${captainSlot.player?.web_name}` : 'Assign Captain'
+            )}
+          </button>
+
+          <button
+            onClick={() => toggleCaptainMode('vice-captain')}
+            className={cn(
+              "flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all",
+              captainMode === 'vice-captain'
+                ? "bg-secondary text-secondary-foreground border-secondary shadow-md ring-2 ring-secondary/40"
+                : "bg-card border-border hover:border-secondary/50 hover:bg-secondary/5"
+            )}
+            data-testid="button-assign-vice"
+          >
+            <span className={cn(
+              "h-6 w-6 rounded-md flex items-center justify-center text-xs font-bold",
+              captainMode === 'vice-captain' ? "bg-secondary-foreground text-secondary" : "bg-secondary text-secondary-foreground"
+            )}>V</span>
+            {captainMode === 'vice-captain' ? 'Click a player to assign vice-captain' : (
+              viceCaptainSlot ? `Vice: ${viceCaptainSlot.player?.web_name}` : 'Assign Vice'
+            )}
+          </button>
+
+          {captainMode && (
+            <button
+              onClick={() => setCaptainMode(null)}
+              className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted transition-all"
+            >
+              Cancel
+            </button>
+          )}
         </div>
 
         <Card 
           className={cn(
             "relative overflow-hidden bg-gradient-to-b from-emerald-950/20 to-emerald-900/10",
+            captainMode && "ring-2 ring-primary/20",
             className
           )}
           data-testid="pitch-visualization"
+          onClick={captainMode ? () => setCaptainMode(null) : undefined}
         >
           <div className="absolute inset-0 opacity-10">
             <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_49%,hsl(var(--border))_49%,hsl(var(--border))_51%,transparent_51%)]" />
@@ -450,9 +504,12 @@ export function PitchVisualization({
                   slot={gk} 
                   isValidDrop={isValidDrop(gk.position)} 
                   isDragActive={isDragActive}
-                  onClick={onPlayerClick}
+                  onClick={handleSlotClick}
                   onRemove={onPlayerRemove}
+                  onCaptainClick={handleCaptainBadgeClick}
                   isSelected={selectedPosition === gk.position}
+                  captainMode={captainMode}
+                  isStartingXI={true}
                 />
               )}
             </div>
@@ -464,9 +521,12 @@ export function PitchVisualization({
                   slot={slot} 
                   isValidDrop={isValidDrop(slot.position)} 
                   isDragActive={isDragActive}
-                  onClick={onPlayerClick}
+                  onClick={handleSlotClick}
                   onRemove={onPlayerRemove}
+                  onCaptainClick={handleCaptainBadgeClick}
                   isSelected={selectedPosition === slot.position}
+                  captainMode={captainMode}
+                  isStartingXI={true}
                 />
               ))}
             </div>
@@ -478,9 +538,12 @@ export function PitchVisualization({
                   slot={slot} 
                   isValidDrop={isValidDrop(slot.position)} 
                   isDragActive={isDragActive}
-                  onClick={onPlayerClick}
+                  onClick={handleSlotClick}
                   onRemove={onPlayerRemove}
+                  onCaptainClick={handleCaptainBadgeClick}
                   isSelected={selectedPosition === slot.position}
+                  captainMode={captainMode}
+                  isStartingXI={true}
                 />
               ))}
             </div>
@@ -492,9 +555,12 @@ export function PitchVisualization({
                   slot={slot} 
                   isValidDrop={isValidDrop(slot.position)} 
                   isDragActive={isDragActive}
-                  onClick={onPlayerClick}
+                  onClick={handleSlotClick}
                   onRemove={onPlayerRemove}
+                  onCaptainClick={handleCaptainBadgeClick}
                   isSelected={selectedPosition === slot.position}
+                  captainMode={captainMode}
+                  isStartingXI={true}
                 />
               ))}
             </div>
@@ -510,9 +576,14 @@ export function PitchVisualization({
                 slot={slot} 
                 isValidDrop={true}
                 isDragActive={isDragActive}
-                onClick={onPlayerClick}
+                onClick={captainMode ? () => {
+                  onError?.('Cannot assign captain to bench', 'Captain and vice-captain must be in your starting XI');
+                  setCaptainMode(null);
+                } : onPlayerClick}
                 onRemove={onPlayerRemove}
                 isSelected={selectedPosition === slot.position}
+                captainMode={captainMode}
+                isStartingXI={false}
               />
             ))}
           </div>

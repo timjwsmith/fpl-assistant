@@ -165,6 +165,13 @@ export default function TeamModeller() {
 
   const selectedPlayers = slots.filter(s => s.player !== null).map(s => s.player!);
   const computedTeamValue = selectedPlayers.reduce((sum, p) => sum + p.now_cost / 10, 0);
+  const localExpectedPoints = Math.round(
+    slots.slice(0, 11).reduce((sum, s) => {
+      if (!s.player?.ep_next) return sum;
+      const pts = parseFloat(s.player.ep_next);
+      return sum + (s.isCaptain ? pts * 2 : pts);
+    }, 0)
+  );
   const teamValue = managerStatus?.teamValue ? managerStatus.teamValue / 10 : computedTeamValue;
   const baseBankValue = managerStatus?.bank !== undefined ? managerStatus.bank / 10 : null;
   const budgetRemaining = baseBankValue !== null && baselineTeamCostRef.current !== null
@@ -1133,11 +1140,11 @@ export default function TeamModeller() {
           {/* Hide standard AI Prediction when what-if result is active to avoid confusion */}
           {!whatIfResult && (
             <PredictionPanel
-              predictedPoints={aiPrediction?.predicted_points || 0}
+              predictedPoints={localExpectedPoints > 0 ? localExpectedPoints : (aiPrediction?.predicted_points || 0)}
               confidence={aiPrediction?.confidence || 0}
               insights={aiPrediction?.insights || []}
               isLoading={analyzeMutation.isPending}
-              hasData={!!aiPrediction}
+              hasData={!!aiPrediction || localExpectedPoints > 0}
               isStreaming={analyzeMutation.isPending}
               streamingContent=""
               label="Current Team"

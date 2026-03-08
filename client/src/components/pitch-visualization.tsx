@@ -139,7 +139,7 @@ function DraggablePlayerSlot({ slot, onRemove, onClick, onCaptainClick, captainM
           </p>
           {slot.player.ep_next ? (
             <p className="text-xs font-mono font-semibold text-primary/90">
-              {Math.round(parseFloat(slot.player.ep_next))} pts
+              {Math.round(parseFloat(slot.player.ep_next) * (slot.isCaptain ? 2 : 1))} pts
             </p>
           ) : (
             <p className="text-xs text-muted-foreground font-mono">

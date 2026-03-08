@@ -17,6 +17,7 @@ export const fplPlayerSchema = z.object({
   form: z.string(),
   total_points: z.number(),
   event_points: z.number(),
+  ep_next: z.string().optional(),
   points_per_game: z.string(),
   bonus: z.number(),
   bps: z.number(),

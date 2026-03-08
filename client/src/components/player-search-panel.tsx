@@ -37,7 +37,7 @@ export function PlayerSearchPanel({
   const [searchTerm, setSearchTerm] = useState("");
   const [positionFilter, setPositionFilter] = useState<string>("all");
   const [teamFilter, setTeamFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<string>("points");
+  const [sortBy, setSortBy] = useState<string>("ep_next");
   const [showAllPlayers, setShowAllPlayers] = useState(false);
 
   const filteredPlayers = players
@@ -52,6 +52,7 @@ export function PlayerSearchPanel({
       return matchesSearch && matchesPosition && matchesTeam && affordable;
     })
     .sort((a, b) => {
+      if (sortBy === "ep_next") return parseFloat(b.ep_next || "0") - parseFloat(a.ep_next || "0");
       if (sortBy === "points") return b.total_points - a.total_points;
       if (sortBy === "form") return parseFloat(b.form) - parseFloat(a.form);
       if (sortBy === "price") return b.now_cost - a.now_cost;
@@ -129,6 +130,7 @@ export function PlayerSearchPanel({
             <SelectValue placeholder="Sort by" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="ep_next">Expected Pts</SelectItem>
             <SelectItem value="points">Total Points</SelectItem>
             <SelectItem value="form">Form</SelectItem>
             <SelectItem value="price">Price</SelectItem>

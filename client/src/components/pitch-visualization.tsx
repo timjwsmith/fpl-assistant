@@ -137,9 +137,15 @@ function DraggablePlayerSlot({ slot, onRemove, onClick, onCaptainClick, captainM
           <p className="text-xs font-semibold text-foreground max-w-[80px] truncate">
             {slot.player.web_name}
           </p>
-          <p className="text-xs text-muted-foreground font-mono">
-            £{(slot.player.now_cost / 10).toFixed(1)}m
-          </p>
+          {slot.player.ep_next ? (
+            <p className="text-xs font-mono font-semibold text-primary/90">
+              {parseFloat(slot.player.ep_next).toFixed(1)} pts
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground font-mono">
+              £{(slot.player.now_cost / 10).toFixed(1)}m
+            </p>
+          )}
         </div>
         {onRemove && !inCaptainMode && (
           <button
@@ -604,9 +610,15 @@ export function PitchVisualization({
                 <p className="text-xs font-semibold text-foreground max-w-[80px] truncate">
                   {draggedPlayer.web_name}
                 </p>
-                <p className="text-xs text-muted-foreground font-mono">
-                  £{(draggedPlayer.now_cost / 10).toFixed(1)}m
-                </p>
+                {draggedPlayer.ep_next ? (
+                  <p className="text-xs font-mono font-semibold text-primary/90">
+                    {parseFloat(draggedPlayer.ep_next).toFixed(1)} pts
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground font-mono">
+                    £{(draggedPlayer.now_cost / 10).toFixed(1)}m
+                  </p>
+                )}
               </div>
             </div>
           </div>

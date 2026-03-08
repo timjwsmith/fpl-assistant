@@ -152,8 +152,10 @@ export function PlayerCard({
             {showStats && (
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <div>
-                  <p className="text-xs text-muted-foreground">Pts</p>
-                  <p className="font-semibold text-sm" data-testid={`text-points-${player.id}`}>{player.total_points}</p>
+                  <p className="text-xs text-muted-foreground">xPts</p>
+                  <p className="font-semibold text-sm" data-testid={`text-points-${player.id}`}>
+                    {player.ep_next ? parseFloat(player.ep_next).toFixed(1) : player.points_per_game}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Form</p>

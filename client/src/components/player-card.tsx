@@ -154,7 +154,7 @@ export function PlayerCard({
                 <div>
                   <p className="text-xs text-muted-foreground">xPts</p>
                   <p className="font-semibold text-sm" data-testid={`text-points-${player.id}`}>
-                    {player.ep_next ? parseFloat(player.ep_next).toFixed(1) : player.points_per_game}
+                    {player.ep_next ? Math.round(parseFloat(player.ep_next)) : Math.round(parseFloat(player.points_per_game))}
                   </p>
                 </div>
                 <div>
